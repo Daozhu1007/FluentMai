@@ -2,6 +2,18 @@
 
 All notable user-facing changes to FluentMai are recorded here.
 
+## [0.2.2-beta] - 2026-09-07
+
+### English
+
+- Improved Android navigation: reselecting the active tab scrolls the current page back to the top.
+- Home, Import, Charts, and Tools now keep their UI state and scroll position when switching tabs, and subpages (Plate Progress, Rating Recommendations, chart details, Settings) are preserved per tab.
+
+### 简体中文
+
+- 改进 Android 导航体验：再次点击当前底部导航项时，当前页面滚动回顶部。
+- 首页、导入、谱面、工具四个页签切换时各自保留界面状态与滚动位置；子页面（盘段进度、评分推荐、谱面详情、设置）按页签独立保留。
+
 ## [0.2.1-beta] - 2026-08-10
 
 ### English
