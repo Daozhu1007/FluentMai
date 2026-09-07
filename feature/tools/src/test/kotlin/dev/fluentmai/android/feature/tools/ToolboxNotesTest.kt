@@ -4,6 +4,7 @@ import dev.fluentmai.android.core.model.ChartNotes
 import dev.fluentmai.android.core.model.ChartRecord
 import dev.fluentmai.android.core.model.Difficulty
 import dev.fluentmai.android.core.model.SongType
+import dev.fluentmai.android.core.model.toMaimaiNoteCountsOrNull
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test

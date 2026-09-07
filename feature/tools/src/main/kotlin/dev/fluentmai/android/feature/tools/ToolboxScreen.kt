@@ -71,6 +71,7 @@ import dev.fluentmai.android.core.model.SingleSongRatingCalculation
 import dev.fluentmai.android.core.model.buildMaimaiVersionReferences
 import dev.fluentmai.android.core.model.calculateMaimaiAchievement
 import dev.fluentmai.android.core.model.calculateSingleSongRating
+import dev.fluentmai.android.core.model.toMaimaiNoteCountsOrNull
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -504,19 +505,6 @@ private fun ChartRecord.selectableNotes(): SelectableChartNotes? {
             listOf(title, artist, noteDesigner, songId, level, songType.name, difficulty.name).joinToString(" "),
         ),
     )
-}
-
-internal fun ChartRecord.toMaimaiNoteCountsOrNull(): MaimaiNoteCounts? {
-    val source = notes ?: return null
-    return runCatching {
-        MaimaiNoteCounts(
-            tap = source.tap ?: return null,
-            hold = source.hold ?: return null,
-            slide = source.slide ?: return null,
-            touch = source.touch ?: return null,
-            breakCount = source.breakCount ?: return null,
-        )
-    }.getOrNull()
 }
 
 private val MaimaiNoteCounts.rawTotal: Int

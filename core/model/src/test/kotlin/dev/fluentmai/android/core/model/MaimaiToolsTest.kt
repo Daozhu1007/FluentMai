@@ -74,6 +74,30 @@ class MaimaiToolsTest {
     }
 
     @Test
+    fun sssPlusToleranceUsesTapGreatFormulaAndCompleteChartNotes() {
+        val chart = chart(
+            ChartNotes(total = 180, tap = 100, hold = 10, slide = 10, touch = 10, breakCount = 10),
+        )
+
+        assertEquals(5, chart.sssPlusTapGreatTolerance())
+        assertEquals(100, chart.toMaimaiNoteCountsOrNull()?.tap)
+    }
+
+    @Test
+    fun sssPlusToleranceIsUnavailableWithoutCompleteNotesOrBreakBonus() {
+        assertEquals(
+            null,
+            chart(ChartNotes(total = 180, tap = 100, hold = null, slide = 10, touch = 10, breakCount = 10))
+                .sssPlusTapGreatTolerance(),
+        )
+        assertEquals(
+            null,
+            chart(ChartNotes(total = 170, tap = 100, hold = 10, slide = 10, touch = 10, breakCount = 0))
+                .sssPlusTapGreatTolerance(),
+        )
+    }
+
+    @Test
     fun versionLookupUsesMaintainableBoundaries() {
         assertEquals("MURASAKi PLUS", maimaiVersionNameFor(18500))
         assertEquals("舞萌DX 2025", maimaiVersionNameFor(25007))
@@ -96,4 +120,23 @@ class MaimaiToolsTest {
         assertEquals("当前曲库批次", references.single { it.versionId == 25500 }.relatedNames.single())
         assertEquals("MiLK PLUS", references.single { it.versionId == 19500 }.officialName)
     }
+
+    private fun chart(notes: ChartNotes) = ChartRecord(
+        songId = 1,
+        title = "Test",
+        artist = "Artist",
+        genre = "maimai",
+        bpm = 180,
+        songVersion = 25_500,
+        songVersionName = "舞萌DX 2026",
+        chartVersion = 25_500,
+        chartVersionName = "舞萌DX 2026",
+        songType = SongType.DX,
+        difficulty = Difficulty.MASTER,
+        levelIndex = Difficulty.MASTER.levelIndex,
+        level = "13+",
+        levelValue = 13.7,
+        noteDesigner = "Designer",
+        notes = notes,
+    )
 }

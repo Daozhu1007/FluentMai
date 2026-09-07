@@ -11,6 +11,7 @@ import dev.fluentmai.android.core.model.SongAliasCatalog
 import dev.fluentmai.android.core.model.SongType
 import dev.fluentmai.android.core.model.buildPlayerRecordCatalog
 import dev.fluentmai.android.core.model.maimaiVersionReferenceFor
+import dev.fluentmai.android.core.model.sssPlusTapGreatTolerance
 
 internal data class ChartQueryFilters(
     val searchQuery: String = "",
@@ -129,6 +130,7 @@ internal class ChartQueryEngine private constructor(
                     chart = chart,
                     score = playerRecord?.score,
                     rating = playerRecord?.rating,
+                    sssPlusTolerance = chart.sssPlusTapGreatTolerance(),
                     normalizedGenre = normalizeSearchKey(chart.genre),
                     normalizedTitle = normalizedSearchTexts[index]
                         .substringBefore(SEARCH_FIELD_SEPARATOR),
@@ -173,6 +175,7 @@ internal data class IndexedChart(
     val chart: ChartRecord,
     val score: ScoreRecord?,
     val rating: Int?,
+    val sssPlusTolerance: Int?,
     val normalizedGenre: String,
     val normalizedTitle: String,
     val searchableText: String,
@@ -279,6 +282,8 @@ private fun ChartRecord.majorVersionId(): Int? =
 internal enum class ChartSort(val label: String) {
     ConstantDesc("定数降序"),
     ConstantAsc("定数升序"),
+    ToleranceAsc("容错升序"),
+    ToleranceDesc("容错降序"),
     RatingDesc("Rating 降序"),
     SongIdAsc("歌曲 ID"),
     VersionDesc("曲库版本降序"),
@@ -296,6 +301,10 @@ internal enum class ChartSort(val label: String) {
             ConstantAsc -> compareBy<IndexedChart> { it.chart.levelValue ?: 999.0 }
                 .thenBy { it.chart.levelIndex }
                 .thenBy { it.normalizedTitle }
+            ToleranceAsc -> compareBy<IndexedChart> { it.sssPlusTolerance ?: Int.MAX_VALUE }
+                .thenByDescending { it.chart.levelValue ?: -1.0 }
+            ToleranceDesc -> compareByDescending<IndexedChart> { it.sssPlusTolerance ?: Int.MIN_VALUE }
+                .thenByDescending { it.chart.levelValue ?: -1.0 }
             RatingDesc -> compareByDescending<IndexedChart> { it.rating ?: -1 }
                 .thenByDescending { it.score?.achievement ?: -1.0 }
                 .thenByDescending { it.chart.levelValue ?: -1.0 }
