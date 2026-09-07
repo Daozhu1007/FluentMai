@@ -96,6 +96,33 @@ data class MaimaiAchievementCalculation(
     val toleratedOccurrences: Int,
 )
 
+const val SSS_PLUS_TARGET_ACHIEVEMENT = 100.5
+
+fun ChartRecord.toMaimaiNoteCountsOrNull(): MaimaiNoteCounts? {
+    val source = notes ?: return null
+    return runCatching {
+        MaimaiNoteCounts(
+            tap = source.tap ?: return null,
+            hold = source.hold ?: return null,
+            slide = source.slide ?: return null,
+            touch = source.touch ?: return null,
+            breakCount = source.breakCount ?: return null,
+        )
+    }.getOrNull()
+}
+
+fun ChartRecord.sssPlusTapGreatTolerance(): Int? {
+    val noteCounts = toMaimaiNoteCountsOrNull() ?: return null
+    if (noteCounts.maximumAchievement < SSS_PLUS_TARGET_ACHIEVEMENT) return null
+    return calculateMaimaiAchievement(
+        notes = noteCounts,
+        noteKind = MaimaiNoteKind.TAP,
+        judgement = MaimaiJudgement.GREAT,
+        occurrences = 0,
+        targetAchievement = SSS_PLUS_TARGET_ACHIEVEMENT,
+    ).toleratedOccurrences
+}
+
 fun calculateMaimaiAchievement(
     notes: MaimaiNoteCounts,
     noteKind: MaimaiNoteKind,

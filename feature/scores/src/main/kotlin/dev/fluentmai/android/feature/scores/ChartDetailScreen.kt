@@ -55,6 +55,7 @@ import dev.fluentmai.android.core.model.SongAliasCatalog
 import dev.fluentmai.android.core.model.SongType
 import dev.fluentmai.android.core.model.availability
 import dev.fluentmai.android.core.model.buildPlayerRecordCatalog
+import dev.fluentmai.android.core.model.sssPlusTapGreatTolerance
 import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
@@ -99,6 +100,7 @@ fun ChartDetailScreen(
         buildPlayerRecordCatalog(charts, scores).records.firstOrNull { it.identity == identity }
     }
     val songAliases = remember(aliases, chart.songId) { aliases.aliasesFor(chart.songId) }
+    val sssPlusTolerance = remember(chart) { chart.sssPlusTapGreatTolerance() }
     val gridState = rememberLazyGridState()
     var handledScrollToTopRequestId by remember { mutableStateOf(scrollToTopRequestId) }
     LaunchedEffect(scrollToTopRequestId) {
@@ -145,18 +147,19 @@ fun ChartDetailScreen(
                 DetailValue("定数", chart.levelValue?.let { String.format(Locale.US, "%.1f", it) } ?: "--")
                 DetailValue("谱师", chart.noteDesigner.ifBlank { "--" })
                 DetailValue("总 Note", chart.notes?.total?.toString() ?: "--")
-                chart.notes?.let { notes ->
-                    DetailValue(
-                        "Note 明细",
+                DetailValue(
+                    "Note 明细",
+                    chart.notes?.let { notes ->
                         listOfNotNull(
                             notes.tap?.let { "Tap $it" },
                             notes.hold?.let { "Hold $it" },
                             notes.slide?.let { "Slide $it" },
                             notes.touch?.let { "Touch $it" },
                             notes.breakCount?.let { "Break $it" },
-                        ).joinToString(" · ").ifBlank { "--" },
-                    )
-                }
+                        ).joinToString(" · ").ifBlank { "--" }
+                    } ?: "--",
+                )
+                DetailValue("SSS+容错", sssPlusTolerance?.toString() ?: "--")
             }
         }
         item {
@@ -167,7 +170,6 @@ fun ChartDetailScreen(
                 DetailValue("FC", score?.fc?.uppercase(Locale.ROOT) ?: "--")
                 DetailValue("FS", score?.fs?.uppercase(Locale.ROOT) ?: "--")
                 DetailValue("DX Score", score?.dxScore?.toString() ?: "--")
-                DetailValue("容错 / 失分", "数据不足，暂不估算")
             }
         }
         item {

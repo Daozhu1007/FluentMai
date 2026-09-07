@@ -1,5 +1,6 @@
 package dev.fluentmai.android.feature.scores
 
+import dev.fluentmai.android.core.model.ChartNotes
 import dev.fluentmai.android.core.model.ChartRecord
 import dev.fluentmai.android.core.model.AchievementRank
 import dev.fluentmai.android.core.model.Difficulty
@@ -82,6 +83,30 @@ class ChartQueryEngineTest {
 
         assertEquals(2, result.matchingCount)
         assertEquals(listOf(currentHigh, currentLow), result.items.map { it.chart })
+    }
+
+    @Test
+    fun toleranceSortUsesSssPlusTapGreatCountAndKeepsMissingDataLast() {
+        val low = chart(
+            songId = 1,
+            title = "Low tolerance",
+            notes = ChartNotes(total = 51, tap = 50, hold = 0, slide = 0, touch = 0, breakCount = 1),
+        )
+        val high = chart(
+            songId = 2,
+            title = "High tolerance",
+            notes = ChartNotes(total = 140, tap = 100, hold = 10, slide = 10, touch = 10, breakCount = 10),
+        )
+        val missing = chart(songId = 3, title = "Missing notes")
+        val engine = ChartQueryEngine.create(listOf(high, missing, low), emptyList())
+
+        val ascending = engine.query(ChartQueryFilters(sort = ChartSort.ToleranceAsc), currentVersion = 25_500)
+        val descending = engine.query(ChartQueryFilters(sort = ChartSort.ToleranceDesc), currentVersion = 25_500)
+
+        assertEquals(listOf(low, high, missing), ascending.items.map { it.chart })
+        assertEquals(listOf(high, low, missing), descending.items.map { it.chart })
+        assertEquals("容错升序", ChartSort.ToleranceAsc.label)
+        assertEquals("容错降序", ChartSort.ToleranceDesc.label)
     }
 
     @Test
@@ -171,6 +196,7 @@ class ChartQueryEngineTest {
         designer: String = "Designer",
         levelValue: Double = 13.5,
         songVersion: Int = 25_500,
+        notes: ChartNotes? = null,
     ): ChartRecord =
         ChartRecord(
             songId = songId,
@@ -188,7 +214,7 @@ class ChartQueryEngineTest {
             level = "13+",
             levelValue = levelValue,
             noteDesigner = designer,
-            notes = null,
+            notes = notes,
         )
 
     private fun scoreFor(chart: ChartRecord): ScoreRecord =
