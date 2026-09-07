@@ -2,6 +2,20 @@
 
 All notable user-facing changes to FluentMai are recorded here.
 
+## [0.2.3-beta] - 2026-09-08
+
+### English
+
+- Chart details now show SSS+ tolerance: the maximum number of Tap Great judgements a chart can absorb while still reaching SSS+ (100.5000%).
+- Added ascending/descending tolerance sorting to the chart query; charts without complete note data sort last.
+- Removed the obsolete "tolerance / loss" placeholder from the player-best section.
+
+### 简体中文
+
+- 谱面详情新增 SSS+ 容错：显示保持 SSS+（100.5000%）达成率下最多可承受的 Tap Great 判定数。
+- 谱面查询新增容错升序/降序排序；物量数据不完整的谱面排在最后。
+- 移除了玩家成绩区已过时的「容错 / 失分」占位项。
+
 ## [0.2.2-beta] - 2026-09-07
 
 ### English
