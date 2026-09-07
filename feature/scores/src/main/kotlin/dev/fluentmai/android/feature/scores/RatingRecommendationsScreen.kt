@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -27,6 +28,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -48,12 +54,22 @@ internal fun RatingRecommendationsContent(
     destination: PlayerProgressDestination,
     onDestinationChanged: (PlayerProgressDestination) -> Unit,
     onBack: () -> Unit,
+    scrollToTopRequestId: Int,
     modifier: Modifier,
 ) {
     val result = state.recommendationResult
+    val gridState = rememberLazyGridState()
+    var handledScrollToTopRequestId by remember { mutableStateOf(scrollToTopRequestId) }
+    LaunchedEffect(scrollToTopRequestId) {
+        if (scrollToTopRequestId != handledScrollToTopRequestId) {
+            handledScrollToTopRequestId = scrollToTopRequestId
+            gridState.animateScrollToItem(0)
+        }
+    }
     LazyVerticalGrid(
         columns = GridCells.Adaptive(340.dp),
         modifier = modifier.fillMaxSize(),
+        state = gridState,
         contentPadding = PaddingValues(16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),

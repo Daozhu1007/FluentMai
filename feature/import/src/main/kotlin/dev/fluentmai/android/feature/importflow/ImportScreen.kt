@@ -28,6 +28,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -72,11 +73,20 @@ fun ImportScreen(
     onUploadDivingFish: () -> Unit,
     onRebuildDivingFish: () -> Unit,
     onUploadLxns: () -> Unit,
+    scrollToTopRequestId: Int = 0,
     modifier: Modifier = Modifier,
 ) {
     val isBusy = isImporting || isUploading
     var showRebuildConfirmation by remember { mutableStateOf(false) }
     var rebuildConfirmationInput by remember { mutableStateOf("") }
+    val scrollState = rememberScrollState()
+    var handledScrollToTopRequestId by remember { mutableStateOf(scrollToTopRequestId) }
+    LaunchedEffect(scrollToTopRequestId) {
+        if (scrollToTopRequestId != handledScrollToTopRequestId) {
+            handledScrollToTopRequestId = scrollToTopRequestId
+            scrollState.animateScrollTo(0)
+        }
+    }
 
     if (showRebuildConfirmation) {
         AlertDialog(
@@ -132,7 +142,7 @@ fun ImportScreen(
             modifier = Modifier
                 .widthIn(max = 1000.dp)
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {

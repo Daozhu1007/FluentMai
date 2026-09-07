@@ -111,6 +111,7 @@ fun ScoresScreen(
     onOpenPlates: () -> Unit = {},
     onOpenRecommendations: () -> Unit = {},
     onChartSelected: (ChartIdentity) -> Unit = {},
+    scrollToTopRequestId: Int = 0,
     modifier: Modifier = Modifier,
 ) {
     val enrichedScores = remember(scores, charts) { enrichScores(scores, charts) }
@@ -122,6 +123,13 @@ fun ScoresScreen(
     }
     val gridState = rememberLazyGridState()
     val scope = rememberCoroutineScope()
+    var handledScrollToTopRequestId by remember { mutableStateOf(scrollToTopRequestId) }
+    LaunchedEffect(scrollToTopRequestId) {
+        if (scrollToTopRequestId != handledScrollToTopRequestId) {
+            handledScrollToTopRequestId = scrollToTopRequestId
+            gridState.animateScrollToItem(0)
+        }
+    }
 
     LazyVerticalGrid(
         modifier = modifier.fillMaxSize(),
@@ -203,6 +211,7 @@ fun ChartQueryScreen(
     onRefresh: () -> Unit,
     playedPresetActive: Boolean = false,
     onDismissPlayedPreset: () -> Unit = {},
+    scrollToTopRequestId: Int = 0,
     onChartSelected: (ChartIdentity) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -219,6 +228,13 @@ fun ChartQueryScreen(
         initialFirstVisibleItemIndex = queryViewModel.restoredScrollIndex,
         initialFirstVisibleItemScrollOffset = queryViewModel.restoredScrollOffset,
     )
+    var handledScrollToTopRequestId by remember { mutableStateOf(scrollToTopRequestId) }
+    LaunchedEffect(scrollToTopRequestId) {
+        if (scrollToTopRequestId != handledScrollToTopRequestId) {
+            handledScrollToTopRequestId = scrollToTopRequestId
+            gridState.animateScrollToItem(0)
+        }
+    }
     LaunchedEffect(queryViewModel, gridState) {
         snapshotFlow { gridState.firstVisibleItemIndex to gridState.firstVisibleItemScrollOffset }
             .distinctUntilChanged()

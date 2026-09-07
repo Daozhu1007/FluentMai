@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -28,7 +29,11 @@ import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -73,6 +78,7 @@ fun ChartDetailScreen(
     currentVersionId: Int? = null,
     onBack: () -> Unit,
     onChartSelected: (ChartIdentity) -> Unit,
+    scrollToTopRequestId: Int = 0,
     modifier: Modifier = Modifier,
 ) {
     val chart = remember(identity, charts) {
@@ -93,9 +99,18 @@ fun ChartDetailScreen(
         buildPlayerRecordCatalog(charts, scores).records.firstOrNull { it.identity == identity }
     }
     val songAliases = remember(aliases, chart.songId) { aliases.aliasesFor(chart.songId) }
+    val gridState = rememberLazyGridState()
+    var handledScrollToTopRequestId by remember { mutableStateOf(scrollToTopRequestId) }
+    LaunchedEffect(scrollToTopRequestId) {
+        if (scrollToTopRequestId != handledScrollToTopRequestId) {
+            handledScrollToTopRequestId = scrollToTopRequestId
+            gridState.animateScrollToItem(0)
+        }
+    }
 
     LazyVerticalGrid(
         modifier = modifier.fillMaxSize(),
+        state = gridState,
         columns = GridCells.Adaptive(340.dp),
         contentPadding = PaddingValues(16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),

@@ -28,10 +28,20 @@ internal const val NAVIGATION_RAIL_MIN_WIDTH_DP = 600f
 internal fun usesNavigationRail(widthDp: Float): Boolean =
     widthDp >= NAVIGATION_RAIL_MIN_WIDTH_DP
 
+internal fun selectNavigationTab(
+    selectedTab: AppTab,
+    requestedTab: AppTab,
+    onTabSelected: (AppTab) -> Unit,
+    onSelectedTabReselected: () -> Unit,
+) {
+    if (selectedTab == requestedTab) onSelectedTabReselected() else onTabSelected(requestedTab)
+}
+
 @Composable
 internal fun AdaptiveNavigationScaffold(
     selectedTab: AppTab,
     onTabSelected: (AppTab) -> Unit,
+    onSelectedTabReselected: () -> Unit = {},
     modifier: Modifier = Modifier,
     content: @Composable (PaddingValues) -> Unit,
 ) {
@@ -43,7 +53,9 @@ internal fun AdaptiveNavigationScaffold(
                     AppTab.entries.forEach { tab ->
                         NavigationRailItem(
                             selected = selectedTab == tab,
-                            onClick = { onTabSelected(tab) },
+                            onClick = {
+                                selectNavigationTab(selectedTab, tab, onTabSelected, onSelectedTabReselected)
+                            },
                             icon = { Icon(imageVector = tab.icon, contentDescription = tab.label) },
                             label = { Text(text = tab.label) },
                         )
@@ -58,7 +70,9 @@ internal fun AdaptiveNavigationScaffold(
                             AppTab.entries.forEach { tab ->
                                 NavigationBarItem(
                                     selected = selectedTab == tab,
-                                    onClick = { onTabSelected(tab) },
+                                    onClick = {
+                                        selectNavigationTab(selectedTab, tab, onTabSelected, onSelectedTabReselected)
+                                    },
                                     icon = { Icon(imageVector = tab.icon, contentDescription = tab.label) },
                                     label = { Text(text = tab.label) },
                                 )

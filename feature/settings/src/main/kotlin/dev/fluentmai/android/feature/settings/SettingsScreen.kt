@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -22,6 +23,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,9 +41,18 @@ fun SettingsScreen(
     quarantineCount: Int,
     records: List<QuarantineRecord>,
     onBack: (() -> Unit)? = null,
+    scrollToTopRequestId: Int = 0,
     modifier: Modifier = Modifier,
 ) {
     var showQuarantine by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
+    var handledScrollToTopRequestId by remember { mutableStateOf(scrollToTopRequestId) }
+    LaunchedEffect(scrollToTopRequestId) {
+        if (scrollToTopRequestId != handledScrollToTopRequestId) {
+            handledScrollToTopRequestId = scrollToTopRequestId
+            listState.animateScrollToItem(0)
+        }
+    }
 
     Box(
         modifier = modifier.fillMaxSize(),
@@ -49,6 +60,7 @@ fun SettingsScreen(
     ) {
         LazyColumn(
             modifier = Modifier.widthIn(max = 1000.dp).fillMaxSize(),
+            state = listState,
             contentPadding = PaddingValues(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {

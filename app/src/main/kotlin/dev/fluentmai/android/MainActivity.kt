@@ -33,6 +33,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -264,9 +265,11 @@ private fun FluentMaiApp(
     val hookStatus by WahlapHookBridge.status.collectAsState()
     val isHookRunning by WahlapHookBridge.vpnRunning.collectAsState()
     var selectedTab by rememberSaveable { mutableStateOf(AppTab.Home) }
-    var selectedChartKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var homeSelectedChartKey by rememberSaveable { mutableStateOf<String?>(null) }
+    var chartsSelectedChartKey by rememberSaveable { mutableStateOf<String?>(null) }
     var playerProgressDestination by rememberSaveable { mutableStateOf<PlayerProgressDestination?>(null) }
     var playedPresetActive by rememberSaveable { mutableStateOf(false) }
+    var scrollToTopRequestId by remember { mutableStateOf(0) }
     var scoreCount by remember { mutableStateOf(0) }
     var scores by remember { mutableStateOf<List<ScoreRecord>>(emptyList()) }
     var chartRecords by remember { mutableStateOf<List<ChartRecord>>(emptyList()) }
@@ -299,6 +302,7 @@ private fun FluentMaiApp(
     var automaticRatingRequestId by remember { mutableStateOf(0) }
     var processedAutomaticRatingRequestId by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
+    val screenStateHolder = rememberSaveableStateHolder()
     val vpnPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
     ) { result ->
@@ -723,13 +727,30 @@ private fun FluentMaiApp(
         Log.i(TAG, "Rating history automatic snapshot completed: inserted=$inserted rating=$rating")
     }
 
+    val selectedChartKey = when (selectedTab) {
+        AppTab.Home -> homeSelectedChartKey
+        AppTab.Charts -> chartsSelectedChartKey
+        AppTab.Import, AppTab.Tools -> null
+    }
     val selectedChartIdentity = ChartIdentity.parseStableKey(selectedChartKey)
     val currentVersionId = remember(chartMajorVersions, chartRecords) {
         resolveCurrentMaimaiVersion(chartMajorVersions, chartRecords)?.majorVersion?.id
     }
-    BackHandler(enabled = selectedChartIdentity != null) {
-        selectedChartKey = null
+    val clearSelectedChart: () -> Unit = {
+        when (selectedTab) {
+            AppTab.Home -> homeSelectedChartKey = null
+            AppTab.Charts -> chartsSelectedChartKey = null
+            AppTab.Import, AppTab.Tools -> Unit
+        }
     }
+    val selectChart: (ChartIdentity) -> Unit = { identity ->
+        when (selectedTab) {
+            AppTab.Home -> homeSelectedChartKey = identity.stableKey()
+            AppTab.Charts -> chartsSelectedChartKey = identity.stableKey()
+            AppTab.Import, AppTab.Tools -> Unit
+        }
+    }
+    BackHandler(enabled = selectedChartIdentity != null, onBack = clearSelectedChart)
     BackHandler(
         enabled = selectedChartIdentity == null && selectedTab == AppTab.Home && playerProgressDestination != null,
     ) {
@@ -744,9 +765,6 @@ private fun FluentMaiApp(
     val onTabSelected: (AppTab) -> Unit = { tab ->
         if (tab != AppTab.Charts) playedPresetActive = false
         selectedTab = tab
-        selectedChartKey = null
-        playerProgressDestination = null
-        if (tab == AppTab.Tools) isSettingsOpen = false
     }
     ChartQueryPrewarmer(
         charts = chartRecords,
@@ -755,152 +773,171 @@ private fun FluentMaiApp(
         aliases = songAliases,
         playedPresetActive = playedPresetActive,
     )
+    // Give every tab destination its own saveable-state registry so switching tabs does not reset its UI.
+    val screenStateKey = when {
+        selectedChartKey != null -> "${selectedTab.name}:chart:$selectedChartKey"
+        selectedTab == AppTab.Home && playerProgressDestination != null ->
+            "${AppTab.Home.name}:progress:${requireNotNull(playerProgressDestination).name}"
+        selectedTab == AppTab.Tools && isSettingsOpen -> "${AppTab.Tools.name}:settings"
+        else -> "${selectedTab.name}:root"
+    }
     AdaptiveNavigationScaffold(
         selectedTab = selectedTab,
         onTabSelected = onTabSelected,
+        onSelectedTabReselected = { scrollToTopRequestId += 1 },
     ) { innerPadding ->
-                val modifier = Modifier.padding(innerPadding)
-                if (selectedChartIdentity != null) {
-                    ChartDetailScreen(
-                        identity = selectedChartIdentity,
-                        charts = chartRecords,
-                        scores = scores,
-                        aliases = songAliases,
-                        aliasStatus = songAliasSnapshot?.let { snapshot ->
-                            AliasDataStatus(
-                                sourceLabel = when (snapshot.source) {
-                                    SongAliasSource.Network -> "社区别名在线刷新"
-                                    SongAliasSource.FileCache -> "社区别名本地缓存"
-                                },
-                                fetchedAtEpochMillis = snapshot.fetchedAtEpochMillis,
-                                contentVersion = snapshot.contentVersion,
-                                songCount = snapshot.songCount,
-                                aliasCount = snapshot.aliasCount,
-                                unmappedSongCount = snapshot.unmappedSongIds.size,
-                            )
-                        },
-                        currentVersionId = currentVersionId,
-                        onBack = { selectedChartKey = null },
-                        onChartSelected = { selectedChartKey = it.stableKey() },
-                        modifier = modifier,
-                    )
-                } else if (selectedTab == AppTab.Home && playerProgressDestination != null) {
-                    PlayerProgressScreen(
-                        destination = requireNotNull(playerProgressDestination),
-                        scores = scores,
-                        charts = chartRecords,
-                        majorVersions = chartMajorVersions,
-                        onDestinationChanged = { playerProgressDestination = it },
-                        onBack = { playerProgressDestination = null },
-                        onChartSelected = { selectedChartKey = it.stableKey() },
-                        modifier = modifier,
-                    )
-                } else when (selectedTab) {
-                    AppTab.Home -> ScoresScreen(
-                        scores = scores,
-                        charts = chartRecords,
-                        majorVersions = chartMajorVersions,
-                        onOpenPlayedCharts = {
-                            playedPresetActive = true
-                            selectedTab = AppTab.Charts
-                        },
-                        onOpenPlates = {
-                            playerProgressDestination = PlayerProgressDestination.PLATES
-                        },
-                        onOpenRecommendations = {
-                            playerProgressDestination = PlayerProgressDestination.RECOMMENDATIONS
-                        },
-                        onChartSelected = { selectedChartKey = it.stableKey() },
-                        modifier = modifier,
-                    )
-
-                    AppTab.Import -> ImportScreen(
-                        realImportSummary = lastRealResult?.summaryText(),
-                        importStatus = importStatus.label,
-                        errorMessage = lastImportError,
-                        hookUrl = hookLink,
-                        hookStatus = hookStatus,
-                        isHookRunning = isHookRunning,
-                        divingFishToken = divingFishToken,
-                        lxnsToken = lxnsToken,
-                        uploadStatus = uploadStatus.label,
-                        uploadSummary = lastUploadResult?.summaryText(),
-                        uploadErrorMessage = lastUploadError,
-                        uploadProgressText = uploadProgressText,
-                        uploadProgressFraction = uploadProgressFraction,
-                        scoreCount = scoreCount,
-                        isImporting = isImporting,
-                        isUploading = isUploading,
-                        isPreparingHookLink = isPreparingHookLink,
-                        wahlapCookieInput = wahlapCookieInput,
-                        onStartHookCapture = ::startHookCapture,
-                        onStopHookCapture = ::stopHookCapture,
-                        onCopyHookUrl = ::copyHookUrl,
-                        onWahlapCookieInputChanged = { value -> wahlapCookieInput = value },
-                        onImportWahlapCookie = ::startManualCookieImport,
-                        onDivingFishTokenChanged = { token -> divingFishToken = token },
-                        onLxnsTokenChanged = { token -> lxnsToken = token },
-                        onUploadDivingFish = ::startDivingFishUpload,
-                        onRebuildDivingFish = ::startDivingFishRebuild,
-                        onUploadLxns = ::startLxnsUpload,
-                        modifier = modifier,
-                    )
-
-                    AppTab.Charts -> ChartQueryScreen(
-                        charts = chartRecords,
-                        scores = scores,
-                        majorVersions = chartMajorVersions,
-                        aliases = songAliases,
-                        isLoading = isChartCatalogLoading,
-                        onRefresh = ::refreshChartRecords,
-                        playedPresetActive = playedPresetActive,
-                        onDismissPlayedPreset = { playedPresetActive = false },
-                        onChartSelected = { selectedChartKey = it.stableKey() },
-                        modifier = modifier,
-                    )
-
-                    AppTab.Tools -> if (isSettingsOpen) {
-                        SettingsScreen(
-                            appVersion = APP_VERSION,
-                            quarantineCount = quarantineCount,
-                            records = quarantineRecords,
-                            onBack = { isSettingsOpen = false },
-                            modifier = modifier,
+        val modifier = Modifier.padding(innerPadding)
+        screenStateHolder.SaveableStateProvider(screenStateKey) {
+            if (selectedChartIdentity != null) {
+                ChartDetailScreen(
+                    identity = selectedChartIdentity,
+                    charts = chartRecords,
+                    scores = scores,
+                    aliases = songAliases,
+                    aliasStatus = songAliasSnapshot?.let { snapshot ->
+                        AliasDataStatus(
+                            sourceLabel = when (snapshot.source) {
+                                SongAliasSource.Network -> "社区别名在线刷新"
+                                SongAliasSource.FileCache -> "社区别名本地缓存"
+                            },
+                            fetchedAtEpochMillis = snapshot.fetchedAtEpochMillis,
+                            contentVersion = snapshot.contentVersion,
+                            songCount = snapshot.songCount,
+                            aliasCount = snapshot.aliasCount,
+                            unmappedSongCount = snapshot.unmappedSongIds.size,
                         )
-                    } else {
-                        ToolboxScreen(
-                            charts = chartRecords,
-                            majorVersions = chartMajorVersions,
-                            ratingHistory = ratingHistory,
-                            onAddManualRating = { recordedAt, rating, note ->
-                                scope.launch {
-                                    withContext(Dispatchers.IO) {
-                                        repository.addManualRating(recordedAt, rating, note)
-                                    }
-                                    ratingHistory = withContext(Dispatchers.IO) { repository.ratingHistory() }
+                    },
+                    currentVersionId = currentVersionId,
+                    scrollToTopRequestId = scrollToTopRequestId,
+                    onBack = clearSelectedChart,
+                    onChartSelected = selectChart,
+                    modifier = modifier,
+                )
+            } else if (selectedTab == AppTab.Home && playerProgressDestination != null) {
+                PlayerProgressScreen(
+                    destination = requireNotNull(playerProgressDestination),
+                    scores = scores,
+                    charts = chartRecords,
+                    majorVersions = chartMajorVersions,
+                    onDestinationChanged = { playerProgressDestination = it },
+                    onBack = { playerProgressDestination = null },
+                    onChartSelected = selectChart,
+                    scrollToTopRequestId = scrollToTopRequestId,
+                    modifier = modifier,
+                )
+            } else when (selectedTab) {
+                AppTab.Home -> ScoresScreen(
+                    scores = scores,
+                    charts = chartRecords,
+                    majorVersions = chartMajorVersions,
+                    onOpenPlayedCharts = {
+                        playedPresetActive = true
+                        chartsSelectedChartKey = null
+                        selectedTab = AppTab.Charts
+                    },
+                    onOpenPlates = {
+                        playerProgressDestination = PlayerProgressDestination.PLATES
+                    },
+                    onOpenRecommendations = {
+                        playerProgressDestination = PlayerProgressDestination.RECOMMENDATIONS
+                    },
+                    onChartSelected = selectChart,
+                    scrollToTopRequestId = scrollToTopRequestId,
+                    modifier = modifier,
+                )
+
+                AppTab.Import -> ImportScreen(
+                    realImportSummary = lastRealResult?.summaryText(),
+                    importStatus = importStatus.label,
+                    errorMessage = lastImportError,
+                    hookUrl = hookLink,
+                    hookStatus = hookStatus,
+                    isHookRunning = isHookRunning,
+                    divingFishToken = divingFishToken,
+                    lxnsToken = lxnsToken,
+                    uploadStatus = uploadStatus.label,
+                    uploadSummary = lastUploadResult?.summaryText(),
+                    uploadErrorMessage = lastUploadError,
+                    uploadProgressText = uploadProgressText,
+                    uploadProgressFraction = uploadProgressFraction,
+                    scoreCount = scoreCount,
+                    isImporting = isImporting,
+                    isUploading = isUploading,
+                    isPreparingHookLink = isPreparingHookLink,
+                    wahlapCookieInput = wahlapCookieInput,
+                    onStartHookCapture = ::startHookCapture,
+                    onStopHookCapture = ::stopHookCapture,
+                    onCopyHookUrl = ::copyHookUrl,
+                    onWahlapCookieInputChanged = { value -> wahlapCookieInput = value },
+                    onImportWahlapCookie = ::startManualCookieImport,
+                    onDivingFishTokenChanged = { token -> divingFishToken = token },
+                    onLxnsTokenChanged = { token -> lxnsToken = token },
+                    onUploadDivingFish = ::startDivingFishUpload,
+                    onRebuildDivingFish = ::startDivingFishRebuild,
+                    onUploadLxns = ::startLxnsUpload,
+                    scrollToTopRequestId = scrollToTopRequestId,
+                    modifier = modifier,
+                )
+
+                AppTab.Charts -> ChartQueryScreen(
+                    charts = chartRecords,
+                    scores = scores,
+                    majorVersions = chartMajorVersions,
+                    aliases = songAliases,
+                    isLoading = isChartCatalogLoading,
+                    onRefresh = ::refreshChartRecords,
+                    playedPresetActive = playedPresetActive,
+                    onDismissPlayedPreset = { playedPresetActive = false },
+                    scrollToTopRequestId = scrollToTopRequestId,
+                    onChartSelected = selectChart,
+                    modifier = modifier,
+                )
+
+                AppTab.Tools -> if (isSettingsOpen) {
+                    SettingsScreen(
+                        appVersion = APP_VERSION,
+                        quarantineCount = quarantineCount,
+                        records = quarantineRecords,
+                        onBack = { isSettingsOpen = false },
+                        scrollToTopRequestId = scrollToTopRequestId,
+                        modifier = modifier,
+                    )
+                } else {
+                    ToolboxScreen(
+                        charts = chartRecords,
+                        majorVersions = chartMajorVersions,
+                        ratingHistory = ratingHistory,
+                        onAddManualRating = { recordedAt, rating, note ->
+                            scope.launch {
+                                withContext(Dispatchers.IO) {
+                                    repository.addManualRating(recordedAt, rating, note)
                                 }
-                            },
-                            onUpdateManualRating = { id, recordedAt, rating, note ->
-                                scope.launch {
-                                    withContext(Dispatchers.IO) {
-                                        repository.updateManualRating(id, recordedAt, rating, note)
-                                    }
-                                    ratingHistory = withContext(Dispatchers.IO) { repository.ratingHistory() }
+                                ratingHistory = withContext(Dispatchers.IO) { repository.ratingHistory() }
+                            }
+                        },
+                        onUpdateManualRating = { id, recordedAt, rating, note ->
+                            scope.launch {
+                                withContext(Dispatchers.IO) {
+                                    repository.updateManualRating(id, recordedAt, rating, note)
                                 }
-                            },
-                            onDeleteManualRating = { id ->
-                                scope.launch {
-                                    withContext(Dispatchers.IO) { repository.deleteManualRating(id) }
-                                    ratingHistory = withContext(Dispatchers.IO) { repository.ratingHistory() }
-                                }
-                            },
-                            onOpenSettings = { isSettingsOpen = true },
-                            modifier = modifier,
-                        )
-                    }
+                                ratingHistory = withContext(Dispatchers.IO) { repository.ratingHistory() }
+                            }
+                        },
+                        onDeleteManualRating = { id ->
+                            scope.launch {
+                                withContext(Dispatchers.IO) { repository.deleteManualRating(id) }
+                                ratingHistory = withContext(Dispatchers.IO) { repository.ratingHistory() }
+                            }
+                        },
+                        onOpenSettings = { isSettingsOpen = true },
+                        scrollToTopRequestId = scrollToTopRequestId,
+                        modifier = modifier,
+                    )
                 }
             }
+        }
     }
+}
 
 private fun unmatchedScoreCount(
     scores: List<ScoreRecord>,
