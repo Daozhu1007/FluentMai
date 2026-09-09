@@ -28,6 +28,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,6 +39,8 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.core.view.WindowCompat
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import dev.fluentmai.android.core.database.FluentMaiDatabase
@@ -75,6 +78,7 @@ import dev.fluentmai.android.feature.scores.PlayerProgressDestination
 import dev.fluentmai.android.feature.scores.PlayerProgressScreen
 import dev.fluentmai.android.feature.scores.ScoresScreen
 import dev.fluentmai.android.feature.settings.SettingsScreen
+import dev.fluentmai.android.feature.settings.ThemeMode
 import dev.fluentmai.android.feature.tools.ToolboxScreen
 import dev.fluentmai.android.vpn.core.LocalVpnService
 import kotlinx.coroutines.Dispatchers
@@ -91,6 +95,7 @@ class MainActivity : ComponentActivity() {
     private val persistence by lazy { RoomImportPersistence(database) }
     private val privacyRedactor by lazy { PrivacyRedactor() }
     private val uploadTokenStore by lazy { UploadTokenStore(this) }
+    private val themePreferences by lazy { ThemePreferences(this) }
     private val scoreUploader by lazy {
         MaimaiScoreUploader(transport = AndroidNetworkMaimaiUploadTransport(this))
     }
@@ -112,8 +117,14 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            FluentMaiTheme {
+            var themeMode by remember { mutableStateOf(themePreferences.mode) }
+            FluentMaiTheme(themeMode) {
                 FluentMaiApp(
+                    themeMode = themeMode,
+                    onThemeModeChanged = { mode ->
+                        themeMode = mode
+                        themePreferences.mode = mode
+                    },
                     repository = repository,
                     runRealImport = { authUrl, afterLoginAttempt ->
                         runRealImport(authUrl, afterLoginAttempt)
@@ -250,6 +261,8 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun FluentMaiApp(
+    themeMode: ThemeMode,
+    onThemeModeChanged: (ThemeMode) -> Unit,
     repository: FluentMaiRepository,
     runRealImport: suspend (String, () -> Unit) -> RealWahlapImportResult,
     runCookieImport: suspend (String) -> RealWahlapImportResult,
@@ -911,6 +924,8 @@ private fun FluentMaiApp(
 
                 AppTab.Tools -> if (isSettingsOpen) {
                     SettingsScreen(
+                        themeMode = themeMode,
+                        onThemeModeChanged = onThemeModeChanged,
                         appVersion = APP_VERSION,
                         quarantineCount = quarantineCount,
                         records = quarantineRecords,
@@ -990,8 +1005,8 @@ private fun normalizeStartupTitle(title: String): String =
     Normalizer.normalize(title.trim(), Normalizer.Form.NFKC).lowercase()
 
 @Composable
-private fun FluentMaiTheme(content: @Composable () -> Unit) {
-    val darkTheme = isSystemInDarkTheme()
+private fun FluentMaiTheme(themeMode: ThemeMode, content: @Composable () -> Unit) {
+    val darkTheme = themeMode.isDark(isSystemInDarkTheme())
     val colorScheme = if (darkTheme) {
         darkColorScheme(
             primary = Color(0xFF7DD8C2),
@@ -1018,6 +1033,17 @@ private fun FluentMaiTheme(content: @Composable () -> Unit) {
             outline = Color(0xFF707C86),
             outlineVariant = Color(0xFFD7E0E7),
         )
+    }
+    val activity = LocalContext.current as? Activity
+    SideEffect {
+        activity?.window?.let { window ->
+            window.statusBarColor = colorScheme.background.toArgb()
+            window.navigationBarColor = colorScheme.background.toArgb()
+            WindowCompat.getInsetsController(window, window.decorView).apply {
+                isAppearanceLightStatusBars = !darkTheme
+                isAppearanceLightNavigationBars = !darkTheme
+            }
+        }
     }
     MaterialTheme(
         colorScheme = colorScheme,

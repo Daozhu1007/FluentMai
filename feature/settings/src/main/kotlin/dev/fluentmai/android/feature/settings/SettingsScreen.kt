@@ -14,7 +14,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -37,6 +36,8 @@ import dev.fluentmai.android.core.model.QuarantineRecord
 
 @Composable
 fun SettingsScreen(
+    themeMode: ThemeMode,
+    onThemeModeChanged: (ThemeMode) -> Unit,
     appVersion: String,
     quarantineCount: Int,
     records: List<QuarantineRecord>,
@@ -75,22 +76,7 @@ fun SettingsScreen(
             }
         }
         item {
-            SettingSection(
-                title = "外观",
-                primary = "跟随安卓系统深色模式",
-                secondary = "应用会自动读取系统浅色/深色设置，成绩卡片、谱面卡片和底栏一起切换。",
-            ) {
-                AssistChip(onClick = {}, label = { Text("系统控制") })
-            }
-        }
-        item {
-            SettingSection(
-                title = "上传",
-                primary = "上传前自动停止 Hook/VPN",
-                secondary = "向水鱼或 LXNS 上传前会先停止本地抓包服务，并优先尝试非 VPN 网络出口。",
-            ) {
-                AssistChip(onClick = {}, label = { Text("已启用") })
-            }
+            AppearanceSection(themeMode, onThemeModeChanged)
         }
         item {
             DiagnosticSection(
@@ -100,45 +86,9 @@ fun SettingsScreen(
                 onToggleQuarantine = { showQuarantine = !showQuarantine },
             )
         }
-        item {
-            SettingSection(
-                title = "隐私",
-                primary = "Token 与导入页面仅在当前会话处理",
-                secondary = "Token 不写入本地设置，新的原始 HTML 不写入文件或成绩库；日志和状态消息会隐藏 Cookie、完整授权 URL 与输入内容。",
-            )
-        }
             item {
                 AboutSection(appVersion = appVersion)
             }
-        }
-    }
-}
-
-@Composable
-private fun SettingSection(
-    title: String,
-    primary: String,
-    secondary: String,
-    trailing: @Composable (() -> Unit)? = null,
-) {
-    OutlinedCard(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(text = title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                Text(text = primary, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text(text = secondary, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            trailing?.invoke()
         }
     }
 }
