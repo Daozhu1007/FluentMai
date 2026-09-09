@@ -2,11 +2,11 @@
 
 ## Status
 
-Android is FluentMai's primary maintained platform and is published as Beta. The current release is `v0.2.5-android-beta.1`.
+Android is FluentMai's primary maintained platform and is published as Beta. The current release is `v0.2.5-android-beta.2`.
 
 - Minimum Android version: Android 8.0 (`minSdk 26`)
 - Target SDK: 34
-- Current application version: `0.2.5-android-beta.1` (`versionCode 7`)
+- Current application version: `0.2.5-android-beta.2` (`versionCode 8`)
 - Technology: Kotlin, Jetpack Compose, Room, coroutines, Ktor, and modular Gradle
 
 ## Build and test

@@ -432,10 +432,18 @@ private fun PlateRecordCard(
             Surface(
                 modifier = Modifier.size(48.dp),
                 shape = RoundedCornerShape(12.dp),
-                color = record.chart.difficulty.accentColor().copy(alpha = 0.16f),
+                color = record.chart.difficulty.accentColor(),
+                contentColor = Color.White,
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Text(record.chart.level, fontWeight = FontWeight.Bold, color = record.chart.difficulty.accentColor())
+                    Text(
+                        record.chart.level,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        style = MaterialTheme.typography.bodyLarge.copy(
+                            shadow = difficultyLabelShadow(record.chart.difficulty.accentColor()),
+                        ),
+                    )
                 }
             }
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {

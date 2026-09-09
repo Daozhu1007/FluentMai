@@ -4,6 +4,13 @@ All notable user-facing changes to FluentMai are recorded here.
 
 ## Unreleased
 
+## [0.2.5-android-beta.2] - 2026-09-10
+
+- 替换 Android 应用图标，原图铺满桌面图标的可见区域。
+- 谱面详情的彩色标识仅显示精确定数，使用不透明难度色底与白字。
+- 牌子进度左侧等级标识改为不透明难度色底与白字。
+- Re:MASTER 统一使用更偏白的浅紫色，白字增加轻微阴影以便辨认。
+
 ## [0.2.5-android-beta.1] - 2026-09-09
 
 - Android 外观开关的点击反馈裁剪至圆角轨道内，避免超出轨道边界。

@@ -1272,7 +1272,7 @@ private fun DifficultyPill(text: String, color: Color) {
         Text(
             text = text,
             modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
-            style = MaterialTheme.typography.labelMedium,
+            style = MaterialTheme.typography.labelMedium.copy(shadow = difficultyLabelShadow(color)),
             fontWeight = FontWeight.Bold,
             maxLines = 1,
         )

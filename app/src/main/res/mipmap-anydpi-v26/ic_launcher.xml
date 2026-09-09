@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/launcher_background" />
+    <foreground>
+        <!-- Map the full image to the visible 72/108 viewport, without extra padding. -->
+        <inset android:drawable="@drawable/app_icon_art" android:inset="16.666667%" />
+    </foreground>
+</adaptive-icon>

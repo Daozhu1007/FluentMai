@@ -218,12 +218,16 @@ private fun DetailHeader(chart: ChartRecord, onBack: () -> Unit) {
                 )
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = chart.difficulty.accentColor().copy(alpha = 0.14f),
-                    contentColor = chart.difficulty.accentColor(),
+                    color = chart.difficulty.accentColor(),
+                    contentColor = Color.White,
                 ) {
                     Text(
-                        "${chart.level}  ${chart.levelValue?.let { String.format(Locale.US, "%.1f", it) } ?: "定数未知"}",
+                        chart.levelValue?.let { String.format(Locale.US, "%.1f", it) } ?: "--",
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            shadow = difficultyLabelShadow(chart.difficulty.accentColor()),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        ),
                         fontWeight = FontWeight.Bold,
                     )
                 }

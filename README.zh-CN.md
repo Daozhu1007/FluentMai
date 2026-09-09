@@ -4,7 +4,7 @@
 
 | 平台 | 状态 | 下载 | 说明 |
 | --- | --- | --- | --- |
-| Android | Beta | [Android APK](https://github.com/Daozhu1007/FluentMai/releases/tag/v0.2.5-android-beta.1) | 当前主要维护平台；debug 签名测试包 |
+| Android | Beta | [Android APK](https://github.com/Daozhu1007/FluentMai/releases/tag/v0.2.5-android-beta.2) | 当前主要维护平台；debug 签名测试包 |
 | iOS | Experimental Beta | [unsigned IPA](https://github.com/Daozhu1007/FluentMai/releases/tag/v0.2.4-beta) | 需要用户自签，iOS 17+ |
 | Windows | Alpha / Development | 暂仅源码 | `windows/` 下的独立桌面实现 |
 
@@ -32,7 +32,7 @@ FluentMai 的共同方向是把成绩导入、校验、浏览与分析尽量留�
 
 当前移动端发布：
 
-- `v0.2.5-android-beta.1` — Android debug-signed 测试 APK。
+- `v0.2.5-android-beta.2` — Android debug-signed 测试 APK。
 - `v0.2.4-beta` — iOS unsigned `iphoneos arm64` IPA（保持不变）。
 - Windows 尚无公开 Release；Actions 中的构建产物只作为开发验证证据，不等于 Windows 发布。
 
