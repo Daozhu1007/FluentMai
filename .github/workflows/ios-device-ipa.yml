@@ -35,7 +35,7 @@ permissions:
   contents: read
 
 env:
-  VERSIONED_IPA: FluentMai-v0.2.0-ios-alpha.1-unsigned.ipa
+  VERSIONED_IPA: FluentMai-v0.2.4-beta-ios-unsigned.ipa
   STABLE_IPA: FluentMai-ios-unsigned.ipa
   ARTIFACT_NAME: fluentmai-ios-device-ipa-${{ github.run_number }}
 
@@ -199,7 +199,7 @@ jobs:
         with:
           name: ${{ env.ARTIFACT_NAME }}
           path: |
-            build/ios-device/release/FluentMai-v0.2.0-ios-alpha.1-unsigned.ipa
+            build/ios-device/release/FluentMai-v0.2.4-beta-ios-unsigned.ipa
             build/ios-device/release/FluentMai-ios-unsigned.ipa
             build/ios-device/release/IOS_SIDELOAD_GUIDE.zh-CN.md
             build/ios-device/release/IOS_RELEASE_NOTES.zh-CN.md

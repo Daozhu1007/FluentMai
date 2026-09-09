@@ -2,18 +2,18 @@
 
 ## Status
 
-iOS is an Experimental Alpha implemented in SwiftUI with selected shared Kotlin Multiplatform domain code from `core/model`.
+iOS is an experimental Beta implemented in SwiftUI with selected shared Kotlin Multiplatform domain code from `core/model`.
 
 - Minimum deployment target: iOS 17.0
 - Device artifact: unsigned `iphoneos arm64` IPA
-- Current preview: `v0.2.0-ios-alpha.1`
+- Current release: `v0.2.4-beta`
 - Signing: users must sign the IPA with their own Apple identity before installation
 
-The existing IPA is a real generic-device build, not a Simulator archive. Experimental status means feature coverage and data behavior do not necessarily match Android.
+The existing IPA is a real generic-device build, not a Simulator archive. The current source mirrors Android's four primary destinations (Home, Import, Charts, and Tools), keeps Settings under Tools, and shares the Rating and achievement/tolerance formulas through Kotlin Multiplatform. Experimental status still means platform integrations and storage are not interchangeable with Android.
 
 ## Installation
 
-Download the unsigned IPA from the [iOS Experimental Preview](https://github.com/Daozhu1007/FluentMai/releases/tag/v0.2.0-ios-alpha.1), then follow [IOS_SIDELOAD_GUIDE.zh-CN.md](../../IOS_SIDELOAD_GUIDE.zh-CN.md). FluentMai does not distribute signing certificates, provisioning profiles, Apple account credentials, or passwords.
+Download the unsigned IPA from the [v0.2.4 Beta release](https://github.com/Daozhu1007/FluentMai/releases/tag/v0.2.4-beta), then follow [IOS_SIDELOAD_GUIDE.zh-CN.md](../../IOS_SIDELOAD_GUIDE.zh-CN.md). FluentMai does not distribute signing certificates, provisioning profiles, Apple account credentials, or passwords.
 
 ## Build and validation
 
@@ -26,4 +26,4 @@ Generated Xcode projects and build products are not committed.
 
 ## Shared scope and limitations
 
-Only selected domain behavior in `core/model` is shared with Android. UI, platform integration, persistence, installation, and release cycles remain independent. No Android-to-iOS data migration guarantee is currently documented.
+Only selected domain behavior in `core/model` is shared with Android. The iOS navigation, chart query/detail, SSS+ tolerance sorting, player progress/recommendation views, calculators, and settings follow the Android information architecture. iOS cannot run Android's local VPN Hook from an ordinary application, and the Wahlap/cloud networking adapters remain platform-specific. iOS JSON backup/restore is available, but it is not an Android database migration format.

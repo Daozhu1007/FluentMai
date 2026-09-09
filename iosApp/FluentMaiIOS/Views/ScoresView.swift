@@ -1,160 +1,190 @@
-import Charts
 import SwiftUI
-
-private enum ScoreBucket: String, CaseIterable, Identifiable {
-    case newBest = "B15"
-    case oldBest = "B35"
-    case all = "全部"
-
-    var id: String { rawValue }
-}
 
 struct ScoresView: View {
     @EnvironmentObject private var model: AppModel
-    @State private var bucket: ScoreBucket = .newBest
+
+    let scrollToTopRequestID: Int
+    let onOpenPlayed: () -> Void
+    let onOpenProgress: (PlayerProgressDestination) -> Void
+    let onOpenChart: (CatalogChartItem) -> Void
 
     private var summary: RatingSummary { model.ratingSummary }
 
-    private var visibleScores: [ScoreEntry] {
-        switch bucket {
-        case .newBest: summary.newBest
-        case .oldBest: summary.oldBest
-        case .all:
-            model.userData.scores.sorted { $0.playedAt > $1.playedAt }
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 14) {
+                    Color.clear.frame(height: 1).id("home-top")
+                    header
+                    quickActions(proxy: proxy)
+
+                    if model.userData.scores.isEmpty {
+                        ContentUnavailableView(
+                            "还没有导入成绩",
+                            systemImage: "chart.bar",
+                            description: Text("前往“导入”获取成绩，或在谱面详情中手动录入。")
+                        )
+                        .frame(maxWidth: .infinity, minHeight: 260)
+                    } else {
+                        scoreSection("旧版本 Best 35", scores: summary.oldBest, id: "old-best")
+                        scoreSection("当前版本 Best 15", scores: summary.newBest, id: "new-best")
+                    }
+                }
+                .frame(maxWidth: 1_000)
+                .padding(16)
+                .frame(maxWidth: .infinity)
+            }
+            .background(FluentPalette.background)
+            .navigationBarHidden(true)
+            .onChange(of: scrollToTopRequestID) { _, request in
+                guard request > 0 else { return }
+                withAnimation(.easeInOut(duration: 0.28)) { proxy.scrollTo("home-top", anchor: .top) }
+            }
         }
     }
 
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                summaryGrid
-                trendCard
-
-                Picker("成绩范围", selection: $bucket) {
-                    ForEach(ScoreBucket.allCases) { value in
-                        Text(value.rawValue).tag(value)
-                    }
+    private var header: some View {
+        FluentCard {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("成绩")
+                        .font(.title2.bold())
+                    Spacer()
+                    Text(String(summary.totalRating))
+                        .font(.title2.monospacedDigit().bold())
+                        .foregroundStyle(FluentPalette.primary)
+                        .padding(.horizontal, 13)
+                        .padding(.vertical, 7)
+                        .background(FluentPalette.primary.opacity(0.12), in: Capsule())
                 }
-                .pickerStyle(.segmented)
-
-                if visibleScores.isEmpty {
-                    ContentUnavailableView(
-                        "暂无成绩",
-                        systemImage: "chart.bar",
-                        description: Text("在曲库详情中选择谱面并录入成绩。")
-                    )
-                    .frame(maxWidth: .infinity, minHeight: 260)
-                } else {
-                    LazyVGrid(
-                        columns: [GridItem(.adaptive(minimum: 300, maximum: 460), spacing: 14)],
-                        spacing: 14
-                    ) {
-                        ForEach(visibleScores) { score in
-                            ScoreCard(score: score)
-                        }
-                    }
+                HStack(spacing: 8) {
+                    MetricPill(label: "本地成绩", value: String(model.userData.scores.count))
+                    MetricPill(label: "曲库谱面", value: String(model.chartItems.count))
                 }
             }
-            .frame(maxWidth: 1_200)
-            .padding()
-            .frame(maxWidth: .infinity)
         }
-        .navigationTitle("成绩")
     }
 
-    private var summaryGrid: some View {
-        LazyVGrid(
-            columns: [GridItem(.adaptive(minimum: 150, maximum: 260), spacing: 12)],
-            spacing: 12
-        ) {
-            SummaryCard(title: "总 Rating", value: String(summary.totalRating), systemImage: "sparkles")
-            SummaryCard(title: "B15", value: "\(summary.newBest.count) / 15", systemImage: "bolt.fill")
-            SummaryCard(title: "B35", value: "\(summary.oldBest.count) / 35", systemImage: "clock.fill")
-            SummaryCard(
-                title: "候补 / 不计入",
-                value: "\(summary.outsideBestCount) / \(summary.ineligibleCount)",
-                systemImage: "tray.full.fill"
-            )
+    private func quickActions(proxy: ScrollViewProxy) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("B50 快速跳转")
+                .font(.subheadline.weight(.semibold))
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack {
+                    Button("旧版本 B35 · \(summary.oldBest.count) 张") {
+                        withAnimation { proxy.scrollTo("old-best", anchor: .top) }
+                    }
+                    .buttonStyle(.bordered)
+                    Button("当前版本 B15 · \(summary.newBest.count) 张") {
+                        withAnimation { proxy.scrollTo("new-best", anchor: .top) }
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+            HStack(spacing: 4) {
+                Button("查看已游玩谱面", action: onOpenPlayed)
+                Button("牌子进度") { onOpenProgress(.plates) }
+                Button("推分建议") { onOpenProgress(.recommendations) }
+            }
+            .font(.subheadline)
+            .buttonStyle(.borderless)
+            .foregroundStyle(FluentPalette.primary)
         }
+        .padding(.horizontal, 4)
     }
 
     @ViewBuilder
-    private var trendCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Rating 趋势")
-                .font(.headline)
-            if model.userData.ratingHistory.isEmpty {
-                Text("保存第一条成绩后开始记录本地趋势。")
+    private func scoreSection(_ title: String, scores: [ScoreEntry], id: String) -> some View {
+        HStack {
+            Text(title).font(.headline)
+            Spacer()
+            Text(String(scores.count)).foregroundStyle(.secondary)
+        }
+        .id(id)
+
+        if scores.isEmpty {
+            FluentCard {
+                Text("暂无符合条件的成绩")
                     .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, minHeight: 120, alignment: .center)
-            } else {
-                Chart(model.userData.ratingHistory) { point in
-                    LineMark(
-                        x: .value("时间", point.recordedAt),
-                        y: .value("Rating", point.rating)
-                    )
-                    .interpolationMethod(.monotone)
-                    AreaMark(
-                        x: .value("时间", point.recordedAt),
-                        y: .value("Rating", point.rating)
-                    )
-                    .foregroundStyle(.cyan.opacity(0.12))
+            }
+        } else {
+            ForEach(Array(scores.enumerated()), id: \.element.id) { index, score in
+                ScoreCard(score: score, rank: index + 1) {
+                    if let item = model.chartItem(for: score) { onOpenChart(item) }
                 }
-                .chartYAxis { AxisMarks(position: .leading) }
-                .frame(height: 210)
             }
         }
-        .padding(16)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 }
 
-private struct SummaryCard: View {
-    let title: String
-    let value: String
-    let systemImage: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label(title, systemImage: systemImage)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Text(value)
-                .font(.title2.monospacedDigit().bold())
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-    }
-}
-
-private struct ScoreCard: View {
+struct ScoreCard: View {
     let score: ScoreEntry
+    let rank: Int?
+    let onOpen: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(score.title)
-                        .font(.headline)
-                        .lineLimit(2)
-                    Text("\(score.chartType.uppercased()) · \(score.difficultyLabel) · \(score.level)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+        Button(action: onOpen) {
+            FluentCard {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .top) {
+                        if let rank {
+                            Text("#\(rank)")
+                                .font(.caption.monospacedDigit().bold())
+                                .foregroundStyle(FluentPalette.primary)
+                        }
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(score.title)
+                                .font(.headline)
+                                .foregroundStyle(.primary)
+                                .lineLimit(2)
+                            Text("\(score.chartType.uppercased()) · \(score.difficultyLabel) · \(score.level)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text("+\(score.rating)")
+                            .font(.headline.monospacedDigit())
+                            .foregroundStyle(FluentPalette.primary)
+                    }
+                    HStack {
+                        Text("\(score.achievement, format: .number.precision(.fractionLength(4)))%")
+                            .font(.title3.monospacedDigit().bold())
+                        Spacer()
+                        if let fullCombo = score.fullCombo { Text(fullCombo.uppercased()) }
+                        if let fullSync = score.fullSync { Text(fullSync.uppercased()) }
+                    }
+                    .font(.caption.weight(.semibold))
                 }
-                Spacer()
-                Text("+\(score.rating)")
-                    .font(.headline.monospacedDigit())
-                    .foregroundStyle(.cyan)
             }
-            Text("\(score.achievement, format: .number.precision(.fractionLength(4)))%")
-                .font(.title3.monospacedDigit().weight(.semibold))
-            Text(score.playedAt, format: .dateTime.year().month().day().hour().minute())
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .buttonStyle(.plain)
+    }
+}
+
+struct PlayedChartsView: View {
+    @EnvironmentObject private var model: AppModel
+    let scrollToTopRequestID: Int
+    let onOpenChart: (CatalogChartItem) -> Void
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(spacing: 12) {
+                    Color.clear.frame(height: 1).id("played-top")
+                    ForEach(model.userData.scores.sorted { $0.playedAt > $1.playedAt }) { score in
+                        ScoreCard(score: score, rank: nil) {
+                            if let item = model.chartItem(for: score) { onOpenChart(item) }
+                        }
+                    }
+                }
+                .padding(16)
+            }
+            .background(FluentPalette.background)
+            .navigationTitle("已游玩谱面")
+            .onChange(of: scrollToTopRequestID) { _, request in
+                guard request > 0 else { return }
+                withAnimation { proxy.scrollTo("played-top", anchor: .top) }
+            }
+        }
     }
 }

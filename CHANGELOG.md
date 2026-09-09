@@ -2,6 +2,22 @@
 
 All notable user-facing changes to FluentMai are recorded here.
 
+## [0.2.4-beta] - 2026-09-09
+
+### English
+
+- Rebuilt the iOS client around Android's current Home, Import, Charts, and Tools information architecture.
+- Preserved every tab's navigation, input, filters, and scroll position; reselecting the active bottom item scrolls the current page to the top without popping subpages.
+- Added iOS plate progress, Rating recommendations, chart query/detail, SSS+ tolerance display and sorting, calculators, trends, settings, and JSON backup/restore.
+- Published synchronized Android and iOS test artifacts. The Android APK remains debug-signed; the iOS device IPA remains unsigned and requires self-signing.
+
+### 简体中文
+
+- 按 Android 最新版的“首页 / 导入 / 谱面 / 工具”信息架构重构 iOS 客户端。
+- 各底栏页签保留导航、输入、筛选和滚动位置；再次点击当前底栏项会将当前页面滚动到顶部，且不会退出附属页面。
+- iOS 新增牌子进度、推分建议、谱面查询与详情、SSS+ 容错显示与排序、计算工具、趋势、设置和 JSON 备份恢复。
+- 同步发布 Android 与 iOS 测试产物；Android APK 仍为 debug 签名，iOS 真机 IPA 仍为未签名并需要用户自签。
+
 ## [0.2.3-beta] - 2026-09-08
 
 ### English
@@ -110,5 +126,6 @@ All notable user-facing changes to FluentMai are recorded here.
 
 - First public Android Beta preview with Wahlap import, local Room storage, B50 browsing, optional community-service upload, quarantine, and diagnostic redaction.
 
+[0.2.4-beta]: https://github.com/Daozhu1007/FluentMai/releases/tag/v0.2.4-beta
 [0.2.0-beta]: https://github.com/Daozhu1007/FluentMai/releases/tag/v0.2.0-beta
 [0.1.0-beta.1]: https://github.com/Daozhu1007/FluentMai/releases/tag/v0.1.0-beta.1

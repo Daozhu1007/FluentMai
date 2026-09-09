@@ -4,8 +4,8 @@
 
 | 平台 | 状态 | 下载 | 说明 |
 | --- | --- | --- | --- |
-| Android | Beta | [Android Release](https://github.com/Daozhu1007/FluentMai/releases/tag/v0.2.0-beta) | 当前主要维护平台 |
-| iOS | Experimental Alpha | [unsigned IPA](https://github.com/Daozhu1007/FluentMai/releases/tag/v0.2.0-ios-alpha.1) | 需要用户自签，iOS 17+ |
+| Android | Beta | [Android APK](https://github.com/Daozhu1007/FluentMai/releases/tag/v0.2.4-beta) | 当前主要维护平台；debug 签名测试包 |
+| iOS | Experimental Beta | [unsigned IPA](https://github.com/Daozhu1007/FluentMai/releases/tag/v0.2.4-beta) | 需要用户自签，iOS 17+ |
 | Windows | Alpha / Development | 暂仅源码 | `windows/` 下的独立桌面实现 |
 
 FluentMai 是面向 maimai DX 国服玩家的非官方 local-first 成绩工具。这个产品仓库同时承载三套相互独立的平台实现：Android 是当前成熟度最高的主要维护平台，iOS 与 Windows 仍处于实验阶段。
@@ -30,10 +30,9 @@ FluentMai 的共同方向是把成绩导入、校验、浏览与分析尽量留�
 
 ## 发布
 
-现有发布保持不变：
+当前同步移动端发布：
 
-- `v0.2.0-beta` — Android Beta，资产为 debug-signed 测试 APK。
-- `v0.2.0-ios-alpha.1` — iOS Experimental Preview，资产为 unsigned `iphoneos arm64` IPA。
+- `v0.2.4-beta` — Android debug-signed 测试 APK与 iOS unsigned `iphoneos arm64` IPA。
 - Windows 尚无公开 Release；Actions 中的构建产物只作为开发验证证据，不等于 Windows 发布。
 
 未来平台独立 tag 使用：
@@ -42,7 +41,7 @@ FluentMai 的共同方向是把成绩导入、校验、浏览与分析尽量留�
 - `vX.Y.Z-ios-alpha.N`
 - `vX.Y.Z-windows-alpha.N`
 
-三端独立发版。只有版本与功能真正同步时，才考虑使用同一个 tag 同时上传三端资产。
+各平台仍可独立发版；`v0.2.4-beta` 将当前 Android 与 iOS 测试产物同步在同一个 tag 下。
 
 ## 仓库结构
 

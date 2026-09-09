@@ -13,6 +13,9 @@ struct ScoreEntry: Codable, Identifiable, Hashable {
     let achievement: Double
     let rating: Int
     let playedAt: Date
+    var fullCombo: String? = nil
+    var fullSync: String? = nil
+    var dxScore: Int? = nil
 }
 
 struct RatingHistoryPoint: Codable, Identifiable, Hashable {
@@ -23,7 +26,7 @@ struct RatingHistoryPoint: Codable, Identifiable, Hashable {
 
 struct UserData: Codable {
     var schemaVersion: Int = 1
-    var currentVersionId: Int = 24_006
+    var currentVersionId: Int = 25_500
     var scores: [ScoreEntry] = []
     var aliases: [String: [String]] = [:]
     var ratingHistory: [RatingHistoryPoint] = []
