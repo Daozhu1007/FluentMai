@@ -2,11 +2,11 @@
 
 ## Status
 
-Android is FluentMai's primary maintained platform and is currently published as Beta. The existing `v0.2.0-beta` release remains the current Android download.
+Android is FluentMai's primary maintained platform and is published as Beta. The current release is `v0.2.4-beta`.
 
 - Minimum Android version: Android 8.0 (`minSdk 26`)
 - Target SDK: 34
-- Current application version: `0.2.0-beta` (`versionCode 2`)
+- Current application version: `0.2.4-beta` (`versionCode 6`)
 - Technology: Kotlin, Jetpack Compose, Room, coroutines, Ktor, and modular Gradle
 
 ## Build and test
@@ -37,4 +37,4 @@ Android Room migrations apply only to Android. They do not migrate data to iOS o
 
 ## Release notes
 
-The current Beta APK is debug-signed because trusted release signing material is intentionally absent from the repository. Do not change `versionCode`, `versionName`, tags, or existing release assets merely as part of monorepo maintenance.
+The current Beta APK is debug-signed because trusted release signing material is intentionally absent from the repository. Keep an external backup before upgrading and do not uninstall the previous compatible debug-signed build if local data must be retained.

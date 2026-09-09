@@ -11,10 +11,11 @@ settings:
     SWIFT_VERSION: 5.9
     IPHONEOS_DEPLOYMENT_TARGET: 17.0
     CURRENT_PROJECT_VERSION: 1
-    MARKETING_VERSION: 0.2.0
+    MARKETING_VERSION: 0.2.4
     PRODUCT_NAME: FluentMai
     PRODUCT_BUNDLE_IDENTIFIER: dev.fluentmai.ios
     CODE_SIGN_STYLE: Automatic
+    ALWAYS_SEARCH_USER_PATHS: NO
     ENABLE_USER_SCRIPT_SANDBOXING: NO
     GENERATE_INFOPLIST_FILE: YES
     INFOPLIST_KEY_CFBundleDisplayName: FluentMai
@@ -46,7 +47,7 @@ targets:
             exit 0
           fi
           cd "$SRCROOT/.."
-          ./gradlew :core:model:embedAndSignAppleFrameworkForXcode --stacktrace
+          bash ./gradlew :core:model:embedAndSignAppleFrameworkForXcode --stacktrace
     settings:
       base:
         TARGETED_DEVICE_FAMILY: "1,2"

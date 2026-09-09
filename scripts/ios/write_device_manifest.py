@@ -63,7 +63,7 @@ run_id = os.environ["GITHUB_RUN_ID"]
 payload = {
     "schemaVersion": 1,
     "appName": "FluentMai",
-    "releaseName": "FluentMai iOS Experimental Preview 0.2.0-alpha.1",
+    "releaseName": "FluentMai 0.2.4 Beta (iOS unsigned)",
     "appVersion": str(plist["CFBundleShortVersionString"]),
     "buildVersion": str(plist["CFBundleVersion"]),
     "gitCommit": os.environ["GITHUB_SHA"],

@@ -11,6 +11,7 @@ enum CatalogLoadState: Equatable {
 @MainActor
 final class AppModel: ObservableObject {
     @Published private(set) var songs: [Song] = []
+    @Published private(set) var chartItems: [CatalogChartItem] = []
     @Published private(set) var catalogState: CatalogLoadState = .loading
     @Published private(set) var userData: UserData
     @Published private(set) var persistenceError: String?
@@ -20,7 +21,13 @@ final class AppModel: ObservableObject {
 
     init(persistence: PersistenceStore = PersistenceStore()) {
         self.persistence = persistence
-        userData = persistence.load()
+        var loadedUserData = persistence.load()
+        let migratedLegacyVersion = loadedUserData.currentVersionId == 24_006
+        if migratedLegacyVersion {
+            loadedUserData.currentVersionId = 25_500
+        }
+        userData = loadedUserData
+        if migratedLegacyVersion { try? persistence.save(loadedUserData) }
         Task { [weak self] in
             await self?.loadCatalog()
         }
@@ -41,6 +48,8 @@ final class AppModel: ObservableObject {
             )
         }
         let snapshot = analyzer.build()
+        let newBestIDs = Set(snapshot.newBest.map { $0.scoreKey })
+        let oldBestIDs = Set(snapshot.oldBest.map { $0.scoreKey })
         let comparator: (ScoreEntry, ScoreEntry) -> Bool = { left, right in
             if left.rating != right.rating { return left.rating > right.rating }
             if left.achievement != right.achievement { return left.achievement > right.achievement }
@@ -48,16 +57,14 @@ final class AppModel: ObservableObject {
             return left.id < right.id
         }
         let newBest = userData.scores
-            .filter { $0.chartVersion == userData.currentVersionId }
+            .filter { newBestIDs.contains($0.id) }
             .sorted(by: comparator)
-            .prefix(15)
         let oldBest = userData.scores
-            .filter { $0.chartVersion > 0 && $0.chartVersion < userData.currentVersionId }
+            .filter { oldBestIDs.contains($0.id) }
             .sorted(by: comparator)
-            .prefix(35)
         return RatingSummary(
-            newBest: Array(newBest),
-            oldBest: Array(oldBest),
+            newBest: newBest,
+            oldBest: oldBest,
             totalRating: Int(snapshot.totalRating),
             ineligibleCount: Int(snapshot.ineligibleCount),
             outsideBestCount: Int(snapshot.outsideBestCount)
@@ -110,10 +117,23 @@ final class AppModel: ObservableObject {
         userData.scores.first { $0.id == scoreKey(songId: songId, chart: chart) }
     }
 
+    func score(for item: CatalogChartItem) -> ScoreEntry? {
+        score(for: item.song.id, chart: item.chart)
+    }
+
+    func chartItem(for score: ScoreEntry) -> CatalogChartItem? {
+        chartItems.first {
+            $0.song.id == score.songId &&
+                $0.chart.type.caseInsensitiveCompare(score.chartType) == .orderedSame &&
+                $0.chart.difficulty == score.difficulty
+        }
+    }
+
     func saveScore(song: Song, chart: SongChart, achievement: Double, playedAt: Date = Date()) {
         guard achievement.isFinite, (0.0...101.0).contains(achievement) else { return }
         let previousRating = ratingSummary.totalRating
         let key = scoreKey(songId: song.id, chart: chart)
+        let existing = userData.scores.first { $0.id == key }
         let entry = ScoreEntry(
             id: key,
             songId: song.id,
@@ -126,7 +146,10 @@ final class AppModel: ObservableObject {
             chartVersion: chart.version,
             achievement: achievement,
             rating: Int(domain.calculateRating(levelValue: chart.levelValue, achievement: achievement)),
-            playedAt: playedAt
+            playedAt: playedAt,
+            fullCombo: existing?.fullCombo,
+            fullSync: existing?.fullSync,
+            dxScore: existing?.dxScore
         )
         if let index = userData.scores.firstIndex(where: { $0.id == key }) {
             userData.scores[index] = entry
@@ -151,19 +174,57 @@ final class AppModel: ObservableObject {
         return Int(domain.calculateRating(levelValue: levelValue, achievement: achievement))
     }
 
+    func backupData() throws -> Data {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return try encoder.encode(userData)
+    }
+
+    func importBackup(_ data: Data) throws {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decoded = try decoder.decode(UserData.self, from: data)
+        guard decoded.schemaVersion == userData.schemaVersion else {
+            throw CocoaError(.coderReadCorrupt, userInfo: [
+                NSLocalizedDescriptionKey: "不支持的数据版本 v\(decoded.schemaVersion)"
+            ])
+        }
+        userData = decoded
+        persist()
+    }
+
     private func loadCatalog() async {
         guard let url = Bundle.main.url(forResource: "lxns_song_list_fallback", withExtension: "json") else {
             catalogState = .failed("公开曲库资源未打包")
             return
         }
         do {
-            let decodedSongs = try await Task.detached(priority: .userInitiated) {
+            let loaded = try await Task.detached(priority: .userInitiated) {
                 let data = try Data(contentsOf: url)
-                return try JSONDecoder().decode(CatalogEnvelope.self, from: data).songs
+                let songs = try JSONDecoder().decode(CatalogEnvelope.self, from: data).songs
                     .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+                let bridge = IosDomainBridge()
+                let charts = songs.flatMap { song in
+                    song.allCharts.map { chart in
+                        let tolerance = chart.notes.flatMap { notes -> Int? in
+                            let value = bridge.calculateSssPlusTapGreatTolerance(
+                                tap: Int32(notes.tap),
+                                hold: Int32(notes.hold),
+                                slide: Int32(notes.slide),
+                                touch: Int32(notes.touch),
+                                breakCount: Int32(notes.breakCount)
+                            )
+                            return value < 0 ? nil : Int(value)
+                        }
+                        return CatalogChartItem(song: song, chart: chart, sssPlusTolerance: tolerance)
+                    }
+                }
+                return (songs, charts)
             }.value
-            songs = decodedSongs
-            catalogState = .ready(decodedSongs.count)
+            songs = loaded.0
+            chartItems = loaded.1
+            catalogState = .ready(loaded.0.count)
         } catch {
             catalogState = .failed("公开曲库读取失败：\(error.localizedDescription)")
         }

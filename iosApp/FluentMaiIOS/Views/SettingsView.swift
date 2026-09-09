@@ -2,66 +2,125 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject private var model: AppModel
-    @State private var versionDraft = 24_006
+    @Environment(\.dismiss) private var dismiss
+    let scrollToTopRequestID: Int
+
+    @State private var versionDraft = 25_500
 
     var body: some View {
-        Form {
-            Section {
-                TextField("当前大版本编号", value: $versionDraft, format: .number)
-                    .keyboardType(.numberPad)
-                Button("应用版本") {
-                    model.setCurrentVersion(versionDraft)
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(spacing: 12) {
+                    Color.clear.frame(height: 1).id("settings-top")
+                    settingsCard(
+                        title: "外观",
+                        primary: "跟随 iOS 系统深色模式",
+                        secondary: "成绩卡片、谱面卡片与底栏会一起切换。"
+                    ) {
+                        Text("系统控制").font(.caption).padding(8).background(.quaternary, in: Capsule())
+                    }
+                    settingsCard(
+                        title: "上传",
+                        primary: "敏感凭据不落盘",
+                        secondary: "水鱼和 LXNS Token 只保留在导入页面当前会话中。"
+                    )
+                    versionCard
+                    settingsCard(
+                        title: "诊断",
+                        primary: "隔离记录",
+                        secondary: "当前没有解析失败或未知格式记录。"
+                    ) {
+                        Text("0 条").font(.caption).padding(8).background(.quaternary, in: Capsule())
+                    }
+                    settingsCard(
+                        title: "隐私",
+                        primary: "本地优先",
+                        secondary: "原始 Cookie、Token 与授权 URL 不写入本地文件；备份只包含成绩、别名和趋势。"
+                    )
+                    aboutCard
                 }
-                .disabled(versionDraft <= 0 || versionDraft == model.userData.currentVersionId)
-            } header: {
-                Text("Rating 版本")
-            } footer: {
-                Text("版本编号决定 B15（当前版本）与 B35（旧版本）分桶。公开曲库当前最高编号可作为参考。")
+                .frame(maxWidth: 1_000)
+                .padding(20)
+                .frame(maxWidth: .infinity)
             }
-
-            Section("本地数据") {
-                LabeledContent("曲库", value: catalogDescription)
-                LabeledContent("成绩", value: "\(model.userData.scores.count) 条")
-                LabeledContent(
-                    "自定义别名",
-                    value: "\(model.userData.aliases.values.reduce(0) { $0 + $1.count }) 个"
-                )
-                LabeledContent("趋势点", value: "\(model.userData.ratingHistory.count) 个")
-                LabeledContent("数据结构", value: "v\(model.userData.schemaVersion)")
-                if let persistenceError = model.persistenceError {
-                    Label(persistenceError, systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.red)
+            .background(FluentPalette.background)
+            .navigationTitle("设置")
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarBackButtonHidden(true)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { dismiss() } label: { Image(systemName: "chevron.left") }
+                        .accessibilityLabel("返回工具箱")
                 }
             }
-
-            Section {
-                Label("公开曲库随应用离线打包", systemImage: "checkmark.shield.fill")
-                Label("成绩、趋势和别名只保存在本机", systemImage: "iphone.gen3")
-                Label("MVP 不接收 Cookie、Token 或网页缓存", systemImage: "key.slash.fill")
-                Label("不会访问 Android 应用数据库", systemImage: "externaldrive.badge.xmark")
-            } header: {
-                Text("隐私边界")
-            } footer: {
-                Text("如需协助排错，只发送崩溃日志、页面截图和操作步骤；请勿发送登录链接、Cookie 或 Token。")
+            .onAppear { versionDraft = model.userData.currentVersionId }
+            .onChange(of: scrollToTopRequestID) { _, request in
+                guard request > 0 else { return }
+                withAnimation(.easeInOut(duration: 0.28)) { proxy.scrollTo("settings-top", anchor: .top) }
             }
-
-            Section("关于") {
-                LabeledContent("产品", value: "FluentMai iOS MVP")
-                LabeledContent("共享领域层", value: "Kotlin Multiplatform")
-                LabeledContent("界面", value: "SwiftUI · iPhone / iPad")
-            }
-        }
-        .navigationTitle("设置")
-        .onAppear {
-            versionDraft = model.userData.currentVersionId
         }
     }
 
-    private var catalogDescription: String {
-        switch model.catalogState {
-        case .loading: "读取中"
-        case .ready(let count): "\(count) 首"
-        case .failed: "不可用"
+    private var versionCard: some View {
+        FluentCard {
+            VStack(alignment: .leading, spacing: 9) {
+                Text("Rating 版本").font(.caption.weight(.semibold)).foregroundStyle(FluentPalette.primary)
+                Text("当前运营大版本").font(.headline)
+                TextField("版本编号", value: $versionDraft, format: .number)
+                    .keyboardType(.numberPad)
+                    .textFieldStyle(.roundedBorder)
+                Button("应用版本") { model.setCurrentVersion(versionDraft) }
+                    .buttonStyle(.bordered)
+                    .disabled(versionDraft <= 0 || versionDraft == model.userData.currentVersionId)
+                Text("该编号决定当前版本 B15 与旧版本 B35 的分桶。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
+    }
+
+    private var aboutCard: some View {
+        FluentCard {
+            VStack(alignment: .leading, spacing: 9) {
+                Text("关于").font(.caption.weight(.semibold)).foregroundStyle(FluentPalette.primary)
+                Text("FluentMai").font(.title2.bold())
+                Text("v\(appVersion) · 本地优先的舞萌 DX 成绩导入、查询与上传工具")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                LabeledContent("开发者", value: "Limitime")
+                LabeledContent("邮箱", value: "Daozhu1007@outlook.com")
+                LabeledContent("项目", value: "Daozhu1007 / FluentMai")
+                Text("FluentMai 是独立社区工具，与 SEGA、华立、Diving Fish、LXNS 官方均无从属关系。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func settingsCard<Trailing: View>(
+        title: String,
+        primary: String,
+        secondary: String,
+        @ViewBuilder trailing: () -> Trailing
+    ) -> some View {
+        FluentCard {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(title).font(.caption.weight(.semibold)).foregroundStyle(FluentPalette.primary)
+                    Text(primary).font(.headline)
+                    Text(secondary).font(.subheadline).foregroundStyle(.secondary)
+                }
+                Spacer()
+                trailing()
+            }
+        }
+    }
+
+    private func settingsCard(title: String, primary: String, secondary: String) -> some View {
+        settingsCard(title: title, primary: primary, secondary: secondary) { EmptyView() }
+    }
+
+    private var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.2.4"
     }
 }

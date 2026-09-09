@@ -8,7 +8,7 @@ struct FluentMaiIOSApp: App {
         WindowGroup {
             ResponsiveRootView()
                 .environmentObject(model)
-                .tint(.cyan)
+                .tint(FluentPalette.primary)
         }
     }
 }

@@ -4,8 +4,8 @@
 
 | Platform | Status | Download | Notes |
 | --- | --- | --- | --- |
-| Android | Beta | [Android Release](https://github.com/Daozhu1007/FluentMai/releases/tag/v0.2.0-beta) | Primary maintained platform |
-| iOS | Experimental Alpha | [unsigned IPA](https://github.com/Daozhu1007/FluentMai/releases/tag/v0.2.0-ios-alpha.1) | User self-signing required; iOS 17+ |
+| Android | Beta | [Android APK](https://github.com/Daozhu1007/FluentMai/releases/tag/v0.2.4-beta) | Primary maintained platform; debug-signed test build |
+| iOS | Experimental Beta | [unsigned IPA](https://github.com/Daozhu1007/FluentMai/releases/tag/v0.2.4-beta) | User self-signing required; iOS 17+ |
 | Windows | Alpha / Development | Source only | Independent desktop implementation under `windows/` |
 
 FluentMai is an unofficial, local-first score companion for players of the mainland China version of maimai DX. This product repository carries three independent platform implementations. Android is currently the most mature platform; iOS and Windows remain experimental.
@@ -30,10 +30,9 @@ See [Product Scope](docs/PRODUCT_SCOPE.md), [Privacy Model](docs/PRIVACY_MODEL.m
 
 ## Releases
 
-Existing releases remain unchanged:
+Current synchronized mobile release:
 
-- `v0.2.0-beta` — Android Beta, distributed as a debug-signed test APK.
-- `v0.2.0-ios-alpha.1` — iOS Experimental Preview, distributed as an unsigned `iphoneos arm64` IPA.
+- `v0.2.4-beta` — Android debug-signed test APK and iOS unsigned `iphoneos arm64` IPA.
 - Windows does not yet have a public release. CI artifacts are development evidence, not a Windows release.
 
 Future platform-specific tags use these forms:
@@ -42,7 +41,7 @@ Future platform-specific tags use these forms:
 - `vX.Y.Z-ios-alpha.N`
 - `vX.Y.Z-windows-alpha.N`
 
-Each platform follows an independent release cycle. A shared tag should be considered only if versions and features genuinely become synchronized.
+Platforms may still follow independent release cycles, but `v0.2.4-beta` synchronizes the current Android and iOS test artifacts under one tag.
 
 ## Repository layout
 

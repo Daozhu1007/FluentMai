@@ -6,9 +6,9 @@
 
 ## 1. 下载正确文件
 
-打开 [FluentMai iOS Experimental Preview 0.2.0-alpha.1](https://github.com/Daozhu1007/FluentMai/releases/tag/v0.2.0-ios-alpha.1)，在 Assets 中下载：
+打开 [FluentMai v0.2.4 Beta](https://github.com/Daozhu1007/FluentMai/releases/tag/v0.2.4-beta)，在 Assets 中下载：
 
-- `FluentMai-v0.2.0-ios-alpha.1-unsigned.ipa`：要安装的正式命名文件；
+- `FluentMai-v0.2.4-beta-ios-unsigned.ipa`：要安装的正式命名文件；
 - `SHA256SUMS.txt`：校验值；
 - `ios-device-build-manifest.json`：真实构建环境和静态验证记录；
 - `IOS_SIDELOAD_GUIDE.zh-CN.md`：本指南的可下载副本。
@@ -20,7 +20,7 @@
 把 IPA 和 `SHA256SUMS.txt` 放在同一文件夹。在该文件夹空白处按住 Shift 并右键，选择“在终端中打开”，运行：
 
 ```powershell
-Get-FileHash .\FluentMai-v0.2.0-ios-alpha.1-unsigned.ipa -Algorithm SHA256
+Get-FileHash .\FluentMai-v0.2.4-beta-ios-unsigned.ipa -Algorithm SHA256
 ```
 
 将输出的 `Hash` 与 `SHA256SUMS.txt` 中同名文件前的 64 位字符逐字比较。大小写不影响结果；任何字符不同都应删除文件并从上述 GitHub Release 重新下载。
@@ -68,7 +68,7 @@ iOS 16 及更高版本通常要求开发者模式：
 
 1. 保持 Windows 上 AltServer 运行，并让 iPhone 通过 USB 或已配置的同一 Wi-Fi 与电脑连通。
 2. 把下载的 IPA 保存到 iPhone“文件”App（可以在 iPhone 上从 GitHub Release 下载，也可以通过你信任的本地方式传入）。不要解压。
-3. 打开 AltStore，进入 `My Apps`，点左上角 `+`，从“文件”中选择 `FluentMai-v0.2.0-ios-alpha.1-unsigned.ipa`。
+3. 打开 AltStore，进入 `My Apps`，点左上角 `+`，从“文件”中选择 `FluentMai-v0.2.4-beta-ios-unsigned.ipa`。
 4. 若 AltStore 要求登录，只使用你自己的 Apple Account；不要使用开发者或陌生人提供的共享账号。
 5. 等待签名、传输和安装完成。期间保持 AltServer 运行、网络稳定，不要拔线或锁定设备。
 6. 安装成功后，`My Apps` 会出现 FluentMai，主屏幕/App 资源库也会出现 FluentMai 图标。
@@ -79,12 +79,12 @@ AltServer 也支持在 Windows 上按住 Shift 单击托盘图标后选择 `Side
 
 1. 第一次启动前确认“VPN 与设备管理”中的开发者已信任、开发者模式已开启。
 2. 打开 FluentMai。首次读取内置离线曲库可能需要短暂等待。
-3. 在 AltStore `My Apps` 或 iPhone“设置 → 通用 → iPhone 储存空间 → FluentMai”中检查版本；本包的 App 版本应为 `0.2.0`，构建号为 `1`。
+3. 在 AltStore `My Apps` 或 iPhone“设置 → 通用 → iPhone 储存空间 → FluentMai”中检查版本；当前源码生成包的 App 版本为 `0.2.4`，构建号为 `1`。
 4. 本预览包的 Bundle Identifier 为 `dev.fluentmai.ios`；自签工具为满足 Apple 个人团队规则可能对最终签名标识作受控调整，这不代表下载的原始 IPA 来自别处。
 
 ## 9. 测试范围与反馈材料
 
-当前 iOS 功能少于 Android，适合测试离线公开曲库、标题/曲师/编号/本地别名搜索、标准/DX 切换、曲目详情、本地成绩、B35/B15、Rating Trend 和计算工具。它目前不保证支持 Android 数据迁移，也没有验证完整 Android 导入流程已经迁移。
+当前 iOS 已按 Android 的“首页 / 导入 / 谱面 / 工具”结构组织，适合测试独立页面状态、重复点击底栏回到当前页面顶部、B35/B15、牌子进度与推分建议、谱面筛选与排序、谱面详情、SSS+ 容错、Rating Trend 和计算工具。iOS 普通应用无法运行 Android 的本地 VPN Hook，Wahlap/云端网络适配也仍为平台专用；iOS JSON 备份不是 Android 数据库迁移格式。
 
 报告问题时请提供：
 
@@ -111,7 +111,7 @@ AltServer 也支持在 Windows 上按住 Shift 单击托盘图标后选择 `Side
 
 ## 11. 保护本地数据和覆盖更新
 
-FluentMai 的 iOS 成绩、别名和趋势数据保存在 App 本地。**卸载 App 可能删除这些数据**，当前实验版没有承诺可用的导出/恢复或 Android→iOS 迁移能力。
+FluentMai 的 iOS 成绩、别名和趋势数据保存在 App 本地。**卸载 App 可能删除这些数据**。可在“导入”页面导出 iOS JSON 备份并在之后恢复；该文件不承诺与 Android 数据库互通。
 
 - 不要把“卸载重装”当作第一排障步骤。
 - 更新新 IPA 时，先保留旧 App，使用同一 Apple Account/AltStore 流程导入新 IPA，尽量让系统按同一 Bundle Identifier 覆盖安装。
