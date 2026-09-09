@@ -18,12 +18,12 @@ FluentMai Android is currently focused on one workflow:
 - Deduplication across title, chart type, and difficulty.
 - Song type and song ID handling for upload compatibility.
 - Diving Fish and LXNS upload clients.
+- Android Keystore-backed encrypted storage for Diving Fish and LXNS upload tokens.
 - Privacy-safe logs and UI messages.
 
 ## Deferred
 
 - Persistent account login.
-- Token storage.
 - Cloud sync.
 - AI recommendations.
 - Community features.

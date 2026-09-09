@@ -2,12 +2,14 @@ package dev.fluentmai.android
 
 import java.io.File
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PersistenceBoundaryContractTest {
     @Test
-    fun appHasNoTokenOrRawHtmlPersistenceSink() {
+    fun appKeepsSensitivePersistenceInsideDedicatedBoundaries() {
         val activity = source("app/src/main/kotlin/dev/fluentmai/android/MainActivity.kt")
+        val tokenStore = source("app/src/main/kotlin/dev/fluentmai/android/UploadTokenStore.kt")
         val authClient = source("app/src/main/kotlin/dev/fluentmai/android/WahlapHttpScorePageClient.kt")
         val cookieClient = source("app/src/main/kotlin/dev/fluentmai/android/WahlapManualCookieScorePageClient.kt")
 
@@ -23,6 +25,9 @@ class PersistenceBoundaryContractTest {
         assertFalse(authClient.contains("supplementalPageSink"))
         assertFalse(cookieClient.contains("debugPageSink"))
         assertFalse(cookieClient.contains("supplementalPageSink"))
+        assertFalse("Upload tokens must not be stored as plaintext", tokenStore.contains("putString(preferenceKey, value)"))
+        assertTrue(tokenStore.contains("AndroidKeyStore"))
+        assertTrue(tokenStore.contains("AES/GCM/NoPadding"))
     }
 
     @Test

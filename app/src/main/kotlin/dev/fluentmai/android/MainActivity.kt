@@ -89,6 +89,7 @@ class MainActivity : ComponentActivity() {
     private val repository by lazy { FluentMaiRepository(database) }
     private val persistence by lazy { RoomImportPersistence(database) }
     private val privacyRedactor by lazy { PrivacyRedactor() }
+    private val uploadTokenStore by lazy { UploadTokenStore(this) }
     private val scoreUploader by lazy {
         MaimaiScoreUploader(transport = AndroidNetworkMaimaiUploadTransport(this))
     }
@@ -124,6 +125,7 @@ class MainActivity : ComponentActivity() {
                     uploadToDivingFish = { token, onProgress -> uploadToDivingFish(token, onProgress) },
                     rebuildDivingFish = { token, onProgress -> rebuildDivingFish(token, onProgress) },
                     uploadToLxns = { token, onProgress -> uploadToLxns(token, onProgress) },
+                    uploadTokenStore = uploadTokenStore,
                     redactMessage = privacyRedactor::redact,
                 )
             }
@@ -257,6 +259,7 @@ private fun FluentMaiApp(
     uploadToDivingFish: suspend (String, (MaimaiUploadProgress) -> Unit) -> MaimaiUploadResult,
     rebuildDivingFish: suspend (String, (MaimaiUploadProgress) -> Unit) -> MaimaiUploadResult,
     uploadToLxns: suspend (String, (MaimaiUploadProgress) -> Unit) -> MaimaiUploadResult,
+    uploadTokenStore: UploadTokenStore,
     redactMessage: (String) -> String,
 ) {
     val context = LocalContext.current
@@ -287,8 +290,8 @@ private fun FluentMaiApp(
     var lastImportError by remember { mutableStateOf<String?>(null) }
     var importStatus by remember { mutableStateOf(ImportRunStatus.Idle) }
     var uploadStatus by remember { mutableStateOf(UploadRunStatus.Idle) }
-    var divingFishToken by remember { mutableStateOf("") }
-    var lxnsToken by remember { mutableStateOf("") }
+    var divingFishToken by remember { mutableStateOf(uploadTokenStore.divingFishToken) }
+    var lxnsToken by remember { mutableStateOf(uploadTokenStore.lxnsToken) }
     var lastUploadResult by remember { mutableStateOf<MaimaiUploadResult?>(null) }
     var lastUploadError by remember { mutableStateOf<String?>(null) }
     var uploadProgressText by remember { mutableStateOf<String?>(null) }
@@ -870,8 +873,14 @@ private fun FluentMaiApp(
                     onCopyHookUrl = ::copyHookUrl,
                     onWahlapCookieInputChanged = { value -> wahlapCookieInput = value },
                     onImportWahlapCookie = ::startManualCookieImport,
-                    onDivingFishTokenChanged = { token -> divingFishToken = token },
-                    onLxnsTokenChanged = { token -> lxnsToken = token },
+                    onDivingFishTokenChanged = { token ->
+                        divingFishToken = token
+                        uploadTokenStore.divingFishToken = token
+                    },
+                    onLxnsTokenChanged = { token ->
+                        lxnsToken = token
+                        uploadTokenStore.lxnsToken = token
+                    },
                     onUploadDivingFish = ::startDivingFishUpload,
                     onRebuildDivingFish = ::startDivingFishRebuild,
                     onUploadLxns = ::startLxnsUpload,

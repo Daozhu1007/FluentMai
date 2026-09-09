@@ -31,7 +31,7 @@ The debug APK is generated under `app/build/outputs/apk/debug/`.
 
 ## Data and privacy
 
-Android stores validated score data in its local Room database. Import validation, deduplication, and quarantine are Android product features. New upload tokens and raw import pages are kept out of ordinary persistent storage by the current implementation.
+Android stores validated score data in its local Room database. Import validation, deduplication, and quarantine are Android product features. Diving Fish and LXNS upload tokens are encrypted with Android Keystore-backed AES-GCM before being saved in app-private preferences, while raw import pages, Wahlap authorization URLs, and Cookie import values are not persisted.
 
 Android Room migrations apply only to Android. They do not migrate data to iOS or Windows.
 

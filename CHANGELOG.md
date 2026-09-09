@@ -2,6 +2,16 @@
 
 All notable user-facing changes to FluentMai are recorded here.
 
+## Unreleased
+
+### English
+
+- Android now securely remembers Diving Fish and LXNS upload tokens across app restarts using Android Keystore-backed encrypted storage.
+
+### 简体中文
+
+- Android 现在会使用 Android Keystore 支持的加密存储长期保留水鱼与落雪上传 Token，关闭并重新打开应用后会自动回填。
+
 ## [0.2.4-beta] - 2026-09-09
 
 ### English
