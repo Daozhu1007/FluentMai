@@ -4,7 +4,7 @@
 
 | Platform | Status | Download | Notes |
 | --- | --- | --- | --- |
-| Android | Beta | [Android APK](https://github.com/Daozhu1007/FluentMai/releases/tag/v0.2.4-beta) | Primary maintained platform; debug-signed test build |
+| Android | Beta | [Android APK](https://github.com/Daozhu1007/FluentMai/releases/tag/v0.2.5-android-beta.1) | Primary maintained platform; debug-signed test build |
 | iOS | Experimental Beta | [unsigned IPA](https://github.com/Daozhu1007/FluentMai/releases/tag/v0.2.4-beta) | User self-signing required; iOS 17+ |
 | Windows | Alpha / Development | Source only | Independent desktop implementation under `windows/` |
 
@@ -30,9 +30,10 @@ See [Product Scope](docs/PRODUCT_SCOPE.md), [Privacy Model](docs/PRIVACY_MODEL.m
 
 ## Releases
 
-Current synchronized mobile release:
+Current mobile releases:
 
-- `v0.2.4-beta` — Android debug-signed test APK and iOS unsigned `iphoneos arm64` IPA.
+- `v0.2.5-android-beta.1` — Android debug-signed test APK.
+- `v0.2.4-beta` — iOS unsigned `iphoneos arm64` IPA (unchanged).
 - Windows does not yet have a public release. CI artifacts are development evidence, not a Windows release.
 
 Future platform-specific tags use these forms:
@@ -41,7 +42,7 @@ Future platform-specific tags use these forms:
 - `vX.Y.Z-ios-alpha.N`
 - `vX.Y.Z-windows-alpha.N`
 
-Platforms may still follow independent release cycles, but `v0.2.4-beta` synchronizes the current Android and iOS test artifacts under one tag.
+Platforms follow independent release cycles; the earlier `v0.2.4-beta` synchronized Android and iOS test artifacts under one tag.
 
 ## Repository layout
 

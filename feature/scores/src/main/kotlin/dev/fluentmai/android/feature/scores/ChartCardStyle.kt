@@ -31,7 +31,25 @@ internal fun chartCardElevation() = if (isLightChartTheme()) {
 } else CardDefaults.elevatedCardElevation()
 
 @Composable
+fun chartCardContainerColor(darkContainer: Color = MaterialTheme.colorScheme.surface): Color =
+    if (isLightChartTheme()) Color(0xFFF3F6F8) else darkContainer
+
+@Composable
 internal fun chartCardColors(darkContainer: Color = Color.Unspecified) =
     CardDefaults.elevatedCardColors(
-        containerColor = if (isLightChartTheme()) Color(0xFFF3F6F8) else darkContainer,
+        containerColor = chartCardContainerColor(darkContainer),
     )
+
+@Composable
+internal fun plateRecordCardColors(completed: Boolean) = CardDefaults.elevatedCardColors(
+    containerColor = plateRecordBackgroundColor(completed, isLightChartTheme()),
+    contentColor = MaterialTheme.colorScheme.onSurface,
+)
+
+// Use the resolved app theme, not the device theme, for both manual and system modes.
+internal fun plateRecordBackgroundColor(completed: Boolean, lightTheme: Boolean): Color = when {
+    lightTheme && completed -> Color(0xFFE1F2E7)
+    lightTheme -> Color(0xFFFBE5E5)
+    completed -> Color(0xFF193C30)
+    else -> Color(0xFF45282D)
+}

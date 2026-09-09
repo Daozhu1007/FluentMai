@@ -77,6 +77,7 @@ import dev.fluentmai.android.feature.scores.AliasDataStatus
 import dev.fluentmai.android.feature.scores.PlayerProgressDestination
 import dev.fluentmai.android.feature.scores.PlayerProgressScreen
 import dev.fluentmai.android.feature.scores.ScoresScreen
+import dev.fluentmai.android.feature.scores.chartCardContainerColor
 import dev.fluentmai.android.feature.settings.SettingsScreen
 import dev.fluentmai.android.feature.settings.ThemeMode
 import dev.fluentmai.android.feature.tools.ToolboxScreen
@@ -87,7 +88,7 @@ import java.text.Normalizer
 import kotlinx.coroutines.withContext
 
 private const val TAG = "FluentMaiImport"
-private const val APP_VERSION = "0.2.4-beta"
+private const val APP_VERSION = "0.2.5-android-beta.1"
 
 class MainActivity : ComponentActivity() {
     private val database by lazy { FluentMaiDatabase.create(this) }
@@ -864,6 +865,7 @@ private fun FluentMaiApp(
                 )
 
                 AppTab.Import -> ImportScreen(
+                    moduleBackgroundColor = chartCardContainerColor(),
                     realImportSummary = lastRealResult?.summaryText(),
                     importStatus = importStatus.label,
                     errorMessage = lastImportError,

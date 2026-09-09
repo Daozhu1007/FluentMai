@@ -4,7 +4,7 @@
 
 | 平台 | 状态 | 下载 | 说明 |
 | --- | --- | --- | --- |
-| Android | Beta | [Android APK](https://github.com/Daozhu1007/FluentMai/releases/tag/v0.2.4-beta) | 当前主要维护平台；debug 签名测试包 |
+| Android | Beta | [Android APK](https://github.com/Daozhu1007/FluentMai/releases/tag/v0.2.5-android-beta.1) | 当前主要维护平台；debug 签名测试包 |
 | iOS | Experimental Beta | [unsigned IPA](https://github.com/Daozhu1007/FluentMai/releases/tag/v0.2.4-beta) | 需要用户自签，iOS 17+ |
 | Windows | Alpha / Development | 暂仅源码 | `windows/` 下的独立桌面实现 |
 
@@ -30,9 +30,10 @@ FluentMai 的共同方向是把成绩导入、校验、浏览与分析尽量留�
 
 ## 发布
 
-当前同步移动端发布：
+当前移动端发布：
 
-- `v0.2.4-beta` — Android debug-signed 测试 APK与 iOS unsigned `iphoneos arm64` IPA。
+- `v0.2.5-android-beta.1` — Android debug-signed 测试 APK。
+- `v0.2.4-beta` — iOS unsigned `iphoneos arm64` IPA（保持不变）。
 - Windows 尚无公开 Release；Actions 中的构建产物只作为开发验证证据，不等于 Windows 发布。
 
 未来平台独立 tag 使用：
@@ -41,7 +42,7 @@ FluentMai 的共同方向是把成绩导入、校验、浏览与分析尽量留�
 - `vX.Y.Z-ios-alpha.N`
 - `vX.Y.Z-windows-alpha.N`
 
-各平台仍可独立发版；`v0.2.4-beta` 将当前 Android 与 iOS 测试产物同步在同一个 tag 下。
+各平台独立发版；此前的 `v0.2.4-beta` 将 Android 与 iOS 测试产物同步在同一个 tag 下。
 
 ## 仓库结构
 

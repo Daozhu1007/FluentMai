@@ -421,7 +421,7 @@ private fun PlateRecordCard(
     ElevatedCard(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth().chartCardOutline(),
-        colors = chartCardColors(),
+        colors = plateRecordCardColors(completed = blocker == null),
         elevation = chartCardElevation(),
     ) {
         Row(
@@ -447,7 +447,7 @@ private fun PlateRecordCard(
                 )
                 Text(
                     blocker?.let { "${it.currentValue} · ${it.requirementGap}" } ?: "已完成",
-                    color = if (blocker == null) Color(0xFF2B8A3E) else MaterialTheme.colorScheme.error,
+                    color = MaterialTheme.colorScheme.onSurface,
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }

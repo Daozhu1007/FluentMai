@@ -35,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 
@@ -75,6 +76,7 @@ fun ImportScreen(
     onUploadLxns: () -> Unit,
     scrollToTopRequestId: Int = 0,
     modifier: Modifier = Modifier,
+    moduleBackgroundColor: Color = MaterialTheme.colorScheme.surface,
 ) {
     val isBusy = isImporting || isUploading
     var showRebuildConfirmation by remember { mutableStateOf(false) }
@@ -151,7 +153,8 @@ fun ImportScreen(
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.small,
-            tonalElevation = 1.dp,
+            color = moduleBackgroundColor,
+            tonalElevation = 0.dp,
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
@@ -198,7 +201,8 @@ fun ImportScreen(
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.small,
-            tonalElevation = 1.dp,
+            color = moduleBackgroundColor,
+            tonalElevation = 0.dp,
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
@@ -230,7 +234,8 @@ fun ImportScreen(
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.small,
-            tonalElevation = 1.dp,
+            color = moduleBackgroundColor,
+            tonalElevation = 0.dp,
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
@@ -295,7 +300,8 @@ fun ImportScreen(
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.small,
-            tonalElevation = 1.dp,
+            color = moduleBackgroundColor,
+            tonalElevation = 0.dp,
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),

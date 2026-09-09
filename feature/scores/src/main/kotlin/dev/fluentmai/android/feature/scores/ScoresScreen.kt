@@ -1115,13 +1115,7 @@ private fun ChartCard(
             .fillMaxWidth()
             .chartCardOutline()
             .clickable(onClick = onClick),
-        colors = chartCardColors(
-            darkContainer = if (score == null) {
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
-            } else {
-                MaterialTheme.colorScheme.surface
-            },
-        ),
+        colors = chartCardColors(MaterialTheme.colorScheme.surface),
         elevation = chartCardElevation(),
     ) {
         Column(
