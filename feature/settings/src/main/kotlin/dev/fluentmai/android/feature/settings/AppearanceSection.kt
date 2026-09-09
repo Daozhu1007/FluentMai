@@ -7,6 +7,7 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,8 +17,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -37,16 +36,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 
 private val SunOrange = Color(0xFFC76A16)
-private val SystemGreen = Color(0xFF7DD8C2)
 private val MoonBlue = Color(0xFF243E78)
 
 @Composable
@@ -57,7 +57,7 @@ internal fun AppearanceSection(mode: ThemeMode, onModeChanged: (ThemeMode) -> Un
         colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -72,40 +72,48 @@ internal fun AppearanceSection(mode: ThemeMode, onModeChanged: (ThemeMode) -> Un
 
 @Composable
 private fun ThemeModeSwitch(mode: ThemeMode, onModeChanged: (ThemeMode) -> Unit) {
+    val systemGreen = MaterialTheme.colorScheme.primary
     val trackColor by animateColorAsState(
-        targetValue = mode.accent(),
+        targetValue = mode.accent(systemGreen),
         animationSpec = tween(250),
         label = "themeTrackColor",
     )
     val thumbOffset by animateDpAsState(
-        targetValue = 4.dp + 48.dp * mode.ordinal,
+        targetValue = 3.dp + 34.dp * mode.ordinal,
         animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow),
         label = "themeThumbPosition",
     )
     val thumbColor by animateColorAsState(
-        targetValue = if (mode == ThemeMode.SYSTEM) Color(0xFF183D34) else Color.White,
+        targetValue = if (mode == ThemeMode.SYSTEM && systemGreen.luminance() > 0.5f) Color(0xFF183D34) else Color.White,
         animationSpec = tween(250),
         label = "themeThumbBackground",
     )
     // Positions are deliberately physical left / middle / right, including in RTL locales.
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
         Box(
-            modifier = Modifier.size(width = 148.dp, height = 52.dp)
-                .clip(CircleShape)
-                .background(trackColor)
-                .selectableGroup(),
+            modifier = Modifier.size(width = 100.dp, height = 48.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .semantics {
+                    contentDescription = "切换外观"
+                    stateDescription = mode.label
+                }
+                .clickable(role = Role.Button, onClickLabel = "切换为${mode.next().label}") {
+                    onModeChanged(mode.next())
+                },
+            contentAlignment = Alignment.Center,
         ) {
-            Row(Modifier.fillMaxSize().padding(horizontal = 2.dp)) {
+          Box(Modifier.size(100.dp, 32.dp).clip(CircleShape).background(trackColor)) {
+            Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.SpaceBetween) {
                 repeat(ThemeMode.entries.size) {
-                    Box(Modifier.size(48.dp, 52.dp), contentAlignment = Alignment.Center) {
-                        Box(Modifier.size(4.dp).background(Color.White.copy(alpha = 0.65f), CircleShape))
+                    Box(Modifier.size(32.dp), contentAlignment = Alignment.Center) {
+                        Box(Modifier.size(3.dp).background(Color.White.copy(alpha = 0.65f), CircleShape))
                     }
                 }
             }
             Box(
-                modifier = Modifier.absoluteOffset(x = thumbOffset, y = 4.dp)
-                    .size(44.dp)
-                    .shadow(2.dp, CircleShape)
+                modifier = Modifier.absoluteOffset(x = thumbOffset, y = 3.dp)
+                    .size(26.dp)
+                    .shadow(1.dp, CircleShape)
                     .background(thumbColor, CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
@@ -117,36 +125,18 @@ private fun ThemeModeSwitch(mode: ThemeMode, onModeChanged: (ThemeMode) -> Unit)
                             ThemeMode.DARK -> Icons.Filled.DarkMode
                         },
                         contentDescription = null,
-                        tint = selected.accent(),
-                        modifier = Modifier.size(24.dp),
+                        tint = selected.accent(systemGreen),
+                        modifier = Modifier.size(18.dp),
                     )
                 }
             }
-            // Transparent hit areas stay still while the thumb moves, so rapid taps remain reliable.
-            Row(Modifier.fillMaxSize().padding(horizontal = 2.dp)) {
-                ThemeMode.entries.forEach { option ->
-                    val target = if (mode == option) {
-                        ThemeMode.entries[(option.ordinal + 1) % ThemeMode.entries.size]
-                    } else option
-                    Box(
-                        Modifier.size(48.dp, 52.dp)
-                            .semantics {
-                                contentDescription = if (mode == option) "${option.label}，点击切换为${target.label}" else option.label
-                            }
-                            .selectable(
-                                selected = mode == option,
-                                role = Role.RadioButton,
-                                onClick = { onModeChanged(target) },
-                            ),
-                    )
-                }
-            }
+          }
         }
     }
 }
 
-private fun ThemeMode.accent(): Color = when (this) {
+private fun ThemeMode.accent(systemGreen: Color): Color = when (this) {
     ThemeMode.LIGHT -> SunOrange
-    ThemeMode.SYSTEM -> SystemGreen
+    ThemeMode.SYSTEM -> systemGreen
     ThemeMode.DARK -> MoonBlue
 }

@@ -1019,8 +1019,10 @@ private fun ScoreCard(
     ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
+            .chartCardOutline()
             .clickable(enabled = item.chart != null, onClick = openDetail),
-        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = chartCardColors(MaterialTheme.colorScheme.surface),
+        elevation = chartCardElevation(),
     ) {
         Column(
             modifier = Modifier.padding(12.dp),
@@ -1111,14 +1113,16 @@ private fun ChartCard(
     ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
+            .chartCardOutline()
             .clickable(onClick = onClick),
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = if (score == null) {
+        colors = chartCardColors(
+            darkContainer = if (score == null) {
                 MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
             } else {
                 MaterialTheme.colorScheme.surface
             },
         ),
+        elevation = chartCardElevation(),
     ) {
         Column(
             modifier = Modifier.padding(12.dp),

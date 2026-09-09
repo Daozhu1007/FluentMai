@@ -5,6 +5,8 @@ enum class ThemeMode(val label: String) {
     SYSTEM("跟随系统"),
     DARK("深色模式");
 
+    fun next(): ThemeMode = entries[(ordinal + 1) % entries.size]
+
     fun isDark(systemDark: Boolean): Boolean = when (this) {
         LIGHT -> false
         SYSTEM -> systemDark

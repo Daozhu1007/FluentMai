@@ -418,7 +418,12 @@ private fun PlateRecordCard(
     blocker: PlateBlocker?,
     onClick: () -> Unit,
 ) {
-    ElevatedCard(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+    ElevatedCard(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().chartCardOutline(),
+        colors = chartCardColors(),
+        elevation = chartCardElevation(),
+    ) {
         Row(
             modifier = Modifier.padding(14.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),

@@ -4,6 +4,9 @@ All notable user-facing changes to FluentMai are recorded here.
 
 ## Unreleased
 
+- 缩小 Android 外观开关，整条轨道点击按亮色、跟随系统、深色循环；系统档绿色随当前主题变化。
+- 亮色主题的谱面卡片改用白色描边与浅灰白底色，移除灰色外阴影。
+
 - Android 设置移除上传/隐私说明，外观新增亮色、跟随系统、深色三段动画开关；主题选择会在重启后保留。
 
 - Android 牌子进度页面回顶改为连续按像素滚动，避免不同高度卡片之间重新定位产生的停顿。

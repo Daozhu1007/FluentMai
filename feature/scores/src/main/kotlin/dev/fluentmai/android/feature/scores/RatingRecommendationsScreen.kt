@@ -307,7 +307,12 @@ private fun RecommendationCard(
     onOpen: () -> Unit,
     onExclude: () -> Unit,
 ) {
-    ElevatedCard(onClick = onOpen, modifier = Modifier.fillMaxWidth()) {
+    ElevatedCard(
+        onClick = onOpen,
+        modifier = Modifier.fillMaxWidth().chartCardOutline(),
+        colors = chartCardColors(),
+        elevation = chartCardElevation(),
+    ) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),

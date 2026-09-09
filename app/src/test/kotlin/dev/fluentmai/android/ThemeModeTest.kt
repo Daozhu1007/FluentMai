@@ -8,6 +8,13 @@ import org.junit.Test
 
 class ThemeModeTest {
     @Test
+    fun everyClickAdvancesInPhysicalLeftToRightOrder() {
+        assertEquals(ThemeMode.SYSTEM, ThemeMode.LIGHT.next())
+        assertEquals(ThemeMode.DARK, ThemeMode.SYSTEM.next())
+        assertEquals(ThemeMode.LIGHT, ThemeMode.DARK.next())
+    }
+
+    @Test
     fun missingOrUnknownPreferenceDefaultsToSystem() {
         assertEquals(ThemeMode.SYSTEM, ThemeMode.fromStored(null))
         assertEquals(ThemeMode.SYSTEM, ThemeMode.fromStored("unknown"))
