@@ -4,7 +4,6 @@ import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import java.security.KeyStore
-import java.security.SecureRandom
 import java.util.Base64
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -29,10 +28,7 @@ internal class UploadTokenStore(context: Context) {
     private fun read(preferenceKey: String): String {
         val payload = preferences.getString(preferenceKey, null) ?: return ""
         return runCatching { UploadTokenCipher.decrypt(payload, getOrCreateSecretKey()) }
-            .getOrElse {
-                preferences.edit().remove(preferenceKey).apply()
-                ""
-            }
+            .getOrDefault("")
     }
 
     @Synchronized
@@ -80,12 +76,12 @@ internal object UploadTokenCipher {
     private const val IV_LENGTH_BYTES = 12
 
     fun encrypt(value: String, key: SecretKey): String {
-        val iv = ByteArray(IV_LENGTH_BYTES).also(SecureRandom()::nextBytes)
         val cipher = Cipher.getInstance(TRANSFORMATION).apply {
-            init(Cipher.ENCRYPT_MODE, key, GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv))
+            // Android Keystore requires the provider to generate the encryption IV.
+            init(Cipher.ENCRYPT_MODE, key)
         }
         val ciphertext = cipher.doFinal(value.toByteArray(Charsets.UTF_8))
-        return listOf(PAYLOAD_VERSION, encode(iv), encode(ciphertext)).joinToString(":")
+        return listOf(PAYLOAD_VERSION, encode(cipher.iv), encode(ciphertext)).joinToString(":")
     }
 
     fun decrypt(payload: String, key: SecretKey): String {

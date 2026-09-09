@@ -1,6 +1,9 @@
 package dev.fluentmai.android
 
 import javax.crypto.KeyGenerator
+import javax.crypto.Cipher
+import javax.crypto.spec.GCMParameterSpec
+import java.util.Base64
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -28,6 +31,19 @@ class UploadTokenCipherTest {
         val second = UploadTokenCipher.encrypt("same-token", key)
 
         assertNotEquals(first, second)
+    }
+
+    @Test
+    fun stillReadsPreviouslySavedV1Payloads() {
+        val iv = ByteArray(12) { it.toByte() }
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply {
+            init(Cipher.ENCRYPT_MODE, key, GCMParameterSpec(128, iv))
+        }
+        val encoder = Base64.getUrlEncoder().withoutPadding()
+        val ciphertext = cipher.doFinal("existing-token".toByteArray(Charsets.UTF_8))
+        val payload = "v1:${encoder.encodeToString(iv)}:${encoder.encodeToString(ciphertext)}"
+
+        assertEquals("existing-token", UploadTokenCipher.decrypt(payload, key))
     }
 
     @Test

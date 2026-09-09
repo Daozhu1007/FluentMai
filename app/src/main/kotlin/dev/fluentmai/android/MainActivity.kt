@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -875,11 +876,17 @@ private fun FluentMaiApp(
                     onImportWahlapCookie = ::startManualCookieImport,
                     onDivingFishTokenChanged = { token ->
                         divingFishToken = token
-                        uploadTokenStore.divingFishToken = token
+                        runCatching { uploadTokenStore.divingFishToken = token }
+                            .onFailure {
+                                Toast.makeText(context, "水鱼 Token 保存失败，请重新输入或粘贴后重试。", Toast.LENGTH_LONG).show()
+                            }
                     },
                     onLxnsTokenChanged = { token ->
                         lxnsToken = token
-                        uploadTokenStore.lxnsToken = token
+                        runCatching { uploadTokenStore.lxnsToken = token }
+                            .onFailure {
+                                Toast.makeText(context, "落雪 Token 保存失败，请重新输入或粘贴后重试。", Toast.LENGTH_LONG).show()
+                            }
                     },
                     onUploadDivingFish = ::startDivingFishUpload,
                     onRebuildDivingFish = ::startDivingFishRebuild,

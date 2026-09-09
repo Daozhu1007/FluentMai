@@ -4,6 +4,9 @@ All notable user-facing changes to FluentMai are recorded here.
 
 ## Unreleased
 
+- Fixed an Android crash when entering upload tokens: let Android Keystore generate the AES-GCM IV and handle storage failures without closing the app.
+- 修复 Android 输入上传 Token 时的闪退：由 Android Keystore 生成 AES-GCM 随机参数，并在保存异常时显示提示。
+
 ### English
 
 - Android now securely remembers Diving Fish and LXNS upload tokens across app restarts using Android Keystore-backed encrypted storage.
