@@ -4,6 +4,8 @@ All notable user-facing changes to FluentMai are recorded here.
 
 ## Unreleased
 
+- Android 牌子进度页面回顶改为连续按像素滚动，避免不同高度卡片之间重新定位产生的停顿。
+
 - Fixed an Android crash when entering upload tokens: let Android Keystore generate the AES-GCM IV and handle storage failures without closing the app.
 - 修复 Android 输入上传 Token 时的闪退：由 Android Keystore 生成 AES-GCM 随机参数，并在保存异常时显示提示。
 

@@ -48,6 +48,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -228,10 +229,22 @@ private fun PlateContent(
 }
 
 private suspend fun LazyListState.animatePlateScrollToTop() {
+    if (!canScrollBackward) return
     if (firstVisibleItemIndex > PLATE_SCROLL_TO_TOP_ANIMATION_START_INDEX) {
         scrollToItem(PLATE_SCROLL_TO_TOP_ANIMATION_START_INDEX)
     }
-    animateScrollToItem(0)
+    // The large controls/summary cards make item-distance estimates inaccurate.
+    // Use one continuous scroll instead of seeking an item and restarting the animation.
+    val pixelsPerSecond = layoutInfo.viewportSize.height.coerceAtLeast(1) * 4f
+    scroll {
+        var previousFrame = withFrameNanos { it }
+        while (canScrollBackward) {
+            val frame = withFrameNanos { it }
+            val elapsedSeconds = ((frame - previousFrame) / 1_000_000_000f).coerceIn(0f, 0.032f)
+            previousFrame = frame
+            if (elapsedSeconds > 0f && scrollBy(-pixelsPerSecond * elapsedSeconds) == 0f) break
+        }
+    }
 }
 
 @Composable
