@@ -88,7 +88,7 @@ import java.text.Normalizer
 import kotlinx.coroutines.withContext
 
 private const val TAG = "FluentMaiImport"
-private const val APP_VERSION = "0.2.5-android-beta.2"
+private const val APP_VERSION = "0.2.5-android-beta.3"
 
 class MainActivity : ComponentActivity() {
     private val database by lazy { FluentMaiDatabase.create(this) }

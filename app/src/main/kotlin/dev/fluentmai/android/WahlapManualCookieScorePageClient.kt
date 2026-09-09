@@ -287,8 +287,6 @@ class WahlapManualCookieScorePageClient(
         }
 
         private fun looksLikeScorePage(html: String): Boolean =
-            html.contains("musicDetail", ignoreCase = true) &&
-                html.contains("music_name_block", ignoreCase = true) &&
-                html.contains("music_score_block", ignoreCase = true)
+            dev.fluentmai.android.core.importer.WahlapScorePageValidation.isScorePage(html)
     }
 }

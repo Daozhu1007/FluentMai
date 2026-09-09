@@ -38,6 +38,30 @@ class RealWahlapImportAdapterTest {
     }
 
     @Test
+    fun unplayedBasicAndAdvancedDoNotBlockOtherDifficulties() = runTest {
+        val persistence = RealImportMemoryPersistence()
+        val emptyPage = """
+            <html><body><form action="/maimai-mobile/record/musicSort/search/">
+            <input name="diff" value="0"><input name="sort" value="1">
+            </form><div>没有符合条件的乐曲。</div></body></html>
+        """.trimIndent()
+        val result = adapter().importFetchedPages(
+            source = "unplayed-difficulties-test",
+            pageProvider = WahlapScorePageProvider { difficulty ->
+                val html = if (difficulty == Difficulty.BASIC || difficulty == Difficulty.ADVANCED) {
+                    emptyPage
+                } else resourceText("wahlap_valid_fixture.html")
+                check(WahlapScorePageValidation.isScorePage(html))
+                html
+            },
+            persistence = persistence,
+        )
+        assertEquals(0, result.failedDifficultyCount)
+        assertEquals(9, result.importResult.inserted)
+        assertEquals(setOf(2, 3, 4), persistence.scores.values.map { it.levelIndex }.toSet())
+    }
+
+    @Test
     fun oneDifficultyFailureDoesNotWritePartialLocalScores() = runTest {
         val persistence = RealImportMemoryPersistence()
         val adapter = adapter()

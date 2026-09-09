@@ -4,6 +4,10 @@ All notable user-facing changes to FluentMai are recorded here.
 
 ## Unreleased
 
+## [0.2.5-android-beta.3] - 2026-09-10
+
+- 修复未游玩难度的空成绩页被误判为请求失败、导致其他难度成绩无法导入的问题；微信捕获和 Cookie 导入均适用。
+
 ## [0.2.5-android-beta.2] - 2026-09-10
 
 - 替换 Android 应用图标，原图铺满桌面图标的可见区域。

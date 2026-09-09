@@ -4,7 +4,7 @@
 
 | Platform | Status | Download | Notes |
 | --- | --- | --- | --- |
-| Android | Beta | [Android APK](https://github.com/Daozhu1007/FluentMai/releases/tag/v0.2.5-android-beta.2) | Primary maintained platform; debug-signed test build |
+| Android | Beta | [Android APK](https://github.com/Daozhu1007/FluentMai/releases/tag/v0.2.5-android-beta.3) | Primary maintained platform; debug-signed test build |
 | iOS | Experimental Beta | [unsigned IPA](https://github.com/Daozhu1007/FluentMai/releases/tag/v0.2.4-beta) | User self-signing required; iOS 17+ |
 | Windows | Alpha / Development | Source only | Independent desktop implementation under `windows/` |
 
@@ -32,7 +32,7 @@ See [Product Scope](docs/PRODUCT_SCOPE.md), [Privacy Model](docs/PRIVACY_MODEL.m
 
 Current mobile releases:
 
-- `v0.2.5-android-beta.2` — Android debug-signed test APK.
+- `v0.2.5-android-beta.3` — Android debug-signed test APK.
 - `v0.2.4-beta` — iOS unsigned `iphoneos arm64` IPA (unchanged).
 - Windows does not yet have a public release. CI artifacts are development evidence, not a Windows release.
 
