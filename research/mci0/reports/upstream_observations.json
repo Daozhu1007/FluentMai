@@ -1,0 +1,1676 @@
+{
+  "fixture_sha256": "c78296cc274bfd2b4216bb28457df541c88370d859d6e86c0e9863030b6db269",
+  "pin_bytes_verified": true,
+  "results": [
+    {
+      "fixture": "01_tap",
+      "variants": {
+        "terminal_e_prefilter": {
+          "checks": {
+            "hit_record_count": true,
+            "onsets": true
+          },
+          "notes": [
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TAP",
+              "onset": 0.0,
+              "raw_note_text": "1",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 1,
+              "touch_area": null
+            }
+          ],
+          "warnings": []
+        },
+        "unwrapped": {
+          "checks": {
+            "hit_record_count": false
+          },
+          "notes": [
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TAP",
+              "onset": 0.0,
+              "raw_note_text": "1",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 1,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TOUCH",
+              "onset": 0.5,
+              "raw_note_text": "E",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": null,
+              "touch_area": "E"
+            }
+          ],
+          "warnings": []
+        }
+      }
+    },
+    {
+      "fixture": "02_simultaneous",
+      "variants": {
+        "terminal_e_prefilter": {
+          "checks": {
+            "hit_record_count": true,
+            "onsets": true
+          },
+          "notes": [
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TAP",
+              "onset": 0.0,
+              "raw_note_text": "1",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 1,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TAP",
+              "onset": 0.0,
+              "raw_note_text": "5",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 5,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TAP",
+              "onset": 0.0,
+              "raw_note_text": "3",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 3,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TAP",
+              "onset": 0.5,
+              "raw_note_text": "2",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 2,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TAP",
+              "onset": 0.5,
+              "raw_note_text": "4",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 4,
+              "touch_area": null
+            }
+          ],
+          "warnings": []
+        },
+        "unwrapped": {
+          "checks": {
+            "hit_record_count": false
+          },
+          "notes": [
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TAP",
+              "onset": 0.0,
+              "raw_note_text": "1",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 1,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TAP",
+              "onset": 0.0,
+              "raw_note_text": "5",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 5,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TAP",
+              "onset": 0.0,
+              "raw_note_text": "3",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 3,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TAP",
+              "onset": 0.5,
+              "raw_note_text": "2",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 2,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TAP",
+              "onset": 0.5,
+              "raw_note_text": "4",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 4,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TOUCH",
+              "onset": 1.0,
+              "raw_note_text": "E",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": null,
+              "touch_area": "E"
+            }
+          ],
+          "warnings": []
+        }
+      }
+    },
+    {
+      "fixture": "04_rest_bpm",
+      "variants": {
+        "terminal_e_prefilter": {
+          "checks": {
+            "hit_record_count": true,
+            "onsets": true
+          },
+          "notes": [
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TAP",
+              "onset": 0.75,
+              "raw_note_text": "1",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 1,
+              "touch_area": null
+            }
+          ],
+          "warnings": []
+        },
+        "unwrapped": {
+          "checks": {
+            "hit_record_count": false
+          },
+          "notes": [
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TAP",
+              "onset": 0.75,
+              "raw_note_text": "1",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 1,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TOUCH",
+              "onset": 1.0,
+              "raw_note_text": "E",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": null,
+              "touch_area": "E"
+            }
+          ],
+          "warnings": []
+        }
+      }
+    },
+    {
+      "fixture": "06_frozen_hold",
+      "variants": {
+        "terminal_e_prefilter": {
+          "checks": {
+            "hit_record_count": true,
+            "hold_durations": true,
+            "onsets": true
+          },
+          "notes": [
+            {
+              "hold_time": 1.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "HOLD",
+              "onset": 0.0,
+              "raw_note_text": "1h[2:1]",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 1,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TAP",
+              "onset": 0.5,
+              "raw_note_text": "2",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 2,
+              "touch_area": null
+            }
+          ],
+          "warnings": []
+        },
+        "unwrapped": {
+          "checks": {
+            "hit_record_count": false
+          },
+          "notes": [
+            {
+              "hold_time": 1.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "HOLD",
+              "onset": 0.0,
+              "raw_note_text": "1h[2:1]",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 1,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TAP",
+              "onset": 0.5,
+              "raw_note_text": "2",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 2,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TOUCH",
+              "onset": 1.25,
+              "raw_note_text": "E",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": null,
+              "touch_area": "E"
+            }
+          ],
+          "warnings": []
+        }
+      }
+    },
+    {
+      "fixture": "08_short_hold",
+      "variants": {
+        "terminal_e_prefilter": {
+          "checks": {
+            "hit_record_count": true,
+            "hold_durations": false,
+            "onsets": true
+          },
+          "notes": [
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "HOLD",
+              "onset": 0.0,
+              "raw_note_text": "3h",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 3,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TOUCH_HOLD",
+              "onset": 0.0,
+              "raw_note_text": "Ch",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 8,
+              "touch_area": "C"
+            }
+          ],
+          "warnings": []
+        },
+        "unwrapped": {
+          "checks": {
+            "hit_record_count": false
+          },
+          "notes": [
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "HOLD",
+              "onset": 0.0,
+              "raw_note_text": "3h",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 3,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TOUCH_HOLD",
+              "onset": 0.0,
+              "raw_note_text": "Ch",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 8,
+              "touch_area": "C"
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TOUCH",
+              "onset": 0.5,
+              "raw_note_text": "E",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": null,
+              "touch_area": "E"
+            }
+          ],
+          "warnings": []
+        }
+      }
+    },
+    {
+      "fixture": "12_end_vs_touch",
+      "variants": {
+        "terminal_e_prefilter": {
+          "checks": {
+            "hit_record_count": true,
+            "onsets": true
+          },
+          "notes": [
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TOUCH",
+              "onset": 0.0,
+              "raw_note_text": "E1",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 1,
+              "touch_area": "E"
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TOUCH",
+              "onset": 0.0,
+              "raw_note_text": "E2",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 2,
+              "touch_area": "E"
+            }
+          ],
+          "warnings": []
+        },
+        "unwrapped": {
+          "checks": {
+            "hit_record_count": false
+          },
+          "notes": [
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TOUCH",
+              "onset": 0.0,
+              "raw_note_text": "E1",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 1,
+              "touch_area": "E"
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TOUCH",
+              "onset": 0.0,
+              "raw_note_text": "E2",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 2,
+              "touch_area": "E"
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TOUCH",
+              "onset": 0.5,
+              "raw_note_text": "E",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": null,
+              "touch_area": "E"
+            }
+          ],
+          "warnings": []
+        }
+      }
+    },
+    {
+      "fixture": "13_slide_endpoint4",
+      "variants": {
+        "terminal_e_prefilter": {
+          "checks": {
+            "hit_record_count": true,
+            "onsets": true,
+            "slide_duration": true,
+            "structured_endpoint_and_shape": false
+          },
+          "notes": [
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "SLIDE",
+              "onset": 0.0,
+              "raw_note_text": "1-4[4:1]",
+              "slide_start_time_offset": 0.5,
+              "slide_time": 0.5,
+              "start_position": 1,
+              "touch_area": null
+            }
+          ],
+          "warnings": []
+        },
+        "unwrapped": {
+          "checks": {
+            "hit_record_count": false,
+            "slide_duration": true,
+            "structured_endpoint_and_shape": false
+          },
+          "notes": [
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "SLIDE",
+              "onset": 0.0,
+              "raw_note_text": "1-4[4:1]",
+              "slide_start_time_offset": 0.5,
+              "slide_time": 0.5,
+              "start_position": 1,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TOUCH",
+              "onset": 1.0,
+              "raw_note_text": "E",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": null,
+              "touch_area": "E"
+            }
+          ],
+          "warnings": []
+        }
+      }
+    },
+    {
+      "fixture": "14_slide_endpoint5",
+      "variants": {
+        "terminal_e_prefilter": {
+          "checks": {
+            "hit_record_count": true,
+            "onsets": true,
+            "slide_duration": true,
+            "structured_endpoint_and_shape": false
+          },
+          "notes": [
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "SLIDE",
+              "onset": 0.0,
+              "raw_note_text": "1-5[4:1]",
+              "slide_start_time_offset": 0.5,
+              "slide_time": 0.5,
+              "start_position": 1,
+              "touch_area": null
+            }
+          ],
+          "warnings": []
+        },
+        "unwrapped": {
+          "checks": {
+            "hit_record_count": false,
+            "slide_duration": true,
+            "structured_endpoint_and_shape": false
+          },
+          "notes": [
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "SLIDE",
+              "onset": 0.0,
+              "raw_note_text": "1-5[4:1]",
+              "slide_start_time_offset": 0.5,
+              "slide_time": 0.5,
+              "start_position": 1,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TOUCH",
+              "onset": 1.0,
+              "raw_note_text": "E",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": null,
+              "touch_area": "E"
+            }
+          ],
+          "warnings": []
+        }
+      }
+    },
+    {
+      "fixture": "16_explicit_wait",
+      "variants": {
+        "terminal_e_prefilter": {
+          "checks": {
+            "hit_record_count": true,
+            "onsets": true,
+            "slide_duration": false,
+            "structured_endpoint_and_shape": false
+          },
+          "notes": [
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "SLIDE",
+              "onset": 0.0,
+              "raw_note_text": "1-4[3##8:3]",
+              "slide_start_time_offset": 3.0,
+              "slide_time": 0.0,
+              "start_position": 1,
+              "touch_area": null
+            }
+          ],
+          "warnings": [
+            "Warning: Malformed duration in '[##val]' format: '3##8:3' in '1-4[3##8:3]'",
+            "Warning: Malformed default 'N:D' duration '3##8:3' in '1-4[3##8:3]'"
+          ]
+        },
+        "unwrapped": {
+          "checks": {
+            "hit_record_count": false,
+            "slide_duration": false,
+            "structured_endpoint_and_shape": false
+          },
+          "notes": [
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "SLIDE",
+              "onset": 0.0,
+              "raw_note_text": "1-4[3##8:3]",
+              "slide_start_time_offset": 3.0,
+              "slide_time": 0.0,
+              "start_position": 1,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TOUCH",
+              "onset": 4.0,
+              "raw_note_text": "E",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": null,
+              "touch_area": "E"
+            }
+          ],
+          "warnings": [
+            "Warning: Malformed duration in '[##val]' format: '3##8:3' in '1-4[3##8:3]'",
+            "Warning: Malformed default 'N:D' duration '3##8:3' in '1-4[3##8:3]'"
+          ]
+        }
+      }
+    },
+    {
+      "fixture": "19_shared_head_flags",
+      "variants": {
+        "terminal_e_prefilter": {
+          "checks": {
+            "hit_record_count": false,
+            "slide_duration": true,
+            "structured_endpoint_and_shape": false
+          },
+          "notes": [
+            {
+              "hold_time": 0.0,
+              "is_break": true,
+              "is_ex": true,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": true,
+              "is_slide_no_head": false,
+              "note_type": "SLIDE",
+              "onset": 0.0,
+              "raw_note_text": "1bx-4[4:1]b",
+              "slide_start_time_offset": 0.5,
+              "slide_time": 0.5,
+              "start_position": 1,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": true,
+              "note_type": "SLIDE",
+              "onset": 0.0,
+              "raw_note_text": "1^3[4:2]",
+              "slide_start_time_offset": 0.5,
+              "slide_time": 1.0,
+              "start_position": 1,
+              "touch_area": null
+            }
+          ],
+          "warnings": []
+        },
+        "unwrapped": {
+          "checks": {
+            "hit_record_count": false,
+            "slide_duration": true,
+            "structured_endpoint_and_shape": false
+          },
+          "notes": [
+            {
+              "hold_time": 0.0,
+              "is_break": true,
+              "is_ex": true,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": true,
+              "is_slide_no_head": false,
+              "note_type": "SLIDE",
+              "onset": 0.0,
+              "raw_note_text": "1bx-4[4:1]b",
+              "slide_start_time_offset": 0.5,
+              "slide_time": 0.5,
+              "start_position": 1,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": true,
+              "note_type": "SLIDE",
+              "onset": 0.0,
+              "raw_note_text": "1^3[4:2]",
+              "slide_start_time_offset": 0.5,
+              "slide_time": 1.0,
+              "start_position": 1,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TOUCH",
+              "onset": 1.5,
+              "raw_note_text": "E",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": null,
+              "touch_area": "E"
+            }
+          ],
+          "warnings": []
+        }
+      }
+    },
+    {
+      "fixture": "22_exact_tiny_grid",
+      "variants": {
+        "terminal_e_prefilter": {
+          "checks": {
+            "hit_record_count": true,
+            "onsets": false
+          },
+          "notes": [
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TAP",
+              "onset": 0.0,
+              "raw_note_text": "1",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 1,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TAP",
+              "onset": 0.0,
+              "raw_note_text": "2",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 2,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TAP",
+              "onset": 0.5,
+              "raw_note_text": "3",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 3,
+              "touch_area": null
+            }
+          ],
+          "warnings": [
+            "Warning: Invalid beats string '#0.0000001' at line 1"
+          ]
+        },
+        "unwrapped": {
+          "checks": {
+            "hit_record_count": false
+          },
+          "notes": [
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TAP",
+              "onset": 0.0,
+              "raw_note_text": "1",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 1,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TAP",
+              "onset": 0.0,
+              "raw_note_text": "2",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 2,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TAP",
+              "onset": 0.5,
+              "raw_note_text": "3",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 3,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TOUCH",
+              "onset": 1.0,
+              "raw_note_text": "E",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": null,
+              "touch_area": "E"
+            }
+          ],
+          "warnings": [
+            "Warning: Invalid beats string '#0.0000001' at line 1"
+          ]
+        }
+      }
+    },
+    {
+      "fixture": "25_bad_locations",
+      "variants": {
+        "terminal_e_prefilter": {
+          "checks": {
+            "hit_record_count": false,
+            "invalid_lane_rejected": false
+          },
+          "notes": [
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TAP",
+              "onset": 0.0,
+              "raw_note_text": "9",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 9,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TOUCH",
+              "onset": 0.0,
+              "raw_note_text": "A0",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 0,
+              "touch_area": "A"
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TOUCH",
+              "onset": 0.0,
+              "raw_note_text": "C3",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 8,
+              "touch_area": "C"
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TOUCH",
+              "onset": 0.0,
+              "raw_note_text": "E9",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 9,
+              "touch_area": "E"
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": null,
+              "onset": 0.0,
+              "raw_note_text": "F1",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": null,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TAP",
+              "onset": 0.5,
+              "raw_note_text": "1",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 1,
+              "touch_area": null
+            }
+          ],
+          "warnings": []
+        },
+        "unwrapped": {
+          "checks": {
+            "hit_record_count": false,
+            "invalid_lane_rejected": false
+          },
+          "notes": [
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TAP",
+              "onset": 0.0,
+              "raw_note_text": "9",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 9,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TOUCH",
+              "onset": 0.0,
+              "raw_note_text": "A0",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 0,
+              "touch_area": "A"
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TOUCH",
+              "onset": 0.0,
+              "raw_note_text": "C3",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 8,
+              "touch_area": "C"
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TOUCH",
+              "onset": 0.0,
+              "raw_note_text": "E9",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 9,
+              "touch_area": "E"
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": null,
+              "onset": 0.0,
+              "raw_note_text": "F1",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": null,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TAP",
+              "onset": 0.5,
+              "raw_note_text": "1",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 1,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TOUCH",
+              "onset": 1.0,
+              "raw_note_text": "E",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": null,
+              "touch_area": "E"
+            }
+          ],
+          "warnings": []
+        }
+      }
+    },
+    {
+      "fixture": "29_pseudo_each",
+      "variants": {
+        "terminal_e_prefilter": {
+          "checks": {
+            "hit_record_count": false,
+            "unsupported_timing_restricted": false
+          },
+          "notes": [
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TAP",
+              "onset": 0.0,
+              "raw_note_text": "1",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 1,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TAP",
+              "onset": 0.015625,
+              "raw_note_text": "2",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 2,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TAP",
+              "onset": 0.5,
+              "raw_note_text": "3",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 3,
+              "touch_area": null
+            }
+          ],
+          "warnings": []
+        },
+        "unwrapped": {
+          "checks": {
+            "hit_record_count": false,
+            "unsupported_timing_restricted": false
+          },
+          "notes": [
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TAP",
+              "onset": 0.0,
+              "raw_note_text": "1",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 1,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TAP",
+              "onset": 0.015625,
+              "raw_note_text": "2",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 2,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TAP",
+              "onset": 0.5,
+              "raw_note_text": "3",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 3,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TOUCH",
+              "onset": 1.0,
+              "raw_note_text": "E",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": null,
+              "touch_area": "E"
+            }
+          ],
+          "warnings": []
+        }
+      }
+    },
+    {
+      "fixture": "40_zero_and_absolute",
+      "variants": {
+        "terminal_e_prefilter": {
+          "checks": {
+            "hit_record_count": true,
+            "hold_durations": true,
+            "onsets": false
+          },
+          "notes": [
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "HOLD",
+              "onset": 0.0,
+              "raw_note_text": "1h[#0]",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 1,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TAP",
+              "onset": 0.5,
+              "raw_note_text": "2",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 2,
+              "touch_area": null
+            }
+          ],
+          "warnings": [
+            "Warning: Invalid beats string '#0.35' at line 1"
+          ]
+        },
+        "unwrapped": {
+          "checks": {
+            "hit_record_count": false
+          },
+          "notes": [
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "HOLD",
+              "onset": 0.0,
+              "raw_note_text": "1h[#0]",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 1,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TAP",
+              "onset": 0.5,
+              "raw_note_text": "2",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": 2,
+              "touch_area": null
+            },
+            {
+              "hold_time": 0.0,
+              "is_break": false,
+              "is_ex": false,
+              "is_fake_rotate": false,
+              "is_force_star": false,
+              "is_hanabi": false,
+              "is_slide_break": false,
+              "is_slide_no_head": false,
+              "note_type": "TOUCH",
+              "onset": 0.75,
+              "raw_note_text": "E",
+              "slide_start_time_offset": 0.0,
+              "slide_time": 0.0,
+              "start_position": null,
+              "touch_area": "E"
+            }
+          ],
+          "warnings": [
+            "Warning: Invalid beats string '#0.35' at line 1"
+          ]
+        }
+      }
+    }
+  ],
+  "scope": "14 bounded synthetic probes; approximate float comparisons only for upstream observations",
+  "upstream_commit": "1268523ebc77f697afc97b1c5469cc0ccd4470fc"
+}

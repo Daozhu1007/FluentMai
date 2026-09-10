@@ -1,0 +1,12 @@
+{
+  "repository": "https://github.com/Choimoe/PySimaiParser",
+  "commit": "1268523ebc77f697afc97b1c5469cc0ccd4470fc",
+  "license_file": "MIT",
+  "files": {
+    "SimaiParser/__init__.py": "e08e54f36e98f7ac4222cae067b83dbe82a00ccc6453c9dcecf5657f50a2efc9",
+    "SimaiParser/core.py": "d53aca4ef8c92de60ec729bef818db6e96b525aaa02c4d6c0880611504ae202d",
+    "SimaiParser/note.py": "e2dd33cbc959fb5dd7c068b3a291f31b5ed3f2e4539bfd7cd957fece8069044b",
+    "SimaiParser/timing.py": "f4986f438fbc17f5f5d827102c0ce56f4582ebfb11ec0de93fa122a632f0579b",
+    "LICENSE.txt": "4e4b085991b36f1da8c814663ecf78cc12338ad660800ad1d3b79aac5641352e"
+  }
+}

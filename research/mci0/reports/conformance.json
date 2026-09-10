@@ -1,0 +1,223 @@
+{
+  "all_passed": true,
+  "errors": 0,
+  "failures": 0,
+  "fixture_count": 40,
+  "fixture_sha256": "c78296cc274bfd2b4216bb28457df541c88370d859d6e86c0e9863030b6db269",
+  "profile": "mci-simai-0.1",
+  "results": [
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_01_tap"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_02_simultaneous"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_03_grid"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_04_rest_bpm"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_05_decimal"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_06_frozen_hold"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_07_hold_seconds_override"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_08_short_hold"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_09_touch_centers"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_10_touch_hold_firework"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_11_button_modifiers"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_12_end_vs_touch"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_13_slide_endpoint4"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_14_slide_endpoint5"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_15_arc_directions"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_16_explicit_wait"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_17_slide_bpm_override"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_18_slide_seconds_combo"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_19_shared_head_flags"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_20_distinct_heads"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_21_crossing_tails"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_22_exact_tiny_grid"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_23_container_offset"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_24_unknown_offset"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_25_bad_locations"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_26_bad_endpoints"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_27_bad_modifiers"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_28_unknown_poison"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_29_pseudo_each"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_30_unsupported_paths"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_31_bad_durations"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_32_unclosed_duration"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_33_bad_timing"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_34_missing_bpm"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_35_missing_grid"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_36_end_errors"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_37_no_end_empty_member"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_38_duplicate_container"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_39_missing_selection"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.Conformance.test_40_zero_and_absolute"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.DefensiveChecks.test_cli_paths_and_exit_codes"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.DefensiveChecks.test_container_validation_and_global_offset"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.DefensiveChecks.test_cross_process_determinism_all_fixtures"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.DefensiveChecks.test_expansion_and_fraction_resource_bounds"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.DefensiveChecks.test_explicit_waits_shared_head_groups"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.DefensiveChecks.test_input_rejection"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.DefensiveChecks.test_malformed_corpus_bounded_process"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.DefensiveChecks.test_numeric_and_delimiter_rejections"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.DefensiveChecks.test_poisoning_unknown_directive_and_comments"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.DefensiveChecks.test_same_cursor_bpm_order_and_whitespace"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.DefensiveChecks.test_slice_boundaries_and_waiting"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.DefensiveChecks.test_structural_distinctions"
+    },
+    {
+      "status": "PASS",
+      "test": "research.mci0.tests.test_conformance.DefensiveChecks.test_transactional_shared_head_rejection"
+    }
+  ],
+  "tests_run": 53
+}
