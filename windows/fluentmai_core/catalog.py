@@ -6,7 +6,7 @@ from typing import Any
 import requests
 
 from . import database
-from .models import Chart, Song, normalize_song_type
+from .models import Chart, MajorVersion, Song, normalize_song_type
 from .privacy import redactor
 
 
@@ -101,6 +101,16 @@ def parse_lxns_song_list(payload: dict[str, Any]) -> tuple[list[Song], list[Char
     return songs, charts
 
 
+def parse_lxns_major_versions(payload: dict[str, Any]) -> list[MajorVersion]:
+    root = payload.get("data") if isinstance(payload.get("data"), dict) else payload
+    raw_versions = root.get("versions") if isinstance(root, dict) else None
+    names = _parse_lxns_version_names(raw_versions)
+    return [
+        MajorVersion(version_id=version_id, name=name, provider="lxns")
+        for version_id, name in sorted(names.items())
+    ]
+
+
 def sync_diving_fish_catalog(
     db_path: str | None = None,
     session: requests.Session | None = None,
@@ -138,10 +148,11 @@ def sync_lxns_catalog(db_path: str | None = None, session: requests.Session | No
     if not isinstance(payload, dict):
         raise ValueError("LXNS song list did not return an object")
     songs, charts = parse_lxns_song_list(payload)
+    major_versions = parse_lxns_major_versions(payload)
     conn = database.connect(db_path)
     try:
         database.insert_cache(conn, "lxns", "song_list_notes", json.dumps(payload, ensure_ascii=False))
-        database.replace_catalog(conn, songs, charts)
+        database.replace_catalog(conn, songs, charts, major_versions)
         return len(songs)
     finally:
         conn.close()

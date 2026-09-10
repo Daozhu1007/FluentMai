@@ -1,0 +1,5 @@
+song_id	chart_type	difficulty_index	chart_version	achievement	expected_eligible
+834	SD	3	19998	100.0	true
+834	SD	4	19998	100.5	false
+792	SD	3	19904	100.5	false
+900	DX	3	20000	100.5	false

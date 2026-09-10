@@ -6,13 +6,13 @@ sync_data.py — 从水鱼 API 拉取舞萌 DX 曲库数据并存入本地 SQLit
 
 import json
 import logging
-import os
-import sqlite3
 import sys
-import tempfile
 from typing import Any
 
 import requests
+from fluentmai_core import database
+from fluentmai_core.catalog import parse_diving_fish_music_data
+from fluentmai_core.runtime_paths import database_path
 
 # ---------------------------------------------------------------------------
 # 配置
@@ -22,12 +22,9 @@ API_URL = "https://www.diving-fish.com/api/maimaidxprober/music_data"
 
 
 def default_db_path() -> str:
-    return os.environ.get("FLUENTMAI_DB_PATH") or os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "maimai_data.db"
-    )
+    return str(database_path())
 
 
-DB_PATH = default_db_path()
 REQUEST_TIMEOUT = 30  # 秒
 
 # 难度标签（按 ds / level 数组索引顺序）
@@ -122,41 +119,17 @@ INSERT OR REPLACE INTO music_data (
 
 
 def sync_to_database(records: list[dict[str, Any]]) -> None:
-    """将清洗后的数据写入 SQLite，使用临时文件 + 原子替换策略保证旧库安全。"""
-    cleaned = [clean_record(r) for r in records]
-    logger.info("清洗完成，共 %d 条记录待写入", len(cleaned))
-
-    # 在同目录下创建临时库文件，确保 os.replace 可在同一驱动器上原子替换
-    tmp_fd, tmp_path = tempfile.mkstemp(
-        suffix=".db", prefix="maimai_sync_", dir=os.path.dirname(DB_PATH)
-    )
-    os.close(tmp_fd)
-
+    """原子刷新曲库表，同时保留成绩、导入批次和其他用户数据。"""
+    songs, charts = parse_diving_fish_music_data(records)
+    conn = database.connect(default_db_path())
     try:
-        conn = sqlite3.connect(tmp_path)
-        conn.execute("PRAGMA journal_mode=WAL;")
-        conn.execute(CREATE_TABLE_SQL)
-        conn.executemany(INSERT_SQL, cleaned)
-        conn.commit()
+        database.replace_catalog(conn, songs, charts)
+        integrity = conn.execute("PRAGMA integrity_check").fetchone()[0]
+        if integrity != "ok":
+            raise RuntimeError(f"数据库完整性检查失败: {integrity}")
+    finally:
         conn.close()
-    except Exception:
-        conn.close()
-        os.unlink(tmp_path)
-        logger.exception("写入临时数据库失败")
-        sys.exit(1)
-
-    # 原子替换：先备份旧库（如果存在），再将临时库重命名为正式库
-    backup_path = DB_PATH + ".bak"
-    if os.path.exists(DB_PATH):
-        os.replace(DB_PATH, backup_path)
-
-    os.replace(tmp_path, DB_PATH)
-
-    # 替换成功后删除备份
-    if os.path.exists(backup_path):
-        os.unlink(backup_path)
-
-    logger.info("数据库已更新: %s (%d 条记录)", DB_PATH, len(cleaned))
+    logger.info("数据库曲库已更新: %s (%d 首歌曲，%d 张谱面)", default_db_path(), len(songs), len(charts))
 
 
 # ---------------------------------------------------------------------------

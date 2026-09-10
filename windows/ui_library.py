@@ -38,6 +38,7 @@ from qfluentwidgets import BodyLabel, FluentIcon as FIF, InfoBar, InfoBarPositio
 
 from cover_manager import BulkCoverWorker, resolve_jacket_path
 from fluentmai_core import database
+from fluentmai_core.aliases import refresh_alias_catalog
 from fluentmai_core.catalog import safe_api_error, sync_diving_fish_catalog, sync_lxns_catalog
 from fluentmai_core.chart_browser import (
     DIFFICULTY_OPTIONS,
@@ -55,6 +56,8 @@ from fluentmai_core.chart_browser import (
     load_chart_records,
     query_chart_records,
 )
+from fluentmai_core.player_records import AchievementRank, FullComboStatus, FullSyncStatus
+from fluentmai_core.rating import resolve_current_version_id
 from ui_tokens import (
     BODY_PX,
     CARD_PADDING,
@@ -105,7 +108,11 @@ class ChartQueryWorker(QThread):
             conn = database.connect()
             try:
                 records = load_chart_records(conn)
-                result = query_chart_records(records, self.filters)
+                result = query_chart_records(
+                    records,
+                    self.filters,
+                    current_version_id=resolve_current_version_id(conn),
+                )
                 options = filter_options_for_records(records)
                 stats = catalog_stats(conn)
             finally:
@@ -121,7 +128,18 @@ class CatalogRefreshWorker(QThread):
     def run(self) -> None:
         try:
             count = sync_lxns_catalog()
-            self.finished_with_message.emit(True, f"LXNS 曲库已刷新：{count} 首歌曲")
+            conn = database.connect()
+            try:
+                alias_songs, alias_count = refresh_alias_catalog(conn)
+            except Exception as alias_exc:
+                self.finished_with_message.emit(
+                    True,
+                    f"LXNS 曲库已刷新：{count} 首歌曲；别名保留旧缓存（{safe_api_error(alias_exc)}）",
+                )
+                return
+            finally:
+                conn.close()
+            self.finished_with_message.emit(True, f"LXNS 曲库已刷新：{count} 首歌曲；别名 {alias_songs} 首 / {alias_count} 条")
             return
         except Exception as exc:
             first_error = safe_api_error(exc)
@@ -234,8 +252,8 @@ class ChartCardDelegate(QStyledItemDelegate):
         0: QColor("#2f9e44"),
         1: QColor("#d9480f"),
         2: QColor("#e03131"),
-        3: QColor("#8e44d6"),
-        4: QColor("#b15cff"),
+        3: QColor("#7c3aed"),
+        4: QColor("#f3e8ff"),
     }
 
     def __init__(self, parent=None):
@@ -300,7 +318,9 @@ class ChartCardDelegate(QStyledItemDelegate):
         x = text_left
         x = self._draw_pill(painter, QPoint(x, pill_y), record.type_label, QColor("#334155"), QColor("#dbeafe"))
         diff_color = QColor("#64748b") if record.is_utage else self._difficulty_colors.get(record.difficulty_index, QColor("#64748b"))
-        x = self._draw_pill(painter, QPoint(x + 6, pill_y), record.difficulty_label, diff_color, QColor("#ffffff"))
+        diff_text = QColor("#581c87") if record.difficulty_index == 4 and not record.is_utage else QColor("#ffffff")
+        diff_border = QColor("#c4b5fd") if record.difficulty_index == 4 and not record.is_utage else None
+        x = self._draw_pill(painter, QPoint(x + 6, pill_y), record.difficulty_label, diff_color, diff_text, diff_border)
         level_text = f"{record.level or '--'} / {record.const_label}"
         self._draw_pill(painter, QPoint(x + 6, pill_y), level_text, QColor("#27233b"), QColor("#e9d5ff"))
 
@@ -387,7 +407,15 @@ class ChartCardDelegate(QStyledItemDelegate):
         for key in [key for key in self._requested if key[0] == song_id]:
             self._requested.discard(key)
 
-    def _draw_pill(self, painter: QPainter, pos: QPoint, text: str, bg: QColor, fg: QColor) -> int:
+    def _draw_pill(
+        self,
+        painter: QPainter,
+        pos: QPoint,
+        text: str,
+        bg: QColor,
+        fg: QColor,
+        border: QColor | None = None,
+    ) -> int:
         font = QFont(painter.font())
         font.setPixelSize(SECONDARY_PX - 1)
         font.setBold(True)
@@ -395,7 +423,7 @@ class ChartCardDelegate(QStyledItemDelegate):
         fm = QFontMetrics(font)
         width = min(150, fm.horizontalAdvance(text) + 18)
         rect = QRect(pos.x(), pos.y(), width, 24)
-        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setPen(QPen(border, 1) if border is not None else Qt.PenStyle.NoPen)
         painter.setBrush(bg)
         painter.drawRoundedRect(rect, 6, 6)
         painter.setPen(fg)
@@ -408,6 +436,9 @@ class ChartCardDelegate(QStyledItemDelegate):
 
 
 class ChartDetailPanel(QFrame):
+    lossRequested = pyqtSignal(object)
+    chartChanged = pyqtSignal(object)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("DetailPanel")
@@ -438,9 +469,16 @@ class ChartDetailPanel(QFrame):
         self.subtitle_label.setStyleSheet("color:#aab2c4;")
         layout.addWidget(self.subtitle_label)
 
+        self.sibling_combo = QComboBox()
+        self.sibling_combo.setAccessibleName("切换同一歌曲的谱面难度")
+        self.sibling_combo.currentIndexChanged.connect(self._on_sibling_changed)
+        layout.addWidget(self.sibling_combo)
+
         self.fields: dict[str, BodyLabel] = {}
         for key in (
             "difficulty",
+            "identity",
+            "aliases",
             "constant",
             "meta",
             "notes",
@@ -454,10 +492,40 @@ class ChartDetailPanel(QFrame):
             label.setStyleSheet(f"color:#d7dce8; font-size:{BODY_PX}px; line-height:1.45;")
             self.fields[key] = label
             layout.addWidget(label)
+        self.loss_button = PushButton(FIF.CALORIES, "失分和容错")
+        self.loss_button.setMinimumHeight(CONTROL_HEIGHT)
+        self.loss_button.clicked.connect(
+            lambda: self.lossRequested.emit(self._current_record)
+            if self._current_record is not None else None
+        )
+        self.loss_button.hide()
+        layout.addWidget(self.loss_button)
         layout.addStretch(1)
 
-    def set_record(self, record: ChartRecord | None) -> None:
+    def set_record(
+        self,
+        record: ChartRecord | None,
+        siblings: list[ChartRecord] | None = None,
+    ) -> None:
         self._current_record = record
+        self.sibling_combo.blockSignals(True)
+        self.sibling_combo.clear()
+        for sibling in siblings or ([record] if record is not None else []):
+            self.sibling_combo.addItem(
+                f"{sibling.chart_type} · {sibling.difficulty_label} · {sibling.level} / {sibling.const_label}",
+                sibling,
+            )
+        selected = next(
+            (
+                index
+                for index in range(self.sibling_combo.count())
+                if getattr(self.sibling_combo.itemData(index), "key", None) == getattr(record, "key", None)
+            ),
+            0,
+        )
+        self.sibling_combo.setCurrentIndex(selected)
+        self.sibling_combo.blockSignals(False)
+        self.sibling_combo.setVisible(self.sibling_combo.count() > 1)
         if record is None:
             self.cover_label.setPixmap(QPixmap())
             self.cover_label.setText("No\nJacket")
@@ -465,12 +533,15 @@ class ChartDetailPanel(QFrame):
             self.subtitle_label.setText("点击左侧卡片查看详情")
             for label in self.fields.values():
                 label.clear()
+            self.loss_button.hide()
             return
 
         self.title_label.setText(record.title)
         self.subtitle_label.setText(record.artist or "未知艺术家")
         self._set_cover(record)
         self.fields["difficulty"].setText(f"难度：{record.type_label} / {record.difficulty_label}")
+        self.fields["identity"].setText(f"歌曲 ID：{record.song_id}    稳定谱面身份：{record.key}")
+        self.fields["aliases"].setText(f"别名：{' / '.join(record.aliases) if record.aliases else '--'}")
         self.fields["constant"].setText(f"等级：{record.level or '--'}    定数：{record.const_label}")
         self.fields["meta"].setText(f"BPM：{record.bpm or '--'}    版本：{record.version_label}\n分区：{record.genre or '--'}")
         self.fields["notes"].setText(
@@ -493,6 +564,8 @@ class ChartDetailPanel(QFrame):
                 score += f"    FC：{record.full_combo.upper()}"
             if record.full_sync:
                 score += f"    FS：{record.full_sync.upper()}"
+            if record.rating is not None:
+                score += f"    Rating：{record.rating}"
             self.fields["score"].setText(score)
             source = record.score_source or "--"
             if record.play_time:
@@ -503,6 +576,23 @@ class ChartDetailPanel(QFrame):
         else:
             self.fields["score"].setText("达成率：--    DX Score：--")
             self.fields["source"].setText("来源：--")
+        self.loss_button.setVisible(
+            all(
+                value is not None
+                for value in (
+                    record.notes_tap,
+                    record.notes_hold,
+                    record.notes_slide,
+                    record.notes_touch,
+                    record.notes_break,
+                )
+            )
+        )
+
+    def _on_sibling_changed(self, index: int) -> None:
+        record = self.sibling_combo.itemData(index)
+        if isinstance(record, ChartRecord) and record.key != getattr(self._current_record, "key", None):
+            self.chartChanged.emit(record)
 
     def _set_cover(self, record: ChartRecord) -> None:
         path = resolve_jacket_path(record.song_id, record.jacket_url)
@@ -531,6 +621,8 @@ class ChartDetailPanel(QFrame):
 
 
 class LibraryInterface(QWidget):
+    lossRequested = pyqtSignal(object)
+
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         self.setObjectName("LibraryInterface")
@@ -600,6 +692,10 @@ class LibraryInterface(QWidget):
         layout.addWidget(self.result_count_label)
         layout.addWidget(self.refresh_button)
         self.layout.addWidget(header)
+        self.player_stats_label = BodyLabel("筛选统计 --")
+        self.player_stats_label.setWordWrap(True)
+        self.player_stats_label.setStyleSheet("color:#94a3b8; font-size:12px;")
+        self.layout.addWidget(self.player_stats_label)
 
     def _build_filters(self) -> None:
         self.filter_panel = QFrame()
@@ -610,13 +706,25 @@ class LibraryInterface(QWidget):
         self.filter_grid.setVerticalSpacing(10)
 
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("曲名 / 艺术家 / 谱师 / 版本 / ID")
+        self.search_input.setPlaceholderText("曲名 / 别名 / 艺术家 / 谱师 / 版本 / ID")
         self.level_input = QLineEdit()
         self.level_input.setPlaceholderText("等级或定数：13 / 13+ / 13.3")
+        self.constant_min_input = QLineEdit()
+        self.constant_min_input.setPlaceholderText("如 12.0")
+        self.constant_max_input = QLineEdit()
+        self.constant_max_input.setPlaceholderText("如 14.9")
+        self.achievement_min_input = QLineEdit()
+        self.achievement_min_input.setPlaceholderText("如 97.0")
+        self.achievement_max_input = QLineEdit()
+        self.achievement_max_input.setPlaceholderText("如 100.5")
         self.difficulty_combo = OpaqueComboBox()
         self.genre_combo = OpaqueComboBox()
         self.version_combo = OpaqueComboBox()
         self.status_combo = OpaqueComboBox()
+        self.type_combo = OpaqueComboBox()
+        self.rank_combo = OpaqueComboBox()
+        self.full_combo_combo = OpaqueComboBox()
+        self.full_sync_combo = OpaqueComboBox()
         self.sort_combo = OpaqueComboBox()
 
         for combo in (
@@ -624,6 +732,10 @@ class LibraryInterface(QWidget):
             self.genre_combo,
             self.version_combo,
             self.status_combo,
+            self.type_combo,
+            self.rank_combo,
+            self.full_combo_combo,
+            self.full_sync_combo,
             self.sort_combo,
         ):
             self._prepare_combo(combo)
@@ -632,15 +744,27 @@ class LibraryInterface(QWidget):
         self._set_combo_options(self.genre_combo, [FilterOption("all", "全部分区")], "all")
         self._set_combo_options(self.version_combo, [FilterOption("all", "全部版本")], "all")
         self._set_combo_options(self.status_combo, STATUS_OPTIONS, "all")
+        self._set_combo_options(self.type_combo, [FilterOption("all", "全部类型"), FilterOption("SD", "SD"), FilterOption("DX", "DX"), FilterOption("UTAGE", "宴会场")], "all")
+        self._set_combo_options(self.rank_combo, [FilterOption("all", "全部成绩等级")] + [FilterOption(item.value, item.value) for item in AchievementRank], "all")
+        self._set_combo_options(self.full_combo_combo, [FilterOption("all", "全部 FC/AP")] + [FilterOption(item.value, item.value) for item in FullComboStatus if item != FullComboStatus.UNKNOWN], "all")
+        self._set_combo_options(self.full_sync_combo, [FilterOption("all", "全部 FS")] + [FilterOption(item.value, item.value) for item in FullSyncStatus if item != FullSyncStatus.UNKNOWN], "all")
         self._set_combo_options(self.sort_combo, SORT_OPTIONS, "constant_desc")
 
         self._filter_items = [
             (self._filter_label("搜索"), self.search_input, 520),
             (self._filter_label("等级 / 定数"), self.level_input, 280),
+            (self._filter_label("定数下限"), self.constant_min_input, 220),
+            (self._filter_label("定数上限"), self.constant_max_input, 220),
             (self._filter_label("难度"), self.difficulty_combo, 240),
+            (self._filter_label("SD / DX"), self.type_combo, 220),
             (self._filter_label("分区"), self.genre_combo, 280),
             (self._filter_label("版本"), self.version_combo, 260),
             (self._filter_label("游玩状态"), self.status_combo, 240),
+            (self._filter_label("达成率下限"), self.achievement_min_input, 220),
+            (self._filter_label("达成率上限"), self.achievement_max_input, 220),
+            (self._filter_label("成绩等级"), self.rank_combo, 220),
+            (self._filter_label("FC / AP"), self.full_combo_combo, 220),
+            (self._filter_label("FS / FSD"), self.full_sync_combo, 220),
             (self._filter_label("排序"), self.sort_combo, 300),
         ]
         for _label, widget, maximum in self._filter_items:
@@ -652,10 +776,18 @@ class LibraryInterface(QWidget):
         for widget in (
             self.search_input,
             self.level_input,
+            self.constant_min_input,
+            self.constant_max_input,
+            self.achievement_min_input,
+            self.achievement_max_input,
             self.difficulty_combo,
             self.genre_combo,
             self.version_combo,
             self.status_combo,
+            self.type_combo,
+            self.rank_combo,
+            self.full_combo_combo,
+            self.full_sync_combo,
             self.sort_combo,
         ):
             if isinstance(widget, QLineEdit):
@@ -764,6 +896,8 @@ class LibraryInterface(QWidget):
         self.result_view.viewport().installEventFilter(self)
 
         self.detail_panel = ChartDetailPanel()
+        self.detail_panel.lossRequested.connect(self.lossRequested)
+        self.detail_panel.chartChanged.connect(self._show_detail_record)
         self.detail_scroll = QScrollArea()
         self.detail_scroll.setWidgetResizable(True)
         self.detail_scroll.setFrameShape(QFrame.Shape.NoFrame)
@@ -836,11 +970,25 @@ class LibraryInterface(QWidget):
         else:
             self.result_count_label.setText(f"匹配 {result.total_count}")
 
+        player = result.stats
+        if player is not None:
+            ranks = player.rank_counts
+            combos = player.full_combo_counts
+            syncs = player.full_sync_counts
+            self.player_stats_label.setText(
+                f"当前筛选：总谱面 {player.total_charts} · 已游玩 {player.played_charts} · 未游玩 {player.unplayed_charts} · "
+                f"SSS+ {ranks.get(AchievementRank.SSS_PLUS, 0)} · SSS {ranks.get(AchievementRank.SSS, 0)} · "
+                f"FC {combos.get(FullComboStatus.FC, 0)} · FC+ {combos.get(FullComboStatus.FC_PLUS, 0)} · "
+                f"AP {combos.get(FullComboStatus.AP, 0)} · AP+ {combos.get(FullComboStatus.AP_PLUS, 0)} · "
+                f"SYNC {syncs.get(FullSyncStatus.SYNC, 0)} · FS {syncs.get(FullSyncStatus.FS, 0)} · "
+                f"FS+ {syncs.get(FullSyncStatus.FS_PLUS, 0)} · FSD {syncs.get(FullSyncStatus.FSD, 0)} · "
+                f"FSD+ {syncs.get(FullSyncStatus.FSD_PLUS, 0)}"
+            )
+
         if result.records:
             first = self.model.index(0, 0)
             self.result_view.setCurrentIndex(first)
-            self.detail_panel.set_record(result.records[0])
-            self._request_detail_jacket(result.records[0])
+            self._show_detail_record(result.records[0])
         else:
             self.detail_panel.set_record(None)
 
@@ -855,12 +1003,27 @@ class LibraryInterface(QWidget):
             search=self.search_input.text(),
             level=self.level_input.text(),
             difficulty_index=difficulty_index,
+            constant_min=self._optional_float(self.constant_min_input),
+            constant_max=self._optional_float(self.constant_max_input),
             genre=self._combo_code(self.genre_combo),
             version=self._combo_code(self.version_combo),
             status=self._combo_code(self.status_combo),
+            chart_type=self._combo_code(self.type_combo),
+            achievement_min=self._optional_float(self.achievement_min_input),
+            achievement_max=self._optional_float(self.achievement_max_input),
+            rank=self._combo_code(self.rank_combo),
+            full_combo=self._combo_code(self.full_combo_combo),
+            full_sync=self._combo_code(self.full_sync_combo),
             sort=self._combo_code(self.sort_combo),
             limit=DISPLAY_LIMIT,
         )
+
+    @staticmethod
+    def _optional_float(widget: QLineEdit) -> float | None:
+        try:
+            return float(widget.text().strip()) if widget.text().strip() else None
+        except ValueError:
+            return None
 
     def _combo_code(self, combo: QComboBox) -> str:
         data = combo.currentData()
@@ -883,9 +1046,17 @@ class LibraryInterface(QWidget):
 
     def _on_chart_clicked(self, index: QModelIndex) -> None:
         record = self.model.record_at(index.row())
-        self.detail_panel.set_record(record)
         if record:
-            self._request_detail_jacket(record)
+            self._show_detail_record(record)
+
+    def _show_detail_record(self, record: ChartRecord) -> None:
+        conn = database.connect()
+        try:
+            siblings = load_chart_records(conn, song_id=record.song_id)
+        finally:
+            conn.close()
+        self.detail_panel.set_record(record, siblings)
+        self._request_detail_jacket(record)
 
     def _request_detail_jacket(self, record: ChartRecord) -> None:
         if not resolve_jacket_path(record.song_id, record.jacket_url):

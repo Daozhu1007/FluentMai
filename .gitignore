@@ -6,6 +6,8 @@ bin/
 local.properties
 .idea/
 *.iml
+__pycache__/
+*.py[cod]
 captures/
 externalNativeBuild/
 .cxx/

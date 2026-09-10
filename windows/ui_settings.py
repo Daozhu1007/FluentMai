@@ -1,7 +1,7 @@
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
 from qfluentwidgets import (SubtitleLabel, BodyLabel, CardWidget, ComboBox,
-                            FluentIcon as FIF, InfoBar)
+                            FluentIcon as FIF, InfoBar, ScrollArea)
 
 from i18n import i18n, save_config, _load_config
 
@@ -11,15 +11,21 @@ LANG_OPTIONS = {
 }
 
 
-class SettingsInterface(QWidget):
+class SettingsInterface(ScrollArea):
     """Settings page — language, token management, cookie guide."""
 
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         self.setObjectName("SettingsInterface")
-        self.layout = QVBoxLayout(self)
+        self.view = QWidget(self)
+        self.view.setObjectName("SettingsScrollContent")
+        self.layout = QVBoxLayout(self.view)
         self.layout.setContentsMargins(24, 32, 24, 24)
         self.layout.setSpacing(20)
+        self.setWidget(self.view)
+        self.setWidgetResizable(True)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setStyleSheet("QScrollArea { background: transparent; border: none; }")
 
         title = SubtitleLabel(i18n.tr("settings_title"))
         title.setStyleSheet("font-size: 26px; font-weight: bold;")
