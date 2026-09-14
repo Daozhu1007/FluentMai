@@ -12,6 +12,7 @@ import kotlinx.coroutines.runBlocking
 
 class WahlapHttpScorePageClient(
     private val redactor: PrivacyRedactor,
+    private val onPlayerHome: (String) -> Unit = {},
 ) {
     fun login(authUrl: String) {
         val normalizedAuthUrl = normalizeWahlapAuthUrl(authUrl)
@@ -39,6 +40,12 @@ class WahlapHttpScorePageClient(
         if (looksLikeAuthFailure(home.body)) {
             throw IOException("Wahlap login failed: home page is not authenticated")
         }
+        onPlayerHome(home.body)
+        onPlayerHome(runBlocking { enrichWahlapPlayerHome(home.body) { url ->
+            val response = WahlapKtorClient.getWahlapPage(url)
+            val body = response.bodyAsText()
+            body.takeIf { response.status.value in 200..299 && !looksLikeAuthFailure(body) }
+        } })
     }
 
     fun fetchScorePage(difficulty: Difficulty): String {
@@ -94,6 +101,8 @@ class WahlapHttpScorePageClient(
                     finalUrl = response.call.request.url.toString(),
                 )
             }
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
         } catch (error: Exception) {
             throw IOException("$label request failed: ${redactor.redact(error.message ?: error::class.java.simpleName)}", error)
         }

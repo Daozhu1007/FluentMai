@@ -77,6 +77,7 @@ import dev.fluentmai.android.feature.scores.AliasDataStatus
 import dev.fluentmai.android.feature.scores.PlayerProgressDestination
 import dev.fluentmai.android.feature.scores.PlayerProgressScreen
 import dev.fluentmai.android.feature.scores.ScoresScreen
+import dev.fluentmai.android.feature.scores.B50PosterScreen
 import dev.fluentmai.android.feature.scores.chartCardContainerColor
 import dev.fluentmai.android.feature.settings.SettingsScreen
 import dev.fluentmai.android.feature.settings.ThemeMode
@@ -88,7 +89,7 @@ import java.text.Normalizer
 import kotlinx.coroutines.withContext
 
 private const val TAG = "FluentMaiImport"
-private const val APP_VERSION = "0.2.5-android-beta.3"
+private const val APP_VERSION = "0.2.6-beta"
 
 class MainActivity : ComponentActivity() {
     private val database by lazy { FluentMaiDatabase.create(this) }
@@ -119,9 +120,18 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             var themeMode by remember { mutableStateOf(themePreferences.mode) }
+            var experimentalFeatures by remember { mutableStateOf(themePreferences.experimentalFeatures) }
+            var automaticUpdates by remember { mutableStateOf(themePreferences.automaticUpdates) }
             FluentMaiTheme(themeMode) {
                 FluentMaiApp(
                     themeMode = themeMode,
+                    automaticUpdates = automaticUpdates,
+                    onAutomaticUpdatesChanged = { automaticUpdates = it; themePreferences.automaticUpdates = it },
+                    experimentalFeatures = experimentalFeatures,
+                    onExperimentalFeaturesChanged = { enabled ->
+                        experimentalFeatures = enabled
+                        themePreferences.experimentalFeatures = enabled
+                    },
                     onThemeModeChanged = { mode ->
                         themeMode = mode
                         themePreferences.mode = mode
@@ -149,7 +159,7 @@ class MainActivity : ComponentActivity() {
         authUrl: String,
         afterLoginAttempt: () -> Unit = {},
     ): RealWahlapImportResult {
-        val client = WahlapHttpScorePageClient(redactor = privacyRedactor)
+        val client = WahlapHttpScorePageClient(redactor = privacyRedactor, onPlayerHome = B50PlayerStore(this)::capture)
         try {
             client.login(authUrl)
         } finally {
@@ -183,6 +193,7 @@ class MainActivity : ComponentActivity() {
         val client = WahlapManualCookieScorePageClient(
             credentials = credentials,
             redactor = privacyRedactor,
+            onPlayerHome = B50PlayerStore(this)::capture,
         )
         return try {
             client.validateLogin()
@@ -264,6 +275,10 @@ class MainActivity : ComponentActivity() {
 private fun FluentMaiApp(
     themeMode: ThemeMode,
     onThemeModeChanged: (ThemeMode) -> Unit,
+    automaticUpdates: Boolean,
+    onAutomaticUpdatesChanged: (Boolean) -> Unit,
+    experimentalFeatures: Boolean,
+    onExperimentalFeaturesChanged: (Boolean) -> Unit,
     repository: FluentMaiRepository,
     runRealImport: suspend (String, () -> Unit) -> RealWahlapImportResult,
     runCookieImport: suspend (String) -> RealWahlapImportResult,
@@ -278,6 +293,7 @@ private fun FluentMaiApp(
     redactMessage: (String) -> String,
 ) {
     val context = LocalContext.current
+    AppUpdatePrompt(automaticUpdates)
     val startupStartedAtMs = remember { SystemClock.elapsedRealtime() }
     val authUrlRedactor = remember { PrivacyRedactor() }
     val hookStatus by WahlapHookBridge.status.collectAsState()
@@ -286,6 +302,8 @@ private fun FluentMaiApp(
     var homeSelectedChartKey by rememberSaveable { mutableStateOf<String?>(null) }
     var chartsSelectedChartKey by rememberSaveable { mutableStateOf<String?>(null) }
     var playerProgressDestination by rememberSaveable { mutableStateOf<PlayerProgressDestination?>(null) }
+    var showB50Poster by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(experimentalFeatures) { if (!experimentalFeatures) showB50Poster = false }
     var playedPresetActive by rememberSaveable { mutableStateOf(false) }
     var scrollToTopRequestId by remember { mutableStateOf(0) }
     var scoreCount by remember { mutableStateOf(0) }
@@ -794,6 +812,7 @@ private fun FluentMaiApp(
     // Give every tab destination its own saveable-state registry so switching tabs does not reset its UI.
     val screenStateKey = when {
         selectedChartKey != null -> "${selectedTab.name}:chart:$selectedChartKey"
+        selectedTab == AppTab.Home && showB50Poster && experimentalFeatures -> "Home:b50-poster"
         selectedTab == AppTab.Home && playerProgressDestination != null ->
             "${AppTab.Home.name}:progress:${requireNotNull(playerProgressDestination).name}"
         selectedTab == AppTab.Tools && isSettingsOpen -> "${AppTab.Tools.name}:settings"
@@ -831,6 +850,14 @@ private fun FluentMaiApp(
                     onChartSelected = selectChart,
                     modifier = modifier,
                 )
+            } else if (selectedTab == AppTab.Home && showB50Poster && experimentalFeatures) {
+                B50PosterScreen(
+                    scores = scores, charts = chartRecords, majorVersions = chartMajorVersions,
+                    loadProfile = { B50PlayerStore(context).load() },
+                    profileRevision = B50PlayerStore(context).revision,
+                    onBack = { showB50Poster = false },
+                    scrollToTopRequestId = scrollToTopRequestId, modifier = modifier,
+                )
             } else if (selectedTab == AppTab.Home && playerProgressDestination != null) {
                 PlayerProgressScreen(
                     destination = requireNotNull(playerProgressDestination),
@@ -845,6 +872,7 @@ private fun FluentMaiApp(
                 )
             } else when (selectedTab) {
                 AppTab.Home -> ScoresScreen(
+                    onOpenB50Poster = if (experimentalFeatures) ({ showB50Poster = true }) else null,
                     scores = scores,
                     charts = chartRecords,
                     majorVersions = chartMajorVersions,
@@ -927,7 +955,11 @@ private fun FluentMaiApp(
                 AppTab.Tools -> if (isSettingsOpen) {
                     SettingsScreen(
                         themeMode = themeMode,
+                        experimentalFeatures = experimentalFeatures,
+                        onExperimentalFeaturesChanged = onExperimentalFeaturesChanged,
                         onThemeModeChanged = onThemeModeChanged,
+                        automaticUpdates = automaticUpdates,
+                        onAutomaticUpdatesChanged = onAutomaticUpdatesChanged,
                         appVersion = APP_VERSION,
                         quarantineCount = quarantineCount,
                         records = quarantineRecords,

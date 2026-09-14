@@ -38,6 +38,10 @@ import dev.fluentmai.android.core.model.QuarantineRecord
 fun SettingsScreen(
     themeMode: ThemeMode,
     onThemeModeChanged: (ThemeMode) -> Unit,
+    automaticUpdates: Boolean = true,
+    onAutomaticUpdatesChanged: (Boolean) -> Unit = {},
+    experimentalFeatures: Boolean = false,
+    onExperimentalFeaturesChanged: (Boolean) -> Unit = {},
     appVersion: String,
     quarantineCount: Int,
     records: List<QuarantineRecord>,
@@ -89,6 +93,7 @@ fun SettingsScreen(
             item {
                 AboutSection(appVersion = appVersion)
             }
+            item { ExperimentalSection(experimentalFeatures, onExperimentalFeaturesChanged, automaticUpdates, onAutomaticUpdatesChanged) }
         }
     }
 }

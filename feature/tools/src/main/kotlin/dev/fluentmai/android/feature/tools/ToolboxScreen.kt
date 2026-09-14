@@ -126,7 +126,7 @@ fun ToolboxScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("工具箱", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                     Text(
-                        "公式、版本资料与本地 Rating 时间轴",
+                        "实用计算与本地 Rating 时间轴",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -151,9 +151,16 @@ fun ToolboxScreen(
         }
             item {
                 when (section) {
-                ToolSection.RATING -> RatingCalculator()
+                ToolSection.RATING -> Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    RatingCalculator()
+                    val theoretical = remember(charts, majorVersions) { dev.fluentmai.android.core.model.theoreticalBestSet(charts, majorVersions) }
+                    ToolCard("当前版本理论Rating", "按当前曲库去重，取旧版本最高 35 张和当前版本最高 15 张谱面，全部按 100.5000% 计算。") {
+                        Text(if (theoretical.all.isEmpty()) "曲库尚未就绪" else theoretical.rating.toString(), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+                        Text("Best35 ${theoretical.oldBest.sumOf { it.rating ?: 0 }} + Best15 ${theoretical.newBest.sumOf { it.rating ?: 0 }}")
+                        if (theoretical.all.size < 50) Text("当前曲库不足 50 张有效谱面，结果仅供参考。")
+                    }
+                }
                 ToolSection.ACHIEVEMENT -> AchievementCalculator(charts)
-                ToolSection.VERSIONS -> VersionReference(majorVersions)
                 ToolSection.KALEID -> KaleidScopeStatus(kaleidScopeRepository.currentCatalog())
                 ToolSection.TREND -> RatingTrend(
                     history = ratingHistory,
@@ -250,7 +257,8 @@ private fun AchievementCalculator(charts: List<ChartRecord>) {
     var result by remember { mutableStateOf<MaimaiAchievementCalculation?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     val kind = MaimaiNoteKind.entries.first { it.name == kindName }
-    val judgements = MaimaiJudgement.entries.filter { kind == MaimaiNoteKind.BREAK || it != MaimaiJudgement.PERFECT_HIGH }
+    val judgements = MaimaiJudgement.entries.filter { it != MaimaiJudgement.CRITICAL_PERFECT &&
+        (kind == MaimaiNoteKind.BREAK || it !in setOf(MaimaiJudgement.PERFECT_HIGH, MaimaiJudgement.PERFECT)) }
     val judgement = MaimaiJudgement.entries.firstOrNull { it.name == judgementName }
         ?.takeIf { it in judgements }
         ?: MaimaiJudgement.GREAT
@@ -308,7 +316,7 @@ private fun AchievementCalculator(charts: List<ChartRecord>) {
                     onClick = {
                         kindName = item.name
                         if (item != MaimaiNoteKind.BREAK && judgementName == MaimaiJudgement.PERFECT_HIGH.name) {
-                            judgementName = MaimaiJudgement.PERFECT.name
+                            judgementName = MaimaiJudgement.GREAT.name
                         }
                     },
                     label = { Text(item.displayName) },
@@ -369,7 +377,6 @@ private fun AchievementCalculator(charts: List<ChartRecord>) {
                     "以 ${calculation.targetAchievement.format(4)}% 为目标，最多容许 " +
                         "${calculation.toleratedOccurrences} 个同类判定。",
                 )
-                Text("全 Critical Perfect 理论值 ${calculation.maximumAchievement.format(4)}%")
             }
         }
         SourceNote(
@@ -960,7 +967,6 @@ private fun Long.formatDate(): String =
 private enum class ToolSection(val label: String) {
     RATING("Rating"),
     ACHIEVEMENT("失分 / 容错"),
-    VERSIONS("版本"),
     KALEID("Kaleid×Scope"),
     TREND("趋势"),
 }

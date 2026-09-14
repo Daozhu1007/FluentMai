@@ -9,4 +9,12 @@ internal class ThemePreferences(context: Context) {
     var mode: ThemeMode
         get() = ThemeMode.fromStored(preferences.getString("theme_mode", null))
         set(value) { preferences.edit().putString("theme_mode", value.name).apply() }
+
+    var automaticUpdates: Boolean
+        get() = preferences.getBoolean("automatic_updates", true)
+        set(value) { preferences.edit().putBoolean("automatic_updates", value).apply() }
+
+    var experimentalFeatures: Boolean
+        get() = preferences.getBoolean("experimental_features", false)
+        set(value) { preferences.edit().putBoolean("experimental_features", value).apply() }
 }

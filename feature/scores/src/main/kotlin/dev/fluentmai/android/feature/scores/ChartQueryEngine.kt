@@ -29,6 +29,7 @@ internal data class ChartQueryFilters(
     val fullCombo: FullComboStatus? = null,
     val fullSync: FullSyncStatus? = null,
     val sort: ChartSort = ChartSort.ConstantDesc,
+    val favorite: FavoriteFilter = FavoriteFilter.All,
 )
 
 internal data class ChartQueryItem(
@@ -60,6 +61,7 @@ internal class ChartQueryEngine private constructor(
         filters: ChartQueryFilters,
         currentVersion: Int,
         limit: Int = 500,
+        favorites: Set<String> = emptySet(),
     ): ChartQueryResult {
         val normalizedQuery = normalizeQuery(filters.searchQuery)
         val designerAliases = designerAliasesFor(normalizedQuery)
@@ -72,7 +74,8 @@ internal class ChartQueryEngine private constructor(
                 entry.matchesSearch(normalizedQuery, designerAliases) &&
                 filters.status.matches(entry.score) &&
                 (filters.songType == null || entry.chart.songType == filters.songType) &&
-                filters.matchesScore(entry.score)
+                filters.matchesScore(entry.score) &&
+                filters.favorite.matches(ChartIdentity.from(entry.chart).stableKey() in favorites)
         }
         val items = matched
             .sortedWith(filters.sort.comparator())

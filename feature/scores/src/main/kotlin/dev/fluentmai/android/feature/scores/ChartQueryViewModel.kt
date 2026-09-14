@@ -43,6 +43,14 @@ internal class ChartQueryViewModel(
     val restoredScrollOffset: Int
         get() = savedStateHandle[KEY_SCROLL_OFFSET] ?: 0
 
+    private var favorites: Set<String> = emptySet()
+    fun updateFavorites(value: Set<String>) {
+        if (favorites == value) return
+        favorites = value.toSet()
+        scheduleQuery(0)
+    }
+    fun cycleFavoriteFilter() = updateFilters { it.copy(favorite = it.favorite.next()) }
+
     private var engine: ChartQueryEngine? = null
     private var indexedCharts: List<ChartRecord>? = null
     private var indexedScores: List<ScoreRecord>? = null
@@ -213,15 +221,16 @@ internal class ChartQueryViewModel(
             return
         }
         val currentVersion = indexedCurrentVersion
+        val favoriteSnapshot = favorites
         queryJob?.cancel()
         _uiState.update { it.copy(isFiltering = true) }
         queryJob = viewModelScope.launch {
             if (debounceMillis > 0L) delay(debounceMillis)
             val startedAt = SystemClock.elapsedRealtime()
             val result = withContext(Dispatchers.Default) {
-                queryEngine.query(filters, currentVersion)
+                queryEngine.query(filters, currentVersion, favorites = favoriteSnapshot)
             }
-            if (engine !== queryEngine || _uiState.value.filters != filters) return@launch
+            if (engine !== queryEngine || _uiState.value.filters != filters || favorites != favoriteSnapshot) return@launch
             Log.i(
                 TAG,
                 "Chart query ready in ${SystemClock.elapsedRealtime() - startedAt}ms: " +
@@ -247,6 +256,7 @@ internal class ChartQueryViewModel(
         savedStateHandle[KEY_FULL_COMBO] = filters.fullCombo?.name
         savedStateHandle[KEY_FULL_SYNC] = filters.fullSync?.name
         savedStateHandle[KEY_SORT] = filters.sort.name
+        savedStateHandle["charts.favorite"] = filters.favorite.name
     }
 
     private companion object {
@@ -288,6 +298,7 @@ internal class ChartQueryViewModel(
                 fullCombo = enumValueOrNull<FullComboStatus>(handle[KEY_FULL_COMBO]),
                 fullSync = enumValueOrNull<FullSyncStatus>(handle[KEY_FULL_SYNC]),
                 sort = enumValueOrDefault(handle[KEY_SORT], ChartSort.ConstantDesc),
+                favorite = enumValueOrDefault(handle["charts.favorite"], FavoriteFilter.All),
             )
 
         private inline fun <reified T : Enum<T>> enumValueOrNull(name: String?): T? =

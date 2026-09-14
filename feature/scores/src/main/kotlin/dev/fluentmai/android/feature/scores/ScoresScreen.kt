@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -110,6 +111,7 @@ fun ScoresScreen(
     onOpenPlayedCharts: () -> Unit = {},
     onOpenPlates: () -> Unit = {},
     onOpenRecommendations: () -> Unit = {},
+    onOpenB50Poster: (() -> Unit)? = null,
     onChartSelected: (ChartIdentity) -> Unit = {},
     scrollToTopRequestId: Int = 0,
     modifier: Modifier = Modifier,
@@ -157,6 +159,7 @@ fun ScoresScreen(
                 onOpenPlayedCharts = onOpenPlayedCharts,
                 onOpenPlates = onOpenPlates,
                 onOpenRecommendations = onOpenRecommendations,
+                onOpenB50Poster = onOpenB50Poster,
             )
         }
 
@@ -218,6 +221,9 @@ fun ChartQueryScreen(
     val queryViewModel: ChartQueryViewModel = viewModel()
     val uiState by queryViewModel.uiState.collectAsState()
     val filters = uiState.filters
+    val favoriteStore = rememberFavoriteStore()
+    val favorites by favoriteStore.values.collectAsState()
+    SideEffect { queryViewModel.updateFavorites(favorites) }
     val currentVersion = remember(majorVersions, charts) {
         resolveCurrentMaimaiVersion(majorVersions, charts)?.majorVersion?.id ?: 0
     }
@@ -296,6 +302,8 @@ fun ChartQueryScreen(
                 onFullComboChanged = queryViewModel::updateFullCombo,
                 fullSync = filters.fullSync,
                 onFullSyncChanged = queryViewModel::updateFullSync,
+                favoriteFilter = filters.favorite,
+                onFavoriteFilterChanged = queryViewModel::cycleFavoriteFilter,
                 sortMode = filters.sort,
                 onSortModeChanged = queryViewModel::updateSort,
                 hasActiveFilters = filters != ChartQueryFilters(),
@@ -332,6 +340,8 @@ fun ChartQueryScreen(
                 ChartCard(
                     chart = item.chart,
                     score = item.score,
+                    favorite = ChartIdentity.from(item.chart).stableKey() in favorites,
+                    onFavorite = { favoriteStore.toggle(ChartIdentity.from(item.chart).stableKey()) },
                     onClick = { onChartSelected(ChartIdentity.from(item.chart)) },
                 )
             }
@@ -478,6 +488,7 @@ private fun HomeActions(
     onOpenPlayedCharts: () -> Unit,
     onOpenPlates: () -> Unit,
     onOpenRecommendations: () -> Unit,
+    onOpenB50Poster: (() -> Unit)?,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("B50 快速跳转", style = MaterialTheme.typography.labelLarge)
@@ -500,9 +511,9 @@ private fun HomeActions(
             horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            TextButton(onClick = onOpenPlayedCharts) { Text("查看已游玩谱面") }
             TextButton(onClick = onOpenPlates) { Text("牌子进度") }
             TextButton(onClick = onOpenRecommendations) { Text("推分建议") }
+            onOpenB50Poster?.let { open -> TextButton(onClick = open) { Text("B50 大图") } }
         }
     }
 }
@@ -536,6 +547,8 @@ private fun ChartFilters(
     onFullComboChanged: (FullComboStatus?) -> Unit,
     fullSync: FullSyncStatus?,
     onFullSyncChanged: (FullSyncStatus?) -> Unit,
+    favoriteFilter: FavoriteFilter,
+    onFavoriteFilterChanged: () -> Unit,
     sortMode: ChartSort,
     onSortModeChanged: (ChartSort) -> Unit,
     hasActiveFilters: Boolean,
@@ -620,6 +633,9 @@ private fun ChartFilters(
                 values = ChartStatusFilter.entries.map { it to it.label },
                 onSelected = onStatusFilterChanged,
             )
+            OutlinedIconButton(onClick = onFavoriteFilterChanged) {
+                FavoriteIcon(favoriteFilter == FavoriteFilter.Favorites, favoriteFilter == FavoriteFilter.Unfavorites, favoriteFilter.label)
+            }
             QuickFilterMenu(
                 label = sortMode.label,
                 active = sortMode != ChartSort.ConstantDesc,
@@ -1108,6 +1124,8 @@ private fun ScoreCard(
 private fun ChartCard(
     chart: ChartRecord,
     score: ScoreRecord?,
+    favorite: Boolean = false,
+    onFavorite: () -> Unit = {},
     onClick: () -> Unit,
 ) {
     ElevatedCard(
@@ -1154,6 +1172,7 @@ private fun ChartCard(
                         color = chart.difficulty.accentColor(),
                     )
                 }
+                IconButton(onClick = onFavorite) { FavoriteIcon(favorite, false, if (favorite) "取消收藏" else "收藏谱面") }
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),

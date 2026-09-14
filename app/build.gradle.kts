@@ -12,8 +12,8 @@ android {
         applicationId = "dev.fluentmai.android"
         minSdk = 26
         targetSdk = 34
-        versionCode = 9
-        versionName = "0.2.5-android-beta.3"
+        versionCode = 10
+        versionName = "0.2.6-beta"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -56,9 +56,11 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("io.ktor:ktor-client-core:3.0.1")
     implementation("io.ktor:ktor-client-cio:3.0.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
 }

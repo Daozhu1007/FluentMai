@@ -130,6 +130,7 @@ data class WahlapCookieImportCredentials(
 class WahlapManualCookieScorePageClient(
     private val credentials: WahlapCookieImportCredentials,
     private val redactor: PrivacyRedactor,
+    private val onPlayerHome: (String) -> Unit = {},
 ) : Closeable {
     private val client = HttpClient(CIO) {
         install(HttpTimeout) {
@@ -148,6 +149,10 @@ class WahlapManualCookieScorePageClient(
         if (looksLikeAuthFailure(home.body)) {
             throw IOException("Wahlap Cookie login failed: home page is not authenticated")
         }
+        onPlayerHome(home.body)
+        onPlayerHome(enrichWahlapPlayerHome(home.body) { url ->
+            request("player-collection", url).takeIf { it.statusCode in 200..299 && !looksLikeAuthFailure(it.body) }?.body
+        })
     }
 
     suspend fun fetchScorePage(difficulty: Difficulty): String {
@@ -211,6 +216,8 @@ class WahlapManualCookieScorePageClient(
                 body = response.bodyAsText(),
                 finalUrl = response.call.request.url.toString(),
             )
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
         } catch (error: Exception) {
             throw IOException("$label request failed: ${redactor.redact(error.message ?: error::class.java.simpleName)}", error)
         }
