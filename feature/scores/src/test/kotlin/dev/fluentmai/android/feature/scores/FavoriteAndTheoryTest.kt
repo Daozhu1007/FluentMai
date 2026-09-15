@@ -37,6 +37,26 @@ class FavoriteAndTheoryTest {
         assertFalse(visible.keys.any { "maimaidx.jp" in it || it.startsWith("bundled:") })
     }
 
+    @Test fun theorySelectsHighestConstantsIncludingLockedChartsAt101Percent() {
+        val charts = (1..60).map { id -> B50PosterTest.chart(id).copy(levelValue = 10.0 + id / 10.0) }
+        val lockedOld = charts.first().copy(levelValue = 15.0, isLocked = true)
+        val lockedNew = charts[40].copy(levelValue = 15.0, isLocked = true)
+        val available = charts.filter { it.songId !in setOf(1, 41) } + lockedOld + lockedNew
+        val disabled = lockedOld.copy(songId = 999, levelValue = 20.0, isDisabled = true)
+        val future = lockedNew.copy(songId = 998, chartVersion = 26000, levelValue = 20.0)
+        val best = theoreticalBestSet(available + available + disabled + future,
+            listOf(MaimaiMajorVersion(25500, "舞萌DX 2026")))
+        val expectedOld = available.filter { it.chartVersion < 25500 }.sortedByDescending { it.levelValue }.take(35)
+        val expectedNew = available.filter { it.chartVersion == 25500 }.sortedByDescending { it.levelValue }.take(15)
+        assertEquals(expectedOld.map { it.levelValue }, best.oldBest.map { it.chart!!.levelValue })
+        assertEquals(expectedNew.map { it.levelValue }, best.newBest.map { it.chart!!.levelValue })
+        assertTrue(best.oldBest.any { it.chart!!.songId == 1 })
+        assertTrue(best.newBest.any { it.chart!!.songId == 41 })
+        assertTrue(best.all.all { it.score.achievement == 101.0 && it.score.fc == "app" })
+        assertEquals((expectedOld + expectedNew).sumOf { calculateDxRating(it.levelValue!!, 101.0) }, best.rating)
+        assertEquals(50, best.all.size)
+    }
+
     @Test fun theoryIncludesWholeAnnualReleaseAcrossMinorUpdatesAndNextYear() {
         for ((launch, year) in listOf(25500 to 2026, 26000 to 2027)) {
             val charts = (1..60).map { id -> B50PosterTest.chart(id).copy(

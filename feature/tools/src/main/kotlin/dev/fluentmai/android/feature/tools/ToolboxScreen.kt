@@ -27,6 +27,8 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -154,12 +156,7 @@ fun ToolboxScreen(
                 ToolSection.RATING -> Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     RatingCalculator()
                     val theoretical = remember(charts, majorVersions) { dev.fluentmai.android.core.model.theoreticalBestSet(charts, majorVersions) }
-                    ToolCard("当前版本理论Rating", "Best15 从整个年度大版本的谱面中选取，Best35 从该大版本之前选取；谱面去重，全部按 100.5000% 计算。") {
-                        theoretical.currentVersion?.let { Text("当前大版本：${it.majorVersion.name}") }
-                        Text(if (theoretical.all.isEmpty()) "曲库尚未就绪" else theoretical.rating.toString(), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                        Text("Best35 ${theoretical.oldBest.sumOf { it.rating ?: 0 }} + Best15 ${theoretical.newBest.sumOf { it.rating ?: 0 }}")
-                        if (theoretical.all.size < 50) Text("当前曲库不足 50 张有效谱面，结果仅供参考。")
-                    }
+                    TheoreticalRatingCard(theoretical)
                 }
                 ToolSection.ACHIEVEMENT -> AchievementCalculator(charts)
                 ToolSection.KALEID -> KaleidScopeStatus(kaleidScopeRepository.currentCatalog())
@@ -169,6 +166,41 @@ fun ToolboxScreen(
                     onUpdate = onUpdateManualRating,
                     onDelete = onDeleteManualRating,
                 )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TheoreticalRatingCard(best: dev.fluentmai.android.core.model.MaimaiBestSet) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    ToolCard("当前版本理论Rating", "") {
+        Text(if (best.all.isEmpty()) "曲库尚未就绪" else best.rating.toString(),
+            style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+        Text("Best35 ${best.oldBest.sumOf { it.rating ?: 0 }} + Best15 ${best.newBest.sumOf { it.rating ?: 0 }}")
+        TextButton(onClick = { expanded = !expanded }) {
+            Icon(if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, null)
+            Text(if (expanded) "收起理论 B50" else "展开理论 B50")
+        }
+        if (expanded) {
+            listOf("旧版本 Best35" to best.oldBest,
+                "${best.currentVersion?.majorVersion?.name ?: "当前大版本"} Best15" to best.newBest).forEach { (label, items) ->
+                HorizontalDivider()
+                Text("$label · ${items.size} 张", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                items.forEachIndexed { index, item ->
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("${index + 1}", Modifier.widthIn(min = 24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(item.score.title, fontWeight = FontWeight.SemiBold)
+                            val difficulty = if (item.score.difficulty == dev.fluentmai.android.core.model.Difficulty.RE_MASTER) "Re:MASTER" else item.score.difficulty.name
+                            val type = if (item.score.songType == dev.fluentmai.android.core.model.SongType.DX) "DX" else "标准"
+                            Text("$type · $difficulty · ${String.format(Locale.US, "%.1f", item.chart?.levelValue)}",
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("101.0000%", style = MaterialTheme.typography.bodySmall)
+                        }
+                        Text(item.rating.toString(), fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }
@@ -893,7 +925,7 @@ private fun ToolCard(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (subtitle.isNotBlank()) Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant)
             content()
         }
     }

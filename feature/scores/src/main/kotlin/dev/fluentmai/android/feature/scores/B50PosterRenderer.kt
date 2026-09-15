@@ -51,44 +51,39 @@ internal class B50PosterRenderer {
         else centeredText("♪", avatarRect.centerX(), 280f, 88f, Color.rgb(98, 198, 206), 180f)
 
         val rating = best.rating
-        val ratingRect = RectF(306f, 167f, 492f, 245f)
+        val ratingRect = RectF(306f, 176f, 520f, 176f + 214f * 86f / 296f)
         val ratingArtwork = images[B50Assets.rating(rating)]
         if (ratingArtwork != null) {
-            // Use the official colour frame's number window, omitting its DX RATING logo.
-            val saved = canvas.save()
-            canvas.clipPath(Path().apply { addRoundRect(ratingRect, 10f, 10f, Path.Direction.CW) })
-            paint.color = Color.WHITE
-            val source = Rect((ratingArtwork.width * 118 / 296), (ratingArtwork.height * 6 / 86),
-                (ratingArtwork.width * 292 / 296), (ratingArtwork.height * 79 / 86))
-            canvas.drawBitmap(ratingArtwork, source, ratingRect, paint)
-            canvas.restoreToCount(saved)
+            // Preserve the complete official artwork, including the left-hand logo.
+            bitmap(ratingArtwork, ratingRect)
+            val scale = ratingRect.width() / 296f
             rating.toString().padStart(5, '0').forEachIndexed { index, digit ->
-                val centerX = ratingRect.left + ((136.3f + index * 31.5f - 118f) / 174f) * ratingRect.width()
-                centeredText(digit.toString(), centerX, 219f, 32f, Color.rgb(255, 245, 177), 30f)
+                val centerX = ratingRect.left + (136.3f + index * 31.5f) * scale
+                centeredText(digit.toString(), centerX, ratingRect.top + 55f * scale, 33.5f * scale, Color.rgb(255, 245, 177), 29f * scale)
             }
         } else {
             rounded(ratingRect, ratingFallbackColor(rating), 12f)
-            centeredText(rating.toString(), ratingRect.centerX(), 219f, 32f, Color.WHITE, 170f)
+            centeredText(rating.toString(), ratingRect.centerX(), 216f, 26f, Color.WHITE, 190f)
         }
-        if (options.rank) player?.classRank?.let { asset(B50Assets.rank(it), RectF(505f, 171f, 620f, 240f)) }
+        if (options.rank) player?.classRank?.let { asset(B50Assets.rank(it), RectF(534f, 180f, 626f, 235f)) }
 
-        val nameRect = RectF(306f, 250f, 1030f, 303f)
+        val nameRect = RectF(306f, 240f, 866f, 293f)
         rounded(nameRect, Color.WHITE, 7f)
         val course = player?.courseRank?.takeIf { options.course }
-        val nameWidth = if (course != null) 552f else 696f
-        val name = ellipsized(player?.name ?: "本地玩家", 37f, nameWidth)
-        text(name, 318f, 290f, 37f, ink, bold = true)
+        val nameWidth = if (course != null) 396f else 536f
+        val name = ellipsized(player?.name ?: "本地玩家", 33f, nameWidth)
+        text(name, 318f, 280f, 33f, ink, bold = true)
         if (course != null) {
             val courseX = 318f + paint.measureText(name) + 12f
-            asset(B50Assets.course(course), RectF(courseX, 251f, courseX + 128f, 302f), trim = true)
+            asset(B50Assets.course(course), RectF(courseX, 241f, courseX + 128f, 292f), trim = true)
         }
 
         if (options.trophy && player?.trophy != null) {
-            val trophyRect = RectF(306f, 310f, 1030f, 353f)
+            val trophyRect = RectF(306f, 300f, 866f, 343f)
             val artwork = images[B50Assets.trophy(player.trophyColor)]
             if (artwork != null) banner(artwork, trophyRect)
             else rounded(trophyRect, Color.rgb(231, 229, 248), 10f)
-            centeredText(player.trophy, trophyRect.centerX(), 339f, 23f, ink, trophyRect.width() - 32f)
+            centeredText(player.trophy, trophyRect.centerX(), 329f, 23f, ink, trophyRect.width() - 32f)
         }
         rounded(RectF(80f, 389f, 910f, 427f), Color.argb(225, 255, 255, 255), 12f)
         text("B35 ${best.oldBest.sumOf { it.rating ?: 0 }}  +  B15 ${best.newBest.sumOf { it.rating ?: 0 }}  =  ${best.rating}",

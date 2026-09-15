@@ -43,8 +43,8 @@ MaiproberPlus was inspected only as a read-only technical validation reference f
 The Android B50 renderer includes the 11 `rating_base_*.png` colour frames and 5
 `trophy_*.png` backgrounds from `https://maimaidx.jp/maimai-mobile/img/`, retrieved
 2026-09-15. Their local names are `b50_rating_*.png` and `b50_trophy_*.png` under
-`feature/scores/src/main/res/drawable-nodpi`. The rating renderer displays only the
-number-window portion of the unmodified source files. These game artworks belong
+`feature/scores/src/main/res/drawable-nodpi`. The rating renderer displays the complete
+unmodified source frames, including the left-hand logo. These game artworks belong
 to SEGA and their respective rights holders; they are not covered by the project's
 source-code or dependency licenses. Bundling avoids runtime requests to the Japanese
 NET site. Player collections and jackets remain separately loaded public artwork.

@@ -12,8 +12,8 @@ android {
         applicationId = "dev.fluentmai.android"
         minSdk = 26
         targetSdk = 34
-        versionCode = 11
-        versionName = "0.2.7-beta"
+        versionCode = 12
+        versionName = "0.2.8-beta"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
