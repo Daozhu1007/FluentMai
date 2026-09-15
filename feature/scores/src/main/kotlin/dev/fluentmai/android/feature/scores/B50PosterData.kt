@@ -33,12 +33,11 @@ internal fun posterAssets(best: MaimaiBestSet, player: B50PlayerProfile?, option
         B50Assets.status(item.score.fc)?.let { put(it, "FC/AP 状态：${item.score.fc}") }
         B50Assets.status(item.score.fs)?.let { put(it, "FS 状态：${item.score.fs}") }
     }
-    put(B50Assets.rating(best.rating), "Rating 框体（${posterRatingColor(best.rating)}）")
     player?.iconArtwork?.let { put(it, "玩家头像") }
     if (options.nameplate) player?.plateArtwork?.let { put(it, "玩家姓名框") }
+    if (options.background) player?.frameArtwork?.let { put(it, "玩家收藏品背景") }
     if (options.course) player?.courseRank?.let { put(B50Assets.course(it), "段位图标") }
     if (options.rank) player?.classRank?.let { put(B50Assets.rank(it), "友人对战等级") }
-    if (options.trophy && player?.trophy != null) put(B50Assets.trophy(player.trophyColor), "称号底图")
 }
 
 internal fun posterBestSet(scores: List<ScoreRecord>, charts: List<ChartRecord>, versions: List<MaimaiMajorVersion>): MaimaiBestSet {
@@ -81,15 +80,16 @@ internal fun posterRatingColor(rating: Int): String = when {
 internal object B50Assets {
     const val COLLECTIONS = "https://assets2.lxns.net/maimai"
     const val UI = "https://maimai.lxns.net/assets/maimai"
-    const val NET = "https://maimaidx.jp/maimai-mobile/img"
     fun jacket(id: Int) = "$COLLECTIONS/jacket/$id.png"
     fun icon(id: Int) = "$COLLECTIONS/icon/$id.png"
     fun plate(id: Int) = "$COLLECTIONS/plate/$id.png"
     fun frame(id: Int) = "$COLLECTIONS/frame/$id.png"
     fun course(id: Int) = "$UI/course_rank/$id.webp"
     fun rank(id: Int) = "$UI/class_rank/$id.webp"
-    fun rating(value: Int) = "$NET/rating_base_${posterRatingColor(value)}.png"
-    fun trophy(color: String?) = "$NET/trophy_${color?.lowercase()?.takeIf { it in setOf("normal", "bronze", "silver", "gold", "rainbow") } ?: "normal"}.png"
+    // Local keys, never passed to the network image loader.
+    fun rating(value: Int) = "bundled:rating/${posterRatingColor(value)}"
+    fun trophy(color: String?) = "bundled:trophy/${trophyColor(color)}"
+    fun trophyColor(color: String?) = color?.lowercase()?.takeIf { it in setOf("normal", "bronze", "silver", "gold", "rainbow") } ?: "normal"
     fun status(raw: String?): String? {
         val code = when (raw?.lowercase()) { "fc+" -> "fcp"; "ap+" -> "app"; "fs+" -> "fsp"; "fsd+", "fsdx+" -> "fsdp"; "fsdx" -> "fsd"; else -> raw?.lowercase() }
         return code?.takeIf { it in setOf("fc", "fcp", "ap", "app", "fs", "fsp", "fsd", "fsdp", "sync") }?.let { "$UI/music_icon/$it.webp" }

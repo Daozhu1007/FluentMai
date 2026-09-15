@@ -50,6 +50,31 @@ class MaimaiVersionTest {
         assertTrue(sameMaimaiVersionName("MAIMAI DX - 2026", "maimai_dx 2026"))
     }
 
+    @Test
+    fun annualBoundarySurvivesFutureYearsAndMinorUpdates() {
+        val current = resolveCurrentMaimaiVersion(listOf(
+            MaimaiMajorVersion(25500, "舞萌DX 2026"),
+            MaimaiMajorVersion(26000, "舞萌DX 2027"),
+            MaimaiMajorVersion(26500, "舞萌DX 2027 PLUS"),
+        ), emptyList())!!
+        assertEquals(26000, current.majorVersion.id)
+        assertEquals("舞萌DX 2027", current.majorVersion.name)
+        assertEquals(MaimaiRatingBucket.CURRENT, chart(26000, null).ratingBucket(current))
+        assertEquals(MaimaiRatingBucket.CURRENT, chart(26501, null).ratingBucket(current))
+        assertEquals(MaimaiRatingBucket.OLD, chart(25999, null).ratingBucket(current))
+        assertEquals(MaimaiRatingBucket.INELIGIBLE, chart(27000, null).ratingBucket(current))
+        assertEquals(MaimaiRatingBucket.INELIGIBLE, chart(26600, "舞萌DX 2028").ratingBucket(current))
+    }
+
+    @Test
+    fun metadataOnlyMinorUpdatesStillUseKnownAnnualLaunch() {
+        val current = resolveCurrentMaimaiVersion(listOf(MaimaiMajorVersion(25507, "舞萌DX 2026 更新")), emptyList())!!
+        assertEquals(25500, current.majorVersion.id)
+        assertEquals(MaimaiRatingBucket.CURRENT, chart(25500, null).ratingBucket(current))
+        assertEquals(MaimaiRatingBucket.CURRENT, chart(25507, null).ratingBucket(current))
+        assertEquals(MaimaiRatingBucket.OLD, chart(25008, null).ratingBucket(current))
+    }
+
     private fun chart(
         chartVersion: Int,
         chartVersionName: String?,

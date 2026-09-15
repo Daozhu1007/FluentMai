@@ -6,7 +6,7 @@ import java.util.Locale
 import kotlin.math.cos
 import kotlin.math.sin
 
-/** One immutable high-resolution image is used in both the preview and full-screen view. */
+/** One immutable high-resolution image is used in both the preview and gallery export. */
 internal class B50PosterRenderer {
     private val ink = Color.rgb(44, 53, 83)
     private var headingColor = Color.WHITE
@@ -14,63 +14,85 @@ internal class B50PosterRenderer {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private lateinit var canvas: Canvas
     private lateinit var images: Map<String, Bitmap>
+    private val visibleBounds = mutableMapOf<Bitmap, Rect>()
 
     fun render(best: MaimaiBestSet, profile: B50PlayerProfile?, background: Bitmap, assets: Map<String, Bitmap>, height: Int = HEIGHT, options: B50DisplayOptions = B50DisplayOptions()): Bitmap {
         images = assets
+        visibleBounds.clear()
         val output = Bitmap.createBitmap(WIDTH, height, Bitmap.Config.ARGB_8888)
         canvas = Canvas(output)
-        // Background fills the target viewport; content keeps its proportions on every device.
+        canvas.drawColor(Color.WHITE)
+        // The selected poster artwork is independent of the player's collection frame.
         paint.color = Color.WHITE
-        if (options.background) bitmap(background, RectF(0f, 0f, WIDTH.toFloat(), height.toFloat()))
-        else canvas.drawColor(Color.WHITE)
-        headingColor = if (options.background) Color.WHITE else ink
-        val contentScale = minOf(1f, (height - 110f) / 2780f)
+        bitmap(background, RectF(0f, 0f, WIDTH.toFloat(), height.toFloat()))
+        headingColor = Color.WHITE
+        val contentScale = minOf(1f, (height - 240f) / 2544f)
         canvas.translate((WIDTH - WIDTH * contentScale) / 2, 0f)
         canvas.scale(contentScale, contentScale)
         text("BEST 50", 62f, 101f, 72f, headingColor, bold = true)
         header(best, profile, options)
-        text("B35 ${best.oldBest.sumOf { it.rating ?: 0 }}  +  B15 ${best.newBest.sumOf { it.rating ?: 0 }}  =  ${best.rating}",
-            62f, 410f, 28f, headingColor, bold = true)
-        section("旧版本Best35", best.oldBest, 521f, 551f, 35, Color.rgb(45, 173, 199))
-        section("当前版本Best15", best.newBest, 2111f, 2141f, 15, Color.rgb(158, 116, 218))
+        section("旧版本Best35", best.oldBest, 480f, 504f, 35, Color.rgb(45, 173, 199))
+        section("当前版本Best15", best.newBest, 1935f, 1960f, 15, Color.rgb(158, 116, 218))
         return output
     }
 
     private fun header(best: MaimaiBestSet, player: B50PlayerProfile?, options: B50DisplayOptions) {
-        val panel = RectF(60f, 137f, 1440f, 359f)
-        rounded(panel, Color.argb(215, 255, 255, 255), 20f, shadow = true)
-        if (options.nameplate) player?.plateArtwork?.let { asset(it, panel, radius = 20f) }
-        val avatarRect = RectF(78f, 152f, 270f, 344f)
+        val collectionPanel = RectF(60f, 137f, 1440f, 440f)
+        rounded(collectionPanel, Color.WHITE, 20f, shadow = true)
+        if (options.background) player?.frameArtwork?.let { asset(it, collectionPanel, crop = true, radius = 20f) }
+        // Nameplate surrounds all identity fields, like the in-game player card.
+        val panel = RectF(80f, 154f, 1420f, 370f)
+        rounded(panel, Color.argb(210, 255, 255, 255), 12f)
+        if (options.nameplate) player?.plateArtwork?.let { asset(it, panel, radius = 12f) }
+        val avatarRect = RectF(96f, 168f, 284f, 356f)
         rounded(avatarRect, Color.WHITE, 14f)
         val avatar = player?.iconArtwork?.let(images::get)
         if (avatar != null) bitmap(avatar, avatarRect, radius = 14f)
         else centeredText("♪", avatarRect.centerX(), 280f, 88f, Color.rgb(98, 198, 206), 180f)
 
         val rating = best.rating
-        val ratingRect = RectF(300f, 151f, 595f, 237f)
-        if (asset(B50Assets.rating(rating), ratingRect)) {
+        val ratingRect = RectF(306f, 167f, 492f, 245f)
+        val ratingArtwork = images[B50Assets.rating(rating)]
+        if (ratingArtwork != null) {
+            // Use the official colour frame's number window, omitting its DX RATING logo.
+            val saved = canvas.save()
+            canvas.clipPath(Path().apply { addRoundRect(ratingRect, 10f, 10f, Path.Direction.CW) })
+            paint.color = Color.WHITE
+            val source = Rect((ratingArtwork.width * 118 / 296), (ratingArtwork.height * 6 / 86),
+                (ratingArtwork.width * 292 / 296), (ratingArtwork.height * 79 / 86))
+            canvas.drawBitmap(ratingArtwork, source, ratingRect, paint)
+            canvas.restoreToCount(saved)
             rating.toString().padStart(5, '0').forEachIndexed { index, digit ->
-                centeredText(digit.toString(), 436.3f + index * 31.5f, 206f, 33.5f, Color.WHITE, 29f)
+                val centerX = ratingRect.left + ((136.3f + index * 31.5f - 118f) / 174f) * ratingRect.width()
+                centeredText(digit.toString(), centerX, 219f, 32f, Color.rgb(255, 245, 177), 30f)
             }
         } else {
             rounded(ratingRect, ratingFallbackColor(rating), 12f)
-            centeredText("Rating $rating", ratingRect.centerX(), 207f, 30f, Color.WHITE, 275f)
+            centeredText(rating.toString(), ratingRect.centerX(), 219f, 32f, Color.WHITE, 170f)
         }
-        if (options.rank) player?.classRank?.let { asset(B50Assets.rank(it), RectF(615f, 157f, 735f, 223f)) }
+        if (options.rank) player?.classRank?.let { asset(B50Assets.rank(it), RectF(505f, 171f, 620f, 240f)) }
 
-        val nameRect = RectF(300f, 239f, 1030f, 294f)
+        val nameRect = RectF(306f, 250f, 1030f, 303f)
         rounded(nameRect, Color.WHITE, 7f)
         val course = player?.courseRank?.takeIf { options.course }
-        text(player?.name ?: "本地玩家", 312f, 280f, 37f, ink, bold = true, maxWidth = if (course != null) 488f else 698f)
-        if (course != null) asset(B50Assets.course(course), RectF(820f, 240f, 1020f, 291f))
+        val nameWidth = if (course != null) 552f else 696f
+        val name = ellipsized(player?.name ?: "本地玩家", 37f, nameWidth)
+        text(name, 318f, 290f, 37f, ink, bold = true)
+        if (course != null) {
+            val courseX = 318f + paint.measureText(name) + 12f
+            asset(B50Assets.course(course), RectF(courseX, 251f, courseX + 128f, 302f), trim = true)
+        }
 
         if (options.trophy && player?.trophy != null) {
-            val trophyRect = RectF(300f, 300f, 1030f, 343f)
-            if (!asset(B50Assets.trophy(player.trophyColor), trophyRect)) rounded(trophyRect, Color.rgb(231, 229, 248), 10f)
+            val trophyRect = RectF(306f, 310f, 1030f, 353f)
             val artwork = images[B50Assets.trophy(player.trophyColor)]
-            val available = artwork?.let { minOf(trophyRect.width(), trophyRect.height() * it.width / it.height) - 24f } ?: 680f
-            centeredText(player.trophy, trophyRect.centerX(), 329f, 23f, ink, available)
+            if (artwork != null) banner(artwork, trophyRect)
+            else rounded(trophyRect, Color.rgb(231, 229, 248), 10f)
+            centeredText(player.trophy, trophyRect.centerX(), 339f, 23f, ink, trophyRect.width() - 32f)
         }
+        rounded(RectF(80f, 389f, 910f, 427f), Color.argb(225, 255, 255, 255), 12f)
+        text("B35 ${best.oldBest.sumOf { it.rating ?: 0 }}  +  B15 ${best.newBest.sumOf { it.rating ?: 0 }}  =  ${best.rating}",
+            96f, 417f, 26f, ink, bold = true)
     }
 
     private fun ratingFallbackColor(rating: Int): Int = when (posterRatingColor(rating)) {
@@ -97,13 +119,13 @@ internal class B50PosterRenderer {
         paint.shader = null
         repeat(capacity) { index ->
             val x = 60f + (index % 5) * 278f
-            val y = startY + (index / 5) * 216f
+            val y = startY + (index / 5) * 198f
             card(scores.getOrNull(index), index + 1, x, y)
         }
     }
 
     private fun card(item: MaimaiRatedScore?, rank: Int, x: Float, y: Float) {
-        val rect = RectF(x, y, x + 264, y + 208)
+        val rect = RectF(x, y, x + 264, y + 188)
         rounded(rect, Color.WHITE, 20f, shadow = true)
         if (item == null) {
             text("#${rank.toString().padStart(2, '0')}", x + 16, y + 33, 20f, muted)
@@ -121,42 +143,42 @@ internal class B50PosterRenderer {
         val saved = canvas.save()
         canvas.clipPath(Path().apply { addRoundRect(rect, 20f, 20f, Path.Direction.CW) })
         paint.shader = LinearGradient(x, y, x + 264, y + 50, accent, lighten(accent), Shader.TileMode.CLAMP)
-        canvas.drawRect(x, y, x + 264, y + 42, paint)
+        canvas.drawRect(x, y, x + 264, y + 36, paint)
         paint.shader = null
         canvas.restoreToCount(saved)
-        text("#${rank.toString().padStart(2, '0')}", x + 12, y + 29, 20f, Color.WHITE, bold = true)
+        text("#${rank.toString().padStart(2, '0')}", x + 12, y + 26, 20f, Color.WHITE, bold = true)
         val difficulty = if (score.difficulty == Difficulty.RE_MASTER) "Re:MASTER" else score.difficulty.name
-        text(difficulty, x + 58, y + 28, 19f, Color.WHITE, bold = true)
-        rounded(RectF(x + 192, y + 8, x + 252, y + 34), Color.WHITE, 13f)
+        text(difficulty, x + 58, y + 25, 19f, Color.WHITE, bold = true)
+        rounded(RectF(x + 192, y + 5, x + 252, y + 31), Color.WHITE, 13f)
         paint.textSize = 18f
-        val badgeBaseline = y + 21 - (paint.fontMetrics.ascent + paint.fontMetrics.descent) / 2
+        val badgeBaseline = y + 18 - (paint.fontMetrics.ascent + paint.fontMetrics.descent) / 2
         centeredText(if (score.songType == SongType.DX) "DX" else "标准", x + 222, badgeBaseline, 18f, accent, 54f)
-        val cover = RectF(x + 10, y + 52, x + 90, y + 132)
+        val cover = RectF(x + 10, y + 44, x + 84, y + 118)
         val id = item.chart?.songId ?: score.songId
         if (id == null || !asset(B50Assets.jacket(id), cover, radius = 10f)) {
             rounded(cover, Color.rgb(231, 233, 247), 10f)
             text("♪", x + 34, y + 107, 36f, muted)
         }
-        title(score.title, x + 100, y + 73, 153f)
-        text(String.format(Locale.US, "%.4f%%", score.achievement), x + 100, y + 127, 23f, ink, bold = true, maxWidth = 154f)
-        rounded(RectF(x + 10, y + 137, x + 254, y + 164), Color.rgb(242, 244, 252), 12f)
-        text(item.chart?.levelValue?.let { String.format(Locale.US, "%.1f", it) } ?: "--", x + 19, y + 158, 21f, accent, bold = true)
+        title(score.title, x + 94, y + 63, 160f)
+        text(String.format(Locale.US, "%.4f%%", score.achievement), x + 94, y + 115, 23f, ink, bold = true, maxWidth = 160f)
+        rounded(RectF(x + 10, y + 123, x + 254, y + 148), Color.rgb(242, 244, 252), 12f)
+        text(item.chart?.levelValue?.let { String.format(Locale.US, "%.1f", it) } ?: "--", x + 19, y + 143, 21f, accent, bold = true)
         val ratingLabel = item.rating?.toString() ?: "--"
         paint.textSize = 21f
         paint.typeface = Typeface.create("sans-serif", Typeface.BOLD)
-        text(ratingLabel, x + 245 - paint.measureText(ratingLabel), y + 158, 21f, ink, bold = true)
+        text(ratingLabel, x + 245 - paint.measureText(ratingLabel), y + 143, 21f, ink, bold = true)
         val stars = posterDxStars(score.dxScore, item.chart?.notes?.total)
-        if (stars == null) text("DX ★ --", x + 13, y + 193, 17f, muted)
-        else repeat(5) { starIndex -> star(x + 22 + starIndex * 22, y + 185, 9.5f, if (starIndex < stars) Color.rgb(247, 177, 36) else Color.rgb(221, 225, 236)) }
-        status(score.fc, RectF(x + 168, y + 163, x + 208, y + 203))
-        status(score.fs, RectF(x + 213, y + 163, x + 253, y + 203))
+        if (stars == null) text("DX ★ --", x + 13, y + 174, 17f, muted)
+        else repeat(5) { starIndex -> star(x + 22 + starIndex * 22, y + 167, 9.5f, if (starIndex < stars) Color.rgb(247, 177, 36) else Color.rgb(221, 225, 236)) }
+        status(score.fc, RectF(x + 177, y + 150, x + 211, y + 184))
+        status(score.fs, RectF(x + 218, y + 150, x + 252, y + 184))
     }
 
     private fun status(raw: String?, rect: RectF) {
         val url = B50Assets.status(raw)
-        if (url == null || !asset(url, rect)) {
+        if (url == null || !asset(url, rect, trim = true)) {
             paint.color = Color.rgb(221, 225, 236)
-            canvas.drawCircle(rect.centerX(), rect.centerY(), rect.width() * .30f, paint)
+            canvas.drawCircle(rect.centerX(), rect.centerY(), 9f, paint)
             // Known statuses remain legible if their artwork cannot be downloaded.
             if (url != null) centeredText(raw.orEmpty().uppercase(), rect.centerX(), rect.centerY() + 4, 10f, muted, rect.width() - 3)
         }
@@ -178,22 +200,42 @@ internal class B50PosterRenderer {
         paint.clearShadowLayer()
     }
 
-    private fun asset(url: String, rect: RectF, crop: Boolean = false, radius: Float = 0f): Boolean {
+    private fun asset(url: String, rect: RectF, crop: Boolean = false, radius: Float = 0f, trim: Boolean = false): Boolean {
         val bitmap = images[url] ?: return false
-        bitmap(bitmap, rect, crop, radius)
+        bitmap(bitmap, rect, crop, radius, if (trim) visibleBounds.getOrPut(bitmap) { artworkVisibleBounds(bitmap) } else null)
         return true
     }
 
-    private fun bitmap(bitmap: Bitmap, rect: RectF, crop: Boolean = false, radius: Float = 0f) {
+    private fun bitmap(bitmap: Bitmap, rect: RectF, crop: Boolean = false, radius: Float = 0f, source: Rect? = null) {
         val saved = canvas.save()
         if (radius > 0) canvas.clipPath(Path().apply { addRoundRect(rect, radius, radius, Path.Direction.CW) })
         if (crop) canvas.clipRect(rect)
-        val scale = if (crop) maxOf(rect.width() / bitmap.width, rect.height() / bitmap.height) else minOf(rect.width() / bitmap.width, rect.height() / bitmap.height)
-        val w = bitmap.width * scale
-        val h = bitmap.height * scale
+        val sourceWidth = source?.width() ?: bitmap.width
+        val sourceHeight = source?.height() ?: bitmap.height
+        val scale = if (crop) maxOf(rect.width() / sourceWidth, rect.height() / sourceHeight) else minOf(rect.width() / sourceWidth, rect.height() / sourceHeight)
+        val w = sourceWidth * scale
+        val h = sourceHeight * scale
         paint.color = Color.WHITE
-        canvas.drawBitmap(bitmap, null, RectF(rect.centerX() - w / 2, rect.centerY() - h / 2, rect.centerX() + w / 2, rect.centerY() + h / 2), paint)
+        canvas.drawBitmap(bitmap, source, RectF(rect.centerX() - w / 2, rect.centerY() - h / 2, rect.centerX() + w / 2, rect.centerY() + h / 2), paint)
         canvas.restoreToCount(saved)
+    }
+
+    /** Stretch only a banner's flat middle; its rounded end caps keep their shape. */
+    private fun banner(bitmap: Bitmap, rect: RectF) {
+        val cap = bitmap.height / 2
+        val scaledCap = rect.height() / 2
+        paint.color = Color.WHITE
+        canvas.drawBitmap(bitmap, Rect(0, 0, cap, bitmap.height), RectF(rect.left, rect.top, rect.left + scaledCap, rect.bottom), paint)
+        canvas.drawBitmap(bitmap, Rect(cap, 0, bitmap.width - cap, bitmap.height), RectF(rect.left + scaledCap, rect.top, rect.right - scaledCap, rect.bottom), paint)
+        canvas.drawBitmap(bitmap, Rect(bitmap.width - cap, 0, bitmap.width, bitmap.height), RectF(rect.right - scaledCap, rect.top, rect.right, rect.bottom), paint)
+    }
+
+    private fun ellipsized(value: String, size: Float, width: Float): String {
+        paint.textSize = size
+        paint.typeface = Typeface.create("sans-serif", Typeface.BOLD)
+        val singleLine = value.replace('\n', ' ')
+        if (paint.measureText(singleLine) <= width) return singleLine
+        return singleLine.take(paint.breakText(singleLine, true, (width - paint.measureText("…")).coerceAtLeast(0f), null)) + "…"
     }
 
     private fun text(value: String, x: Float, baseline: Float, size: Float, color: Int, bold: Boolean = false, maxWidth: Float = Float.MAX_VALUE) {
@@ -233,4 +275,19 @@ internal class B50PosterRenderer {
 
     private fun lighten(color: Int) = Color.rgb((Color.red(color) + 255) / 2, (Color.green(color) + 255) / 2, (Color.blue(color) + 255) / 2)
     companion object { const val WIDTH = 1500; const val HEIGHT = 2665 }
+}
+
+/** Ignore transparent padding and faint compression fringes without cropping status lettering. */
+internal fun artworkVisibleBounds(bitmap: Bitmap): Rect {
+    val pixels = IntArray(bitmap.width * bitmap.height)
+    bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+    var left = bitmap.width; var top = bitmap.height; var right = -1; var bottom = -1
+    pixels.forEachIndexed { index, pixel ->
+        if (Color.alpha(pixel) >= 24) {
+            val x = index % bitmap.width; val y = index / bitmap.width
+            left = minOf(left, x); right = maxOf(right, x)
+            top = minOf(top, y); bottom = maxOf(bottom, y)
+        }
+    }
+    return if (right < left) Rect(0, 0, bitmap.width, bitmap.height) else Rect(left, top, right + 1, bottom + 1)
 }

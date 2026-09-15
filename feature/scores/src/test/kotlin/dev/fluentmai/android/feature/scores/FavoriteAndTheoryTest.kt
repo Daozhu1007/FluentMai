@@ -31,6 +31,28 @@ class FavoriteAndTheoryTest {
         val profile = B50PlayerProfile("Local", 1, 6101, 1, "Trophy", "gold", 23, 25)
         val hidden = B50DisplayOptions(false, false, false, false, false)
         val requested = posterAssets(best, profile, hidden)
-        assertEquals(setOf(B50Assets.icon(1), B50Assets.rating(0)), requested.keys)
+        assertEquals(setOf(B50Assets.icon(1)), requested.keys)
+        val visible = posterAssets(best, profile, B50DisplayOptions())
+        assertEquals("玩家收藏品背景", visible[B50Assets.frame(1)])
+        assertFalse(visible.keys.any { "maimaidx.jp" in it || it.startsWith("bundled:") })
+    }
+
+    @Test fun theoryIncludesWholeAnnualReleaseAcrossMinorUpdatesAndNextYear() {
+        for ((launch, year) in listOf(25500 to 2026, 26000 to 2027)) {
+            val charts = (1..60).map { id -> B50PosterTest.chart(id).copy(
+                chartVersion = if (id <= 40) launch - 1 else launch + (id % 3) * 100,
+                chartVersionName = null,
+            ) }
+            val versions = listOf(MaimaiMajorVersion(launch, "舞萌DX $year"),
+                MaimaiMajorVersion(launch + 200, "舞萌ＤＸ ${year} 第三次更新"))
+            val theory = theoreticalBestSet(charts + charts, versions)
+            assertEquals(launch, theory.currentVersion?.majorVersion?.id)
+            assertEquals(35, theory.oldBest.size)
+            assertEquals(15, theory.newBest.size)
+            assertTrue(theory.newBest.any { it.chart!!.chartVersion == launch })
+            assertTrue(theory.newBest.any { it.chart!!.chartVersion == launch + 200 })
+            assertTrue(theory.oldBest.all { it.chart!!.chartVersion < launch })
+            assertEquals(50 * calculateDxRating(14.9, 100.5), theory.rating)
+        }
     }
 }

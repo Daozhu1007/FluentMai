@@ -38,6 +38,17 @@ Version 1.14.0 supplies the offline Traditional/Simplified Chinese character and
 
 MaiproberPlus was inspected only as a read-only technical validation reference for this phase. No large MaiproberPlus modules were copied into FluentMai Android Phase 0.
 
+## maimai game UI artwork
+
+The Android B50 renderer includes the 11 `rating_base_*.png` colour frames and 5
+`trophy_*.png` backgrounds from `https://maimaidx.jp/maimai-mobile/img/`, retrieved
+2026-09-15. Their local names are `b50_rating_*.png` and `b50_trophy_*.png` under
+`feature/scores/src/main/res/drawable-nodpi`. The rating renderer displays only the
+number-window portion of the unmodified source files. These game artworks belong
+to SEGA and their respective rights holders; they are not covered by the project's
+source-code or dependency licenses. Bundling avoids runtime requests to the Japanese
+NET site. Player collections and jackets remain separately loaded public artwork.
+
 ## Windows dependencies
 
 The independent Windows implementation uses PyQt6, Qt 6, PyQt6-Fluent-Widgets, requests, Beautiful Soup, PyInstaller, Python, and transitive runtime packages. See [windows/THIRD_PARTY_NOTICES.md](windows/THIRD_PARTY_NOTICES.md).

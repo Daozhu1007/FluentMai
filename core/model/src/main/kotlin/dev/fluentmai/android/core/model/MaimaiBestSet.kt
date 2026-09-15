@@ -25,6 +25,18 @@ data class MaimaiBestSet(
 fun ChartRecord?.ratingBucket(currentVersion: MaimaiCurrentVersion?): MaimaiRatingBucket {
     val currentVersionId = currentVersion?.majorVersion?.id ?: return MaimaiRatingBucket.INELIGIBLE
     val version = this?.chartVersion?.takeIf { it > 0 } ?: return MaimaiRatingBucket.INELIGIBLE
+    currentVersion.chartVersionEndExclusive?.let { end ->
+        // Named future-release charts must not enter B15 even if the catalog has
+        // not yet published that release's numeric boundary.
+        val currentYear = maimaiAnnualVersionYear(currentVersion.majorVersion.name)
+        val chartYear = maimaiAnnualVersionYear(this.chartVersionName)
+        if (chartYear != null && currentYear != null && chartYear > currentYear) return MaimaiRatingBucket.INELIGIBLE
+        return when {
+            version < currentVersionId -> MaimaiRatingBucket.OLD
+            version < end -> MaimaiRatingBucket.CURRENT
+            else -> MaimaiRatingBucket.INELIGIBLE
+        }
+    }
     val currentMajorVersionId = maimaiVersionReferenceFor(currentVersionId)?.versionId ?: currentVersionId
     val chartMajorVersionId = maimaiVersionReferenceFor(version)?.versionId ?: version
     return when {

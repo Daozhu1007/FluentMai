@@ -35,7 +35,7 @@ class B50PosterTest {
         assertEquals("rainbow", posterRatingColor(15000))
         assertEquals("normal", posterRatingColor(0))
         assertEquals("orange", posterRatingColor(4000))
-        assertTrue(B50Assets.rating(6999).endsWith("rating_base_orange.png"))
+        assertEquals("bundled:rating/orange", B50Assets.rating(6999))
     }
 
     companion object {

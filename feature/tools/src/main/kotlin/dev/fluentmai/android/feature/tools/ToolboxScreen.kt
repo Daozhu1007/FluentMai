@@ -154,7 +154,8 @@ fun ToolboxScreen(
                 ToolSection.RATING -> Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     RatingCalculator()
                     val theoretical = remember(charts, majorVersions) { dev.fluentmai.android.core.model.theoreticalBestSet(charts, majorVersions) }
-                    ToolCard("当前版本理论Rating", "按当前曲库去重，取旧版本最高 35 张和当前版本最高 15 张谱面，全部按 100.5000% 计算。") {
+                    ToolCard("当前版本理论Rating", "Best15 从整个年度大版本的谱面中选取，Best35 从该大版本之前选取；谱面去重，全部按 100.5000% 计算。") {
+                        theoretical.currentVersion?.let { Text("当前大版本：${it.majorVersion.name}") }
                         Text(if (theoretical.all.isEmpty()) "曲库尚未就绪" else theoretical.rating.toString(), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
                         Text("Best35 ${theoretical.oldBest.sumOf { it.rating ?: 0 }} + Best15 ${theoretical.newBest.sumOf { it.rating ?: 0 }}")
                         if (theoretical.all.size < 50) Text("当前曲库不足 50 张有效谱面，结果仅供参考。")

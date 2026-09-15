@@ -117,7 +117,7 @@ fun B50PosterScreen(
                             val size = when {
                                 "/jacket/" in path -> 160
                                 "/icon/" in path -> 256
-                                "/plate/" in path || "/nameplate/" in path -> 1440
+                                "/plate/" in path || "/nameplate/" in path || "/frame/" in path -> 1440
                                 "/music_icon/" in path -> 96
                                 else -> 480
                             }
@@ -132,8 +132,9 @@ fun B50PosterScreen(
             state.bitmap = withContext(Dispatchers.Default) {
                 val background = BitmapFactory.decodeResource(context.resources,
                     if (night) R.drawable.b50_background_night else R.drawable.b50_background_day)
-                try { B50PosterRenderer().render(best, profile.player, background, images, options = options) }
-                finally { background.recycle() }
+                val bundled = B50BundledArtwork.load(context.resources, best.rating, profile.player, options)
+                try { B50PosterRenderer().render(best, profile.player, background, images + bundled, options = options) }
+                finally { background.recycle(); bundled.values.forEach { it.recycle() } }
             }
             state.lastKey = key
             state.status = listOfNotNull(
@@ -195,6 +196,8 @@ fun B50PosterScreen(
                         }) })
                     }
                 }
+                Text("背景开关控制玩家信息区的游戏收藏品背景，不影响经典白天／经典夜晚底图。",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }, confirmButton = { TextButton(onClick = { showSettings = false }) { Text("完成") } })
     if (showDetails) AlertDialog(onDismissRequest = { showDetails = false }, title = { Text("未加载图片") },

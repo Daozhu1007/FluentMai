@@ -36,11 +36,11 @@ internal fun ExperimentalSection(enabled: Boolean, onChanged: (Boolean) -> Unit,
             Text("其他", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("自动检测更新", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Switch(automaticUpdates, onAutomaticUpdatesChanged)
+                SettingsToggle(automaticUpdates, onAutomaticUpdatesChanged, "自动检测更新")
             }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("实验性功能", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                ExperimentalSwitch(enabled, onChanged)
+                SettingsToggle(enabled, onChanged, "实验性功能", showScienceIcon = true)
             }
             Text("开启实验性功能可能会导致软件稳定性出现问题", style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -49,7 +49,7 @@ internal fun ExperimentalSection(enabled: Boolean, onChanged: (Boolean) -> Unit,
 }
 
 @Composable
-private fun ExperimentalSwitch(enabled: Boolean, onChanged: (Boolean) -> Unit) {
+private fun SettingsToggle(enabled: Boolean, onChanged: (Boolean) -> Unit, label: String, showScienceIcon: Boolean = false) {
     val source = remember { MutableInteractionSource() }
     val primary = MaterialTheme.colorScheme.primary
     val gray = if (MaterialTheme.colorScheme.background.luminance() > .5f) Color(0xFF858C91) else Color(0xFF535D65)
@@ -59,14 +59,14 @@ private fun ExperimentalSwitch(enabled: Boolean, onChanged: (Boolean) -> Unit) {
     val thumb by animateColorAsState(if (enabled && primary.luminance() > .5f) Color(0xFF183D34) else Color.White,
         tween(250), label = "experimentThumbColor")
     Box(Modifier.size(66.dp, 48.dp)
-        .semantics { contentDescription = "实验性功能" }
+        .semantics { contentDescription = label }
         .toggleable(enabled, source, indication = null, role = Role.Switch, onValueChange = onChanged),
         contentAlignment = Alignment.Center) {
         Box(Modifier.size(66.dp, 32.dp).clip(CircleShape).background(track).indication(source, ripple())) {
             Box(Modifier.absoluteOffset(x = offset, y = 3.dp).size(26.dp).shadow(1.dp, CircleShape)
                 .background(thumb, CircleShape), contentAlignment = Alignment.Center) {
                 Crossfade(enabled, animationSpec = tween(160), label = "experimentIcon") { active ->
-                    if (active) Icon(Icons.Default.Science, null, Modifier.size(18.dp), tint = primary)
+                    if (active && showScienceIcon) Icon(Icons.Default.Science, null, Modifier.size(18.dp), tint = primary)
                 }
             }
         }

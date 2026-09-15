@@ -34,7 +34,6 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -633,9 +632,11 @@ private fun ChartFilters(
                 values = ChartStatusFilter.entries.map { it to it.label },
                 onSelected = onStatusFilterChanged,
             )
-            OutlinedIconButton(onClick = onFavoriteFilterChanged) {
-                FavoriteIcon(favoriteFilter == FavoriteFilter.Favorites, favoriteFilter == FavoriteFilter.Unfavorites, favoriteFilter.label)
-            }
+            FilterChip(
+                selected = favoriteFilter != FavoriteFilter.All,
+                onClick = onFavoriteFilterChanged,
+                label = { FavoriteIcon(favoriteFilter == FavoriteFilter.Favorites, favoriteFilter == FavoriteFilter.Unfavorites, favoriteFilter.label) },
+            )
             QuickFilterMenu(
                 label = sortMode.label,
                 active = sortMode != ChartSort.ConstantDesc,
