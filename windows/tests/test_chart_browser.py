@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fluentmai_core import database
 from fluentmai_core.chart_browser import ChartFilters, catalog_stats, query_charts
-from fluentmai_core.models import Chart, Song, normalize_title, now_ts, score_identity_key
+from fluentmai_core.models import Chart, MajorVersion, Song, normalize_title, now_ts, score_identity_key
 
 
 def _open_seeded_db(tmp_path):
@@ -183,4 +183,42 @@ def test_catalog_replace_preserves_local_scores(tmp_path):
     row = query_charts(conn, ChartFilters(search="Beta Tune")).records[0]
     assert row.played
     assert row.notes_total == 510
+    conn.close()
+
+
+def test_android_equivalent_score_type_range_alias_and_rating_filters(tmp_path):
+    conn = _open_seeded_db(tmp_path)
+    database.replace_song_aliases(conn, {100: ["繁體別名", "Alpha DX"]}, provider="fixture")
+    _insert_score(conn, title="Alpha Song", song_id=100, chart_type="DX", difficulty_index=3, achievements=100.5, source="fixture")
+    _insert_score(conn, title="Beta Tune", song_id=102, chart_type="SD", difficulty_index=2, achievements=97.5, source="fixture")
+
+    assert query_charts(conn, ChartFilters(search="繁体别名")).total_count == 3
+    assert query_charts(conn, ChartFilters(chart_type="DX")).total_count == 3
+    assert query_charts(conn, ChartFilters(constant_min=14.0, constant_max=14.5)).total_count == 1
+    assert query_charts(conn, ChartFilters(achievement_min=100.0)).total_count == 1
+    assert query_charts(conn, ChartFilters(rank="SSS+")).total_count == 1
+    assert query_charts(conn, ChartFilters(sort="rating_desc")).records[0].song_id == 100
+    assert [row.song_id for row in query_charts(conn, ChartFilters(sort="id_asc")).records[:3]] == [100, 100, 100]
+
+    result = query_charts(conn, ChartFilters())
+    assert result.stats.total_charts == 7
+    assert result.stats.played_charts == 2
+    conn.close()
+
+
+def test_current_version_filter_ignores_future_catalog_batch(tmp_path):
+    conn = _open_seeded_db(tmp_path)
+    database.replace_major_versions(
+        conn,
+        [MajorVersion(version_id=25000, name="Current", provider="fixture")],
+    )
+    database.upsert_catalog(
+        conn,
+        [Song(song_id=999, title="Future", version=25500, provider="fixture")],
+        [Chart(song_id=999, chart_type="DX", difficulty_index=3, level_value=14.0, chart_version=25500, chart_version_name="Future")],
+    )
+
+    current = query_charts(conn, ChartFilters(version="current"))
+    assert current.total_count == 3
+    assert all(record.chart_version == 25000 for record in current.records)
     conn.close()

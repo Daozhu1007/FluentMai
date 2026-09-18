@@ -67,6 +67,7 @@ def test_library_controls_filter_without_jacket(qapp, tmp_path, monkeypatch):
 
 def test_main_window_can_switch_to_library_page(qapp, tmp_path, monkeypatch):
     monkeypatch.setenv("FLUENTMAI_DB_PATH", str(tmp_path / "window.db"))
+    monkeypatch.setenv("FLUENTMAI_DATA_DIR", str(tmp_path / "app-data"))
     from ui_main import MainWindow
 
     window = MainWindow()

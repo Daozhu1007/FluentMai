@@ -1,4 +1,8 @@
-from fluentmai_core.catalog import parse_diving_fish_music_data, parse_lxns_song_list
+from fluentmai_core.catalog import (
+    parse_diving_fish_music_data,
+    parse_lxns_major_versions,
+    parse_lxns_song_list,
+)
 from fluentmai_core.providers import diving_fish_records_to_parsed, lxns_records_to_parsed
 
 
@@ -90,6 +94,7 @@ def test_parse_lxns_song_list_with_notes():
     }
 
     songs, charts = parse_lxns_song_list(payload)
+    versions = parse_lxns_major_versions(payload)
 
     assert songs[0].song_id == 8
     assert songs[0].bpm == 150
@@ -99,6 +104,10 @@ def test_parse_lxns_song_list_with_notes():
     assert charts[1].chart_type == "UTAGE"
     assert charts[1].is_utage is True
     assert charts[1].notes_total == 1000
+    assert [(item.version_id, item.name) for item in versions] == [
+        (10000, "maimai"),
+        (24500, "舞萌DX 2024"),
+    ]
 
 
 def test_parse_diving_fish_music_data():

@@ -1,12 +1,12 @@
 # FluentMai for Windows
 
-FluentMai for Windows is the independent desktop implementation in the FluentMai product repository. It is Alpha / Development software and does not promise feature or data-format parity with Android or iOS.
+FluentMai for Windows is the independent desktop implementation in the FluentMai product repository. It is Alpha / Development software. It now targets Android-equivalent core product semantics, while its SQLite format and release lifecycle remain platform-specific.
 
 ## Technology stack
 
 - Python 3.10 or later
 - PyQt6 and PyQt6-Fluent-Widgets
-- SQLite for local catalog, score, quarantine, import-batch, and provider-cache data
+- SQLite under `%LOCALAPPDATA%\FluentMai` for local catalog, scores, import batches, quarantine, Rating snapshots, and provider cache
 - requests and Beautiful Soup for supported import/catalog flows
 - pytest for tests
 - PyInstaller for the portable one-directory build
@@ -22,6 +22,8 @@ python main.py
 ```
 
 Runtime data is local. Set `FLUENTMAI_DB_PATH` to choose an explicit database path for tests or experiments. Do not use a real user database in CI.
+
+Window geometry, maximized state, and future user preferences share `%LOCALAPPDATA%\FluentMai\settings.ini`; portable and installed builds therefore use the same settings location. Restored geometry is constrained to a visible monitor work area.
 
 ## Tests and static compilation
 
@@ -66,17 +68,23 @@ The build includes application code, `assets/`, `locales/`, the default non-secr
 - Diving-Fish full-record import by Import Token
 - LXNS full-record import by personal API token
 - Local score database, validation, deduplication, quarantine, and import-batch summaries
+- Android-equivalent single-chart Rating plus local B35/B15 bucket calculation and automatic Rating history deduplication
+- A FluentMai-owned loopback Wahlap capture helper with authenticated IPC, finite retries, protected exact-network recovery, and no default third-party upload
 - Diving-Fish and LXNS song/chart catalog caches
 - Local score browsing and song/chart search
+- A local Overview with Rating, B35/B15, player statistics, Trend and quick product routes
+- One virtualized chart browser with alias/Traditional Chinese search, complete score filters, sibling difficulty switching and selected-chart loss entry
+- Android-equivalent version plates, editable Rating Trend, deterministic B35/B15 recommendations, single-chart Rating and automatic/manual Note loss tools
+- Runtime-only LXNS/Yuzu community aliases with atomic replacement and regression protection
 - Cover resolution through user cache, runtime providers, and optional local assets
 - Redaction of Token, Cookie, Authorization, and auth-URL material in application messages
 
 ## Known limitations
 
-- Automatic Windows proxy capture is represented by a safe controller interface; no embedded certificate or registry-changing flow is enabled by default.
+- The automatic capture backend, packaged helper, one-click import worker, cancellation path, startup crash recovery, and close-time recovery wait are implemented and real-account validated. The helper injects a no-store same-origin page that lets the authenticated WeChat WebView fetch five difficulty pages and return them only to a nonce-protected local interception path; no Cookie replay or raw-page persistence is used.
+- Before capture, WeChat's `Settings > General > Open third-party web pages with the system default browser` option must be off so the official-account menu opens inside WeChat. Restore the preference after import if it was previously on.
 - The manual Wahlap flow still needs broader real-account validation.
-- The upload business layer exists, but the upload UI is not fully wired.
-- The legacy dashboard still depends on public third-party player data; local scores are the source of truth for the newer local pages.
+- Upload remains an explicit optional operation and is never the default result of local import.
 - No game jackets are distributed in the repository or portable package; missing covers are expected until resolved from user cache or a runtime provider.
 - The product repository currently has no declared project-level `LICENSE`. PyQt6 and PyQt6-Fluent-Widgets also require an explicit GPL/commercial-license compliance decision. These issues block a public Windows Release.
 
@@ -85,7 +93,7 @@ The build includes application code, `assets/`, `locales/`, the default non-secr
 - Windows uses PyQt6 rather than Compose or SwiftUI.
 - Windows uses its own SQLite schema and release cycle.
 - It does not consume Android Room migrations and does not currently share the KMP domain module.
-- Import, upload, analysis, and UI coverage differ across platforms; repository co-location does not imply feature parity.
+- Core product semantics are tracked in [the Android–Windows feature matrix](../docs/windows/android-windows-feature-matrix.md); UI composition and persistence formats intentionally differ by platform.
 
 ## Privacy
 

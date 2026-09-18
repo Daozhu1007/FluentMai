@@ -1,0 +1,5 @@
+case	level_value	achievement	expected_rating
+cap_above_100_5	13.5	100.6217	303
+threshold_100_4999	14.9	100.4999	332
+below_100_4999	14.9	100.4567	323
+threshold_99_9999	14.9	99.9999	318
