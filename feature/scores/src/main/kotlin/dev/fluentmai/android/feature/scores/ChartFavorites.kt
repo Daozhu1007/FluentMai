@@ -41,10 +41,11 @@ internal class ChartFavoriteStore(context: Context) {
     return remember(context) { ChartFavoriteStore(context) }
 }
 
-@Composable internal fun FavoriteIcon(active: Boolean, excluded: Boolean, label: String) {
+@Composable internal fun FavoriteIcon(active: Boolean, excluded: Boolean, label: String,
+    inactiveTint: Color = MaterialTheme.colorScheme.onSurfaceVariant) {
     Box(Modifier.size(24.dp)) {
         Icon(if (active) Icons.Filled.Star else Icons.Outlined.StarBorder, label,
-            tint = if (active) Color(0xFFFFC107) else MaterialTheme.colorScheme.onSurfaceVariant)
+            tint = if (active) Color(0xFFFFC107) else inactiveTint)
         if (excluded) Canvas(Modifier.size(24.dp)) {
             drawLine(Color(0xFFE54848), Offset(2.dp.toPx(), 22.dp.toPx()), Offset(22.dp.toPx(), 2.dp.toPx()), 2.dp.toPx())
         }

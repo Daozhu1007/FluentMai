@@ -35,6 +35,12 @@ data class RealWahlapImportResult(
     val fetchedSupplementalPageCount: Int = 0,
     val parsedSupplementalRecordCount: Int = 0,
     val supplementalFailures: List<WahlapSupplementalFailure> = emptyList(),
+    val fetchedPlayRecordCount: Int = 0,
+    val failedPlayPageCount: Int = 0,
+    val activityCaptureAttempted: Boolean = false,
+    val fetchedPlayCountCharts: Int = 0,
+    val activityWarnings: List<String> = emptyList(),
+    val diagnosticDetails: String = "",
 ) {
     val isCompleteSuccess: Boolean = failedDifficultyCount == 0 && supplementalFailures.isEmpty()
 }

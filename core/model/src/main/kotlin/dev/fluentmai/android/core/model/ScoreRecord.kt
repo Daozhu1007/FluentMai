@@ -14,4 +14,7 @@ data class ScoreRecord(
     val fs: String?,
     val sourceBatchId: String,
     val importedAt: Long,
+    val playCount: Int? = null,
+    val observedPlayCount: Int = 0,
+    val playCountUpperBound: Int? = null,
 )

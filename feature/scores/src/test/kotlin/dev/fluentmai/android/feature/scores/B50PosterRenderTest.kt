@@ -39,6 +39,16 @@ class B50PosterRenderTest {
                 assets[B50Assets.jacket(834)]?.let { cover -> charts.forEach { assets[B50Assets.jacket(it.songId)] = cover } }
             }
             val profile = B50PlayerProfile("测试玩家 · FluentMai", 1, 6101, 1, "舞萌 DX · 测试称号", "rainbow", 23, 25)
+            if (variant == "night") System.getenv("B50_PREVIEW_ASSETS")?.let { path ->
+                BitmapFactory.decodeFile(File(path, "frame-collection.png").path)?.let { collection ->
+                    assertTrue(hasCollectionArtwork(collection))
+                    val withCollection = B50PosterRenderer().render(best, profile.copy(frameId = 200101), background,
+                        assets + (B50Assets.frame(200101) to collection))
+                    File(output, "b50-collection.png").outputStream().use { withCollection.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                    withCollection.recycle()
+                    collection.recycle()
+                }
+            }
             val bitmap = B50PosterRenderer().render(best, profile, background, assets)
             assertEquals(1500, bitmap.width)
             assertEquals(2665, bitmap.height)
@@ -104,6 +114,16 @@ class B50PosterRenderTest {
         icon.recycle()
     }
 
+    @Test fun emptyDefaultCollectionDoesNotReserveAnOversizedBlankPanel() {
+        val blank = Bitmap.createBitmap(100, 50, Bitmap.Config.ARGB_8888)
+        assertFalse(hasCollectionArtwork(blank))
+        blank.eraseColor(android.graphics.Color.WHITE)
+        assertFalse(hasCollectionArtwork(blank))
+        blank.eraseColor(android.graphics.Color.BLUE)
+        assertTrue(hasCollectionArtwork(blank))
+        blank.recycle()
+    }
+
     @Test fun collectionBackgroundIsIndependentOfNameplateAndPosterArt() {
         val background = Bitmap.createBitmap(1500, 2665, Bitmap.Config.ARGB_8888).apply { eraseColor(android.graphics.Color.BLUE) }
         val collection = Bitmap.createBitmap(100, 50, Bitmap.Config.ARGB_8888).apply { eraseColor(android.graphics.Color.MAGENTA) }
@@ -117,6 +137,12 @@ class B50PosterRenderTest {
         // Uncovered strip at the bottom right of the collection panel.
         assertEquals(android.graphics.Color.MAGENTA, shown.getPixel(1200, 388))
         assertEquals(android.graphics.Color.WHITE, hidden.getPixel(1200, 388))
+        // Hiding the collection must not move or rescale a single B50 score card.
+        val lowerShown = IntArray(1500 * 1800)
+        val lowerHidden = IntArray(1500 * 1800)
+        shown.getPixels(lowerShown, 0, 1500, 0, 850, 1500, 1800)
+        hidden.getPixels(lowerHidden, 0, 1500, 0, 850, 1500, 1800)
+        assertArrayEquals(lowerShown, lowerHidden)
         listOf(shown, hidden, background, collection).forEach { it.recycle() }
     }
 }

@@ -6,9 +6,10 @@ import org.jsoup.Jsoup
 object WahlapScorePageValidation {
     fun isScorePage(html: String): Boolean {
         val document = Jsoup.parse(html)
-        if (document.select(".title_error").isNotEmpty() ||
-            Regex("登录失败|错误码|请在微信客户端|please open in wechat|oauth[/2]", RegexOption.IGNORE_CASE)
-                .containsMatchIn(html)) return false
+        if (WahlapActivityParser.hasErrorPage(html) ||
+            Regex("登录失败|错误码|请在微信客户端|please open in wechat", RegexOption.IGNORE_CASE)
+                .containsMatchIn(document.text()) ||
+            Regex("oauth[/2]", RegexOption.IGNORE_CASE).containsMatchIn(html)) return false
 
         val detailLinks = document.select("[action*=musicDetail], a[href*=musicDetail]")
         val names = document.select(".music_name_block")

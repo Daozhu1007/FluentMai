@@ -97,6 +97,7 @@ fun ToolboxScreen(
     scrollToTopRequestId: Int = 0,
     modifier: Modifier = Modifier,
     kaleidScopeRepository: KaleidScopeRepository = ReviewedKaleidScopeRepository,
+    playRecords: List<dev.fluentmai.android.core.model.PlayRecord> = emptyList(),
 ) {
     var sectionName by rememberSaveable { mutableStateOf(ToolSection.RATING.name) }
     val section = ToolSection.entries.firstOrNull { it.name == sectionName } ?: ToolSection.RATING
@@ -160,12 +161,15 @@ fun ToolboxScreen(
                 }
                 ToolSection.ACHIEVEMENT -> AchievementCalculator(charts)
                 ToolSection.KALEID -> KaleidScopeStatus(kaleidScopeRepository.currentCatalog())
-                ToolSection.TREND -> RatingTrend(
+                ToolSection.TREND -> Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    PlayActivityHeatmap(playRecords)
+                    RatingTrend(
                     history = ratingHistory,
                     onAdd = onAddManualRating,
                     onUpdate = onUpdateManualRating,
                     onDelete = onDeleteManualRating,
                 )
+                }
                 }
             }
         }
@@ -659,6 +663,7 @@ private fun RatingTrend(
     onDelete: (String) -> Unit,
 ) {
     var rangeName by rememberSaveable { mutableStateOf(TrendRange.MONTH.name) }
+    var recordsExpanded by rememberSaveable { mutableStateOf(false) }
     var editorEntry by remember { mutableStateOf<RatingHistoryEntry?>(null) }
     var showAddEditor by remember { mutableStateOf(false) }
     var deleteEntry by remember { mutableStateOf<RatingHistoryEntry?>(null) }
@@ -712,8 +717,11 @@ private fun RatingTrend(
             }
             RatingTrendChart(visible)
         }
-        Text("记录", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        history.sortedByDescending { it.recordedAtEpochMillis }.forEach { entry ->
+        TextButton(onClick = { recordsExpanded = !recordsExpanded }) {
+            Icon(if (recordsExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore, null)
+            Text("${if (recordsExpanded) "收起" else "展开"}记录 · ${history.size}")
+        }
+        if (recordsExpanded) history.sortedByDescending { it.recordedAtEpochMillis }.forEach { entry ->
             RatingHistoryRow(
                 entry = entry,
                 onEdit = { editorEntry = entry },

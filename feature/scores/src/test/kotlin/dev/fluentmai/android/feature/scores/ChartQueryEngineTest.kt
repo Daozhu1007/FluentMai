@@ -16,6 +16,20 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ChartQueryEngineTest {
+    @Test fun fittedAndGapSortsKeepMissingValuesLastAndUseOfficialMinusFitted() {
+        val low = chart(songId = 1, title = "Low", levelValue = 14.0).copy(fittedConstant = 13.5)
+        val equal = chart(songId = 2, title = "Equal", levelValue = 14.0).copy(fittedConstant = 14.0)
+        val high = chart(songId = 3, title = "High", levelValue = 14.0).copy(fittedConstant = 14.5)
+        val missing = chart(songId = 4, title = "Missing", levelValue = 14.0)
+        val engine = ChartQueryEngine.create(listOf(missing, equal, low, high), emptyList())
+        fun ids(sort: ChartSort) = engine.query(ChartQueryFilters(sort = sort), 25500).items.map { it.chart.songId }
+        assertEquals(listOf(1, 2, 3, 4), ids(ChartSort.FitGapDesc))
+        assertEquals(listOf(3, 2, 1, 4), ids(ChartSort.FitGapAsc))
+        assertEquals(listOf(1, 2, 3, 4), ids(ChartSort.FittedAsc))
+        assertEquals(listOf(3, 2, 1, 4), ids(ChartSort.FittedDesc))
+        ChartSort.entries.forEach { assertEquals(it, ChartSort.select(it.kind, it.ascending)) }
+    }
+
     @Test
     fun exactLevelInputValidationAcceptsOnlySupportedModes() {
         listOf("", "13", "13+", "13.3", "15", " 14+ ").forEach { assertTrue(it, isValidLevelQuery(it)) }
@@ -187,6 +201,20 @@ class ChartQueryEngineTest {
         )
         assertEquals(listOf(sss), exact.items.map { it.chart })
         assertEquals(1, exact.stats.totalCharts)
+    }
+
+    @Test fun playCountSortUsesSyncedPcAndKeepsUnknownLastInBothDirections() {
+        val charts = (1..5).map { chart(it, "Song $it") }
+        val engine = ChartQueryEngine.create(charts, listOf(
+            scoreFor(charts[0]).copy(playCount = null, observedPlayCount = 999),
+            scoreFor(charts[1]).copy(playCount = 71),
+            scoreFor(charts[2]).copy(playCount = 1),
+            scoreFor(charts[3]).copy(playCount = 0),
+        ))
+        assertEquals(ChartSort.PlayCountAsc, ChartSort.select(ChartSortKind.PlayCount, true))
+        assertEquals(ChartSort.PlayCountDesc, ChartSort.select(ChartSortKind.PlayCount, false))
+        assertEquals(listOf(4, 3, 2, 1, 5), engine.query(ChartQueryFilters(sort = ChartSort.PlayCountAsc), 25_500).items.map { it.chart.songId })
+        assertEquals(listOf(2, 3, 4, 1, 5), engine.query(ChartQueryFilters(sort = ChartSort.PlayCountDesc), 25_500).items.map { it.chart.songId })
     }
 
     private fun chart(

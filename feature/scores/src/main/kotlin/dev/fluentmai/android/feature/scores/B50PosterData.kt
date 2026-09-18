@@ -35,7 +35,8 @@ internal fun posterAssets(best: MaimaiBestSet, player: B50PlayerProfile?, option
     }
     player?.iconArtwork?.let { put(it, "玩家头像") }
     if (options.nameplate) player?.plateArtwork?.let { put(it, "玩家姓名框") }
-    if (options.background) player?.frameArtwork?.let { put(it, "玩家收藏品背景") }
+    // Keep the original dimensions even when its appearance is hidden.
+    player?.frameArtwork?.let { put(it, "玩家收藏品背景") }
     if (options.course) player?.courseRank?.let { put(B50Assets.course(it), "段位图标") }
     if (options.rank) player?.classRank?.let { put(B50Assets.rank(it), "友人对战等级") }
 }

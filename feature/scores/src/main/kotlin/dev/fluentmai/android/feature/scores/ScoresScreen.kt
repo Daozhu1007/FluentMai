@@ -17,10 +17,12 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -34,13 +36,14 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.AssistChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -69,6 +72,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
@@ -142,8 +146,6 @@ fun ScoresScreen(
     ) {
         item(span = { GridItemSpan(maxLineSpan) }) {
             ScoreSummaryHeader(
-                scoreCount = scores.size,
-                chartCount = charts.size,
                 bestRating = bestSet.rating,
             )
         }
@@ -217,6 +219,7 @@ fun ChartQueryScreen(
     onChartSelected: (ChartIdentity) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
+    val valueScale = remember(charts) { ThumbnailValueScale.fromCharts(charts) }
     val queryViewModel: ChartQueryViewModel = viewModel()
     val uiState by queryViewModel.uiState.collectAsState()
     val filters = uiState.filters
@@ -256,10 +259,6 @@ fun ChartQueryScreen(
     ) {
         item(span = { GridItemSpan(maxLineSpan) }) {
             ChartHeader(
-                chartCount = charts.size,
-                visibleCount = uiState.result.matchingCount,
-                isLoading = isLoading,
-                isFiltering = uiState.isIndexing || uiState.isFiltering,
                 onRefresh = onRefresh,
             )
         }
@@ -338,6 +337,7 @@ fun ChartQueryScreen(
             ) { item ->
                 ChartCard(
                     chart = item.chart,
+                    valueScale = valueScale,
                     score = item.score,
                     favorite = ChartIdentity.from(item.chart).stableKey() in favorites,
                     onFavorite = { favoriteStore.toggle(ChartIdentity.from(item.chart).stableKey()) },
@@ -369,9 +369,8 @@ private fun PlayedPresetBanner(onReset: () -> Unit) {
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ChartStatsSummary(stats: ChartQueryStats, isFiltering: Boolean) {
+internal fun ChartStatsSummary(stats: ChartQueryStats, isFiltering: Boolean) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     OutlinedCard(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -385,8 +384,10 @@ private fun ChartStatsSummary(stats: ChartQueryStats, isFiltering: Boolean) {
             ) {
                 Text(
                     "${stats.totalCharts} 谱面 · ${stats.playedCharts} 已游玩 · " +
-                        "${stats.unplayedCharts} 未游玩 · ${stats.rankCounts[AchievementRank.SSS_PLUS] ?: 0} SSS+",
+                        "${stats.unplayedCharts} 未游玩",
                     modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                 )
@@ -395,20 +396,35 @@ private fun ChartStatsSummary(stats: ChartQueryStats, isFiltering: Boolean) {
                 }
             }
             if (expanded) {
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    AchievementRank.entries.forEach { rank ->
-                        MetricChip(rank.displayName, (stats.rankCounts[rank] ?: 0).toString())
-                    }
-                    FullComboStatus.entries.filter { it != FullComboStatus.UNKNOWN }.forEach { status ->
-                        MetricChip(status.displayName, (stats.fullComboCounts[status] ?: 0).toString())
-                    }
-                    FullSyncStatus.entries.filter { it != FullSyncStatus.UNKNOWN }.forEach { status ->
-                        MetricChip(status.displayName, (stats.fullSyncCounts[status] ?: 0).toString())
+                ChartStatsCategory("达成等级", AchievementRank.entries.map { it.displayName to (stats.rankCounts[it] ?: 0) })
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                ChartStatsCategory("FC / AP", FullComboStatus.entries.filter { it != FullComboStatus.UNKNOWN }
+                    .map { it.displayName to (stats.fullComboCounts[it] ?: 0) })
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                ChartStatsCategory("同步状态", FullSyncStatus.entries.filter { it != FullSyncStatus.UNKNOWN }
+                    .map { it.displayName to (stats.fullSyncCounts[it] ?: 0) })
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChartStatsCategory(title: String, values: List<Pair<String, Int>>) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        values.chunked(2).forEach { row ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                row.forEach { (label, count) ->
+                    Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(count.toString(), style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (count > 0) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
+                if (row.size == 1) Spacer(Modifier.weight(1f))
             }
         }
     }
@@ -416,40 +432,25 @@ private fun ChartStatsSummary(stats: ChartQueryStats, isFiltering: Boolean) {
 
 @Composable
 private fun ScoreSummaryHeader(
-    scoreCount: Int,
-    chartCount: Int,
     bestRating: Int,
 ) {
     OutlinedCard(
         colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(text = "成绩", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                RatingPlate(rating = bestRating)
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                MetricChip(label = "本地成绩", value = scoreCount.toString())
-                MetricChip(label = "曲库谱面", value = if (chartCount == 0) "未同步" else chartCount.toString())
-            }
+            Text(text = "成绩", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            RatingPlate(rating = bestRating)
         }
     }
 }
 
 @Composable
 private fun ChartHeader(
-    chartCount: Int,
-    visibleCount: Int,
-    isLoading: Boolean,
-    isFiltering: Boolean,
     onRefresh: () -> Unit,
 ) {
     OutlinedCard(
@@ -463,13 +464,7 @@ private fun ChartHeader(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(text = "谱面查询", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    MetricChip(label = "曲库", value = if (isLoading) "同步中" else chartCount.toString())
-                    MetricChip(label = "结果", value = if (isFiltering) "筛选中" else visibleCount.toString())
-                }
-            }
+            Text(text = "谱面查询", modifier = Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             IconButton(onClick = onRefresh, modifier = Modifier.size(48.dp)) {
                 Icon(Icons.Filled.Refresh, contentDescription = "刷新曲库")
             }
@@ -590,9 +585,9 @@ private fun ChartFilters(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             isError = !isValidLevelQuery(levelQuery),
-            label = { Text("等级或内部定数：13、13+、13.3") },
+            label = { Text("等级或内部定数：13、13+、13.3", maxLines = 1, overflow = TextOverflow.Ellipsis) },
             supportingText = if (!isValidLevelQuery(levelQuery)) {
-                { Text("请输入 1–15、1+–14+，或一位小数定数") }
+                { Text("请输入 1–15、1+–14+，或一位小数定数", maxLines = 1, overflow = TextOverflow.Ellipsis) }
             } else {
                 null
             },
@@ -604,62 +599,80 @@ private fun ChartFilters(
                 }
             },
         )
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             QuickFilterMenu(
+                modifier = Modifier.weight(1f),
                 label = selectedDifficulty?.displayName() ?: "全部难度",
                 active = selectedDifficulty != null,
                 values = listOf(null to "全部难度") + Difficulty.entries.map { it to it.displayName() },
                 onSelected = onDifficultyChanged,
             )
             QuickFilterMenu(
+                modifier = Modifier.weight(1f),
                 label = versionFilter.label,
                 active = versionFilter != ChartVersionFilter.All,
                 values = ChartVersionFilter.entries.map { it to it.label },
                 onSelected = onVersionFilterChanged,
             )
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             QuickFilterMenu(
+                modifier = Modifier.weight(1f),
                 label = genreFilter.label,
                 active = genreFilter != ChartGenreFilter.All,
                 values = ChartGenreFilter.entries.map { it to it.label },
                 onSelected = onGenreFilterChanged,
             )
             QuickFilterMenu(
+                modifier = Modifier.weight(1f),
                 label = statusFilter.label,
                 active = statusFilter != ChartStatusFilter.All,
                 values = ChartStatusFilter.entries.map { it to it.label },
                 onSelected = onStatusFilterChanged,
             )
-            FilterChip(
-                selected = favoriteFilter != FavoriteFilter.All,
-                onClick = onFavoriteFilterChanged,
-                label = { FavoriteIcon(favoriteFilter == FavoriteFilter.Favorites, favoriteFilter == FavoriteFilter.Unfavorites, favoriteFilter.label) },
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            QuickFilterMenu(
+                modifier = Modifier.weight(1.25f),
+                label = sortMode.kind.label,
+                active = sortMode.kind != ChartSortKind.Constant,
+                values = ChartSortKind.entries.map { it to it.label },
+                onSelected = { onSortModeChanged(ChartSort.select(it, sortMode.ascending)) },
             )
             QuickFilterMenu(
-                label = sortMode.label,
-                active = sortMode != ChartSort.ConstantDesc,
-                values = ChartSort.entries.map { it to it.label },
-                onSelected = onSortModeChanged,
+                modifier = Modifier.weight(0.85f),
+                label = if (sortMode.ascending) "升序" else "降序",
+                active = false,
+                values = listOf(false to "降序", true to "升序"),
+                onSelected = { onSortModeChanged(ChartSort.select(sortMode.kind, it)) },
             )
+            // A centred icon surface avoids FilterChip's text-baseline positioning.
+            Surface(onClick = onFavoriteFilterChanged, modifier = Modifier.size(48.dp, 32.dp),
+                shape = RoundedCornerShape(8.dp),
+                color = if (favoriteFilter != FavoriteFilter.All) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    FavoriteIcon(favoriteFilter == FavoriteFilter.Favorites, favoriteFilter == FavoriteFilter.Unfavorites, favoriteFilter.label,
+                        inactiveTint = if (favoriteFilter != FavoriteFilter.All) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             FilterChip(
                 selected = advancedFiltersRequested || showAdvancedFilters,
                 onClick = { advancedFiltersRequested = true },
                 label = {
-                    Text(if (activeAdvancedFilters.isEmpty()) "更多筛选" else "更多筛选 · ${activeAdvancedFilters.size}")
+                    Text("更多筛选")
                 },
             )
-        }
-        if (activeAdvancedFilters.isNotEmpty()) {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                activeAdvancedFilters.forEach { label ->
-                    AssistChip(onClick = { advancedFiltersRequested = true }, label = { Text(label) })
-                }
-            }
+            Text(
+                text = activeAdvancedFilters.joinToString(" · "),
+                modifier = Modifier.weight(1f).clickable { advancedFiltersRequested = true },
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
     if (showAdvancedFilters) {
@@ -693,14 +706,20 @@ private fun <T> QuickFilterMenu(
     active: Boolean,
     values: List<Pair<T, String>>,
     onSelected: (T) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    Box {
+    Box(modifier) {
         FilterChip(
+            modifier = Modifier.fillMaxWidth(),
             selected = active,
+            colors = FilterChipDefaults.filterChipColors(
+                selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            ),
             onClick = { expanded = true },
             label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            trailingIcon = { Icon(Icons.Filled.ExpandMore, contentDescription = null) },
+            trailingIcon = { Icon(Icons.Filled.ExpandMore, contentDescription = null, modifier = Modifier.size(16.dp)) },
         )
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             values.forEach { (value, text) ->
@@ -961,7 +980,7 @@ private fun DecimalFilterField(
         isError = localText.isNotBlank() && localText.toDoubleOrNull()?.let {
             allowedRange != null && it !in allowedRange
         } != false,
-        label = { Text(label) },
+        label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         supportingText = if (localText.isNotBlank() && localText.toDoubleOrNull()?.let {
                 allowedRange != null && it !in allowedRange
             } != false
@@ -996,7 +1015,7 @@ private fun SearchField(
         onValueChange = onValueChanged,
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
-        label = { Text(label) },
+        label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
         trailingIcon = {
             if (value.isNotBlank()) {
@@ -1110,7 +1129,7 @@ private fun ScoreCard(
                 }
                 InfoStack(label = "定数", value = item.chart?.levelValue?.formatConst() ?: item.score.level)
                 InfoStack(label = "Rating", value = item.rating?.toString() ?: "--")
-                InfoStack(label = "DX", value = item.score.dxScore?.toString() ?: "--")
+                InfoStack(label = "PC", value = item.score.pcText())
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 item.score.fc?.takeIf { it.isNotBlank() }?.let { SmallTag(it.uppercase(), Color(0xFF2F9E44)) }
@@ -1122,18 +1141,22 @@ private fun ScoreCard(
 }
 
 @Composable
-private fun ChartCard(
+internal fun ChartCard(
     chart: ChartRecord,
     score: ScoreRecord?,
     favorite: Boolean = false,
     onFavorite: () -> Unit = {},
     onClick: () -> Unit,
+    fields: List<ThumbnailField> = LocalComponentSettings.current.thumbnailFields,
+    onEditSlot: ((Int) -> Unit)? = null,
+    valueScale: ThumbnailValueScale = ThumbnailValueScale(),
 ) {
+    val interactive = onEditSlot == null
     ElevatedCard(
         modifier = Modifier
             .fillMaxWidth()
             .chartCardOutline()
-            .clickable(onClick = onClick),
+            .then(if (interactive) Modifier.clickable(onClick = onClick) else Modifier),
         colors = chartCardColors(MaterialTheme.colorScheme.surface),
         elevation = chartCardElevation(),
     ) {
@@ -1154,6 +1177,7 @@ private fun ChartCard(
                     CopyableText(
                         text = chart.title,
                         copyLabel = "曲名",
+                        interactive = interactive,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         maxLines = 2,
@@ -1163,6 +1187,7 @@ private fun ChartCard(
                     CopyableText(
                         text = chart.artist.ifBlank { chart.genre },
                         copyLabel = "曲师",
+                        interactive = interactive,
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -1173,22 +1198,37 @@ private fun ChartCard(
                         color = chart.difficulty.accentColor(),
                     )
                 }
-                IconButton(onClick = onFavorite) { FavoriteIcon(favorite, false, if (favorite) "取消收藏" else "收藏谱面") }
+                if (interactive) {
+                    IconButton(onClick = onFavorite) { FavoriteIcon(favorite, false, if (favorite) "取消收藏" else "收藏谱面") }
+                } else {
+                    Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { FavoriteIcon(favorite, false, "收藏预览") }
+                }
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                InfoStack(label = "定数", value = chart.levelValue?.formatConst() ?: chart.level)
-                InfoStack(label = "BPM", value = chart.bpm?.toString() ?: "--")
-                InfoStack(label = "版本", value = chart.displayVersionName())
-                InfoStack(label = "物量", value = chart.notes?.total?.toString() ?: "--")
+                val pc = LocalChartPlayCounts.current.firstOrNull { it.title == chart.title && it.songType == chart.songType && it.difficulty == chart.difficulty }
+                fields.forEachIndexed { index, field ->
+                    Column(Modifier.weight(1f).then(if (onEditSlot != null)
+                        Modifier.clip(RoundedCornerShape(6.dp)).background(MaterialTheme.colorScheme.primary.copy(alpha = .09f))
+                            .clickable { onEditSlot(index) }.padding(horizontal = 4.dp, vertical = 8.dp)
+                        else Modifier.padding(end = 4.dp)).align(Alignment.Top), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(field.label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            softWrap = true)
+                        Text(field.value(chart, score, pc), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
+                            color = thumbnailValueColor(valueScale.position(field, chart),
+                                MaterialTheme.colorScheme.background.luminance() > .5f, MaterialTheme.colorScheme.onSurface),
+                            softWrap = true)
+                    }
+                }
             }
             CopyableText(
                 text = "谱师 ${chart.noteDesigner.ifBlank { "--" }}",
                 copyText = chart.noteDesigner.takeIf { it.isNotBlank() },
                 copyLabel = "谱师",
+                interactive = interactive,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -1256,18 +1296,19 @@ private fun CopyableText(
     maxLines: Int = Int.MAX_VALUE,
     overflow: TextOverflow = TextOverflow.Clip,
     onClick: () -> Unit = {},
+    interactive: Boolean = true,
 ) {
     val context = LocalContext.current
     Text(
         text = text,
-        modifier = modifier.combinedClickable(
+        modifier = modifier.then(if (interactive) Modifier.combinedClickable(
             onClick = onClick,
             onLongClick = {
                 copyText?.takeIf { it.isNotBlank() }?.let { value ->
                     copyToClipboard(context, copyLabel, value)
                 }
             },
-        ),
+        ) else Modifier),
         style = style,
         color = color,
         fontWeight = fontWeight,
@@ -1405,16 +1446,6 @@ private fun ratingFramePalette(rating: Int): RatingFramePalette =
             textColor = Color(0xFFE5E7EB),
         )
     }
-
-@Composable
-private fun MetricChip(label: String, value: String) {
-    AssistChip(
-        onClick = {},
-        label = {
-            Text("$label $value", style = MaterialTheme.typography.labelLarge)
-        },
-    )
-}
 
 @Composable
 private fun SmallTag(text: String, color: Color) {

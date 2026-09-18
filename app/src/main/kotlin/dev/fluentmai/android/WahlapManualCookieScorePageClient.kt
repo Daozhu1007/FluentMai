@@ -8,6 +8,9 @@ import dev.fluentmai.android.core.privacy.PrivacyRedactor
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.cookies.HttpCookies
+import io.ktor.http.Url
+import dev.fluentmai.android.core.importer.WahlapMusicDetailTarget
 import io.ktor.client.request.get
 import io.ktor.client.request.headers
 import io.ktor.client.statement.bodyAsText
@@ -131,11 +134,15 @@ class WahlapManualCookieScorePageClient(
     private val credentials: WahlapCookieImportCredentials,
     private val redactor: PrivacyRedactor,
     private val onPlayerHome: (String) -> Unit = {},
+    private val onDiagnostic: (String) -> Unit = {},
 ) : Closeable {
     private val client = HttpClient(CIO) {
         install(HttpTimeout) {
             requestTimeoutMillis = REQUEST_TIMEOUT_MS
             connectTimeoutMillis = CONNECT_TIMEOUT_MS
+        }
+        install(HttpCookies) {
+            default { seedWahlapCookies(credentials.cookies, Url(HOME_URL)) }
         }
         expectSuccess = false
     }
@@ -172,6 +179,20 @@ class WahlapManualCookieScorePageClient(
         return response.body
     }
 
+    suspend fun fetchActivityPage(url: String): String {
+        val safeUrl = requireNotNull(dev.fluentmai.android.core.importer.WahlapActivityParser.safeActivityUrl(url))
+        val response = request("play-records", safeUrl)
+        validateActivityResponse(response.statusCode, response.finalUrl, response.body)
+        return response.body
+    }
+
+    suspend fun fetchMusicDetail(target: WahlapMusicDetailTarget): String {
+        val url = requireNotNull(dev.fluentmai.android.core.importer.WahlapPlayCountParser.safeDetailUrl(target.url))
+        val response = request("music-detail", url, WahlapScorePageUrls.scorePageUrl(target.sourceDifficulty))
+        validateActivityResponse(response.statusCode, response.finalUrl, response.body)
+        return response.body
+    }
+
     suspend fun fetchSupplementalScorePages(): List<WahlapSupplementalPage> =
         SUPPLEMENTAL_SCORE_PAGE_URLS.mapNotNull { candidate ->
             val response = runCatching {
@@ -196,7 +217,7 @@ class WahlapManualCookieScorePageClient(
             WahlapSupplementalPage(label = candidate.label, html = response.body)
         }
 
-    private suspend fun request(label: String, rawUrl: String): HttpResponse =
+    private suspend fun request(label: String, rawUrl: String, detailReferer: String? = null): HttpResponse =
         try {
             val response = client.get(rawUrl) {
                 headers {
@@ -207,7 +228,12 @@ class WahlapManualCookieScorePageClient(
                     credentials.headers
                         .filterKeys { it !in defaults.keys }
                         .forEach { (name, value) -> append(name, value) }
-                    append(HttpHeaders.Cookie, credentials.cookieHeader)
+                    if (dev.fluentmai.android.core.importer.WahlapActivityParser.safeActivityUrl(rawUrl) != null) {
+                        set(HttpHeaders.AcceptEncoding, "identity")
+                        set(HttpHeaders.Referrer, detailReferer ?: HOME_URL)
+                        set("Sec-Fetch-Site", "same-origin")
+                        set(HttpHeaders.UserAgent, credentials.headers[HttpHeaders.UserAgent] ?: WahlapKtorClient.WX_ANDROID_UA)
+                    }
                 }
             }
             HttpResponse(
@@ -215,10 +241,11 @@ class WahlapManualCookieScorePageClient(
                 contentType = response.headers[HttpHeaders.ContentType],
                 body = response.bodyAsText(),
                 finalUrl = response.call.request.url.toString(),
-            )
+            ).also { onDiagnostic("$label：${describeWahlapResponse(it.statusCode, it.finalUrl, it.body)}；类型=${it.contentType}") }
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
             throw cancelled
         } catch (error: Exception) {
+            onDiagnostic("$label 请求异常：${diagnosticException(error)}")
             throw IOException("$label request failed: ${redactor.redact(error.message ?: error::class.java.simpleName)}", error)
         }
 
@@ -233,44 +260,18 @@ class WahlapManualCookieScorePageClient(
         val finalUrl: String,
     )
 
-    private data class SupplementalScorePageCandidate(
-        val label: String,
-        val url: String,
-    )
-
     private companion object {
         private const val TAG = "WahlapManualCookie"
         private const val CONNECT_TIMEOUT_MS = 30_000L
         private const val REQUEST_TIMEOUT_MS = 30_000L
         private const val HOME_URL = "https://maimai.wahlap.com/maimai-mobile/home/"
-        private val SUPPLEMENTAL_SCORE_PAGE_URLS = listOf(
-            SupplementalScorePageCandidate(
-                label = "rating-target-music",
-                url = "https://maimai.wahlap.com/maimai-mobile/home/ratingTargetMusic/",
-            ),
-            SupplementalScorePageCandidate(
-                label = "rating-recent",
-                url = "https://maimai.wahlap.com/maimai-mobile/home/playerData/ratingDetailRecent/",
-            ),
-            SupplementalScorePageCandidate(
-                label = "rating-best",
-                url = "https://maimai.wahlap.com/maimai-mobile/home/playerData/ratingDetailBest/",
-            ),
-            SupplementalScorePageCandidate(
-                label = "rating-detail",
-                url = "https://maimai.wahlap.com/maimai-mobile/home/playerData/ratingDetail/",
-            ),
-            SupplementalScorePageCandidate(
-                label = "rating-old",
-                url = "https://maimai.wahlap.com/maimai-mobile/home/playerData/ratingDetailOld/",
-            ),
-        )
+        private val SUPPLEMENTAL_SCORE_PAGE_URLS = WahlapSupplementalPages.pages
 
         private fun defaultNavigationHeaders(): Map<String, String> =
             linkedMapOf(
                 HttpHeaders.Connection to "keep-alive",
                 "Upgrade-Insecure-Requests" to "1",
-                HttpHeaders.UserAgent to WahlapKtorClient.WX_WINDOWS_UA,
+                HttpHeaders.UserAgent to WahlapKtorClient.WX_ANDROID_UA,
                 HttpHeaders.Accept to "text/html,application/xhtml+xml,application/xml;q=0.9," +
                     "image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
                 "Sec-Fetch-Site" to "none",
@@ -287,10 +288,9 @@ class WahlapManualCookieScorePageClient(
                 normalized.contains("/wc_auth/oauth/authorize/") ||
                 normalized.contains("open.weixin.qq.com/connect/oauth2/authorize") ||
                 html.contains("\u767b\u5f55\u5931\u8d25") ||
-                html.contains("\u9519\u8bef\u7801") ||
                 html.contains("登录失败") ||
-                html.contains("错误码") ||
-                html.contains("title_error")
+                dev.fluentmai.android.core.importer.WahlapActivityParser.hasErrorPage(html) ||
+                dev.fluentmai.android.core.importer.WahlapActivityParser.errorCode(html) != null
         }
 
         private fun looksLikeScorePage(html: String): Boolean =

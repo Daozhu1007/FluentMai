@@ -27,13 +27,23 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 @Composable
-internal fun ExperimentalSection(enabled: Boolean, onChanged: (Boolean) -> Unit, automaticUpdates: Boolean, onAutomaticUpdatesChanged: (Boolean) -> Unit) {
+internal fun ExperimentalSection(enabled: Boolean, onChanged: (Boolean) -> Unit, automaticUpdates: Boolean, onAutomaticUpdatesChanged: (Boolean) -> Unit, onResetSettings: () -> Unit = {}) {
+    var confirmReset by remember { mutableStateOf(false) }
+    if (confirmReset) AlertDialog(onDismissRequest = { confirmReset = false },
+        title = { Text("恢复默认设置？") },
+        text = { Text("外观、PC数爬取规则、自定义组件、B50显示选项、筛选条件及其他设置将恢复默认。成绩、游玩记录、收藏和上传凭据不会删除。") },
+        confirmButton = { TextButton(onClick = { confirmReset = false; onResetSettings() }) { Text("恢复默认") } },
+        dismissButton = { TextButton(onClick = { confirmReset = false }) { Text("取消") } })
     OutlinedCard(
         modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("其他", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("恢复默认设置", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                TextButton(onClick = { confirmReset = true }) { Text("还原") }
+            }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text("自动检测更新", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 SettingsToggle(automaticUpdates, onAutomaticUpdatesChanged, "自动检测更新")
@@ -49,7 +59,7 @@ internal fun ExperimentalSection(enabled: Boolean, onChanged: (Boolean) -> Unit,
 }
 
 @Composable
-private fun SettingsToggle(enabled: Boolean, onChanged: (Boolean) -> Unit, label: String, showScienceIcon: Boolean = false) {
+fun SettingsToggle(enabled: Boolean, onChanged: (Boolean) -> Unit, label: String, showScienceIcon: Boolean = false) {
     val source = remember { MutableInteractionSource() }
     val primary = MaterialTheme.colorScheme.primary
     val gray = if (MaterialTheme.colorScheme.background.luminance() > .5f) Color(0xFF858C91) else Color(0xFF535D65)

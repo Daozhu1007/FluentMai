@@ -1,6 +1,7 @@
 package dev.fluentmai.android.feature.scores
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +20,7 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilterChip
@@ -40,8 +42,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
@@ -81,7 +86,11 @@ fun ChartDetailScreen(
     onChartSelected: (ChartIdentity) -> Unit,
     scrollToTopRequestId: Int = 0,
     modifier: Modifier = Modifier,
+    playCounts: List<dev.fluentmai.android.core.model.ChartPlayCount> = emptyList(),
 ) {
+    val componentSettings = LocalComponentSettings.current
+    val editing = LocalDetailEditor.current != null
+    fun showSection(title: String) = editing || DetailAttributeGroups[title].orEmpty().any { it !in componentSettings.hiddenDetails }
     val chart = remember(identity, charts) {
         charts.firstOrNull { ChartIdentity.from(it) == identity }
     }
@@ -111,7 +120,7 @@ fun ChartDetailScreen(
     }
 
     LazyVerticalGrid(
-        modifier = modifier.fillMaxSize(),
+        modifier = modifier.fillMaxSize().testTag("chart-detail-grid"),
         state = gridState,
         columns = GridCells.Adaptive(340.dp),
         contentPadding = PaddingValues(16.dp),
@@ -119,7 +128,8 @@ fun ChartDetailScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item(span = { GridItemSpan(maxLineSpan) }) {
-            DetailHeader(chart = chart, onBack = onBack)
+            if (showSection("标题")) DetailHeader(chart = chart, onBack = onBack)
+            else IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回") }
         }
         item(span = { GridItemSpan(maxLineSpan) }) {
             DifficultySwitcher(
@@ -128,7 +138,7 @@ fun ChartDetailScreen(
                 onChartSelected = onChartSelected,
             )
         }
-        item {
+        if (showSection("歌曲")) item {
             DetailSection(title = "歌曲") {
                 DetailValue("Song ID", chart.songId.toString())
                 DetailValue("谱面身份", "${chart.songId} · ${chart.songType.detailName()} · ${chart.difficulty.detailName()}")
@@ -140,11 +150,12 @@ fun ChartDetailScreen(
                 DetailValue("上线状态", chart.availability(currentVersionId).displayName())
             }
         }
-        item {
+        if (showSection("谱面")) item {
             DetailSection(title = "谱面") {
                 DetailValue("类型", chart.songType.detailName())
                 DetailValue("难度", "${chart.difficulty.detailName()} ${chart.level}")
                 DetailValue("定数", chart.levelValue?.let { String.format(Locale.US, "%.1f", it) } ?: "--")
+                DetailValue("水鱼拟合", chart.fittedConstant?.let { String.format(Locale.US, "%.4f", it) } ?: "暂无数据")
                 DetailValue("谱师", chart.noteDesigner.ifBlank { "--" })
                 DetailValue("总 Note", chart.notes?.total?.toString() ?: "--")
                 DetailValue(
@@ -162,7 +173,7 @@ fun ChartDetailScreen(
                 DetailValue("SSS+容错", sssPlusTolerance?.toString() ?: "--")
             }
         }
-        item {
+        if (showSection("玩家最佳")) item {
             DetailSection(title = "玩家最佳") {
                 val score = playerRecord?.score
                 DetailValue("达成率", score?.let { String.format(Locale.US, "%.4f%%", it.achievement) } ?: "未游玩")
@@ -170,14 +181,22 @@ fun ChartDetailScreen(
                 DetailValue("FC", score?.fc?.uppercase(Locale.ROOT) ?: "--")
                 DetailValue("FS", score?.fs?.uppercase(Locale.ROOT) ?: "--")
                 DetailValue("DX Score", score?.dxScore?.toString() ?: "--")
+                val pc = playCounts.firstOrNull { it.title == chart.title && it.songType == chart.songType && it.difficulty == chart.difficulty }
+                DetailValue("PC", pc?.displayText() ?: score?.playCount?.toString() ?: score?.playCountUpperBound?.let { "≤$it" } ?: "未知")
+                if ("PC" !in componentSettings.hiddenDetails && pc == null && score?.playCount == null && score?.playCountUpperBound == null && (score?.observedPlayCount ?: 0) > 0) {
+                    Text("已同步 ${score?.observedPlayCount} 次游玩记录，累计 PC 尚未获取", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         }
-        item {
+        if (showSection("别名与数据来源")) item {
             DetailSection(title = "别名与数据来源") {
+                if (editing || chart.fittedUpdatedAt != null) DetailValue("水鱼拟合更新", chart.fittedUpdatedAt?.asLocalTime() ?: "示例更新时间")
                 DetailValue("别名", songAliases.takeIf { it.isNotEmpty() }?.joinToString("、") ?: "暂无已映射别名")
-                if (aliasStatus == null) {
+                if (aliasStatus == null || editing) {
                     DetailValue("别名数据", "尚无本地缓存；基本字段搜索仍可用")
-                } else {
+                }
+                if (aliasStatus != null) {
                     DetailValue("来源", aliasStatus.sourceLabel)
                     DetailValue("更新时间", aliasStatus.fetchedAtEpochMillis.asLocalTime())
                     DetailValue("数据版本", aliasStatus.contentVersion.take(19))
@@ -200,23 +219,23 @@ private fun DetailHeader(chart: ChartRecord, onBack: () -> Unit) {
             IconButton(onClick = onBack, modifier = Modifier.size(48.dp)) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
             }
-            DetailJacket(chart, Modifier.size(116.dp))
+            DetailAttribute("封面") { DetailJacket(chart, Modifier.size(116.dp)) }
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Text(
+                DetailAttribute("曲名") { Text(
                     chart.title,
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
-                )
-                Text(
+                ) }
+                DetailAttribute("标题谱面身份") { Text(
                     "Song ${chart.songId} · ${chart.songType.detailName()} · ${chart.difficulty.detailName()}",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Surface(
+                ) }
+                DetailAttribute("标题定数") { Surface(
                     shape = RoundedCornerShape(8.dp),
                     color = chart.difficulty.accentColor(),
                     contentColor = Color.White,
@@ -230,6 +249,7 @@ private fun DetailHeader(chart: ChartRecord, onBack: () -> Unit) {
                         ),
                         fontWeight = FontWeight.Bold,
                     )
+                }
                 }
             }
         }
@@ -275,9 +295,25 @@ private fun DetailSection(title: String, content: @Composable () -> Unit) {
 
 @Composable
 private fun DetailValue(label: String, value: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.bodyLarge)
+    DetailAttribute(label, Modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.padding(end = if (LocalDetailEditor.current != null) 32.dp else 0.dp)) {
+            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, style = MaterialTheme.typography.bodyLarge)
+        }
+    }
+}
+
+@Composable
+private fun DetailAttribute(label: String, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    val hidden = label in LocalComponentSettings.current.hiddenDetails
+    val edit = LocalDetailEditor.current
+    if (hidden && edit == null) return
+    Box(modifier.then(if (edit != null) Modifier.clip(RoundedCornerShape(6.dp))
+        .background(if (hidden) Color.Red.copy(alpha = .08f) else MaterialTheme.colorScheme.primary.copy(alpha = .05f))
+        .semantics { contentDescription = "$label，${if (hidden) "已隐藏，点击恢复" else "已显示，点击隐藏"}" }
+        .clickable { edit(label) }.padding(4.dp) else Modifier)) {
+        content()
+        if (hidden && edit != null) Icon(Icons.Default.Close, "已隐藏", Modifier.align(Alignment.CenterEnd).size(28.dp), tint = Color.Red)
     }
 }
 

@@ -21,6 +21,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -48,6 +49,11 @@ fun SettingsScreen(
     onBack: (() -> Unit)? = null,
     scrollToTopRequestId: Int = 0,
     modifier: Modifier = Modifier,
+    efficientPc: Boolean = true,
+    onEfficientPcChanged: (Boolean) -> Unit = {},
+    onEditThumbnail: () -> Unit = {},
+    onEditDetails: () -> Unit = {},
+    onResetSettings: () -> Unit = {},
 ) {
     var showQuarantine by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
@@ -83,6 +89,34 @@ fun SettingsScreen(
             AppearanceSection(themeMode, onThemeModeChanged)
         }
         item {
+            OutlinedCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp),
+                colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("自定义组件", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                    listOf("谱面缩略框" to onEditThumbnail, "谱面详情页" to onEditDetails).forEach { (label, edit) ->
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text(label, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            TextButton(onClick = edit) { Text("修改") }
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            OutlinedCard(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp),
+                colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    val label = if (efficientPc) "效率优先" else "全部爬取"
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("PC数爬取规则", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                        Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    }
+                    SettingsToggle(efficientPc, onEfficientPcChanged, label)
+                }
+            }
+        }
+        item {
             DiagnosticSection(
                 quarantineCount = quarantineCount,
                 records = records,
@@ -93,7 +127,7 @@ fun SettingsScreen(
             item {
                 AboutSection(appVersion = appVersion)
             }
-            item { ExperimentalSection(experimentalFeatures, onExperimentalFeaturesChanged, automaticUpdates, onAutomaticUpdatesChanged) }
+            item { ExperimentalSection(experimentalFeatures, onExperimentalFeaturesChanged, automaticUpdates, onAutomaticUpdatesChanged, onResetSettings) }
         }
     }
 }

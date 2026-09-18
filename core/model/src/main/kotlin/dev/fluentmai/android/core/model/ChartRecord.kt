@@ -19,6 +19,8 @@ data class ChartRecord(
     val notes: ChartNotes?,
     val isLocked: Boolean? = null,
     val isDisabled: Boolean? = null,
+    val fittedConstant: Double? = null,
+    val fittedUpdatedAt: Long? = null,
 )
 
 enum class ChartAvailability {

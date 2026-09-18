@@ -26,12 +26,12 @@ class FavoriteAndTheoryTest {
         assertEquals(0, theoreticalBestSet(disabled, versions).rating)
         assertEquals(0, theoreticalBestSet(emptyList(), versions).rating)
     }
-    @Test fun posterDisplayOptionsDoNotRequestHiddenCollections() {
+    @Test fun hiddenCollectionsKeepFrameDimensionsButSkipOtherHiddenArtwork() {
         val best = posterBestSet(emptyList(), emptyList(), emptyList())
         val profile = B50PlayerProfile("Local", 1, 6101, 1, "Trophy", "gold", 23, 25)
         val hidden = B50DisplayOptions(false, false, false, false, false)
         val requested = posterAssets(best, profile, hidden)
-        assertEquals(setOf(B50Assets.icon(1)), requested.keys)
+        assertEquals(setOf(B50Assets.icon(1), B50Assets.frame(1)), requested.keys)
         val visible = posterAssets(best, profile, B50DisplayOptions())
         assertEquals("玩家收藏品背景", visible[B50Assets.frame(1)])
         assertFalse(visible.keys.any { "maimaidx.jp" in it || it.startsWith("bundled:") })

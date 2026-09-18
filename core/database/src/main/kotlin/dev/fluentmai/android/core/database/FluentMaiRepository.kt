@@ -15,8 +15,25 @@ class FluentMaiRepository(
     suspend fun scoreCount(): Int =
         database.scoreRecordDao().count()
 
-    suspend fun scores(): List<ScoreRecord> =
-        database.scoreRecordDao().getAll().map(ScoreRecordEntity::toModel)
+    suspend fun scores(): List<ScoreRecord> {
+        val counts = database.playActivityDao().counts().associateBy { Triple(it.title, it.songType, it.difficulty) }
+        val observed = database.playActivityDao().records().groupingBy { Triple(it.title, it.songType, it.difficulty) }.eachCount()
+        return database.scoreRecordDao().getAll().map { entity ->
+            val key = Triple(entity.title, entity.songType, entity.difficulty)
+            entity.toModel().copy(playCount = counts[key]?.takeUnless { it.isUpperBound }?.count,
+                playCountUpperBound = counts[key]?.takeIf { it.isUpperBound }?.count, observedPlayCount = observed[key] ?: 0)
+        }
+    }
+
+    suspend fun playRecords() = database.playActivityDao().records().map { it.model() }
+    suspend fun playCounts() = database.playActivityDao().counts().map {
+        dev.fluentmai.android.core.model.ChartPlayCount(it.title, dev.fluentmai.android.core.model.SongType.valueOf(it.songType),
+            dev.fluentmai.android.core.model.Difficulty.valueOf(it.difficulty), it.count, it.isUpperBound)
+    }
+    suspend fun savePlayRecords(records: List<dev.fluentmai.android.core.model.PlayRecord>) =
+        database.playActivityDao().add(records.map { PlayRecordEntity(it.id, it.songId, it.title, it.songType.name, it.difficulty.name, it.playedAt, it.achievement, it.dxScore, it.fc, it.fs) })
+    suspend fun savePlayCounts(counts: List<dev.fluentmai.android.core.model.ChartPlayCount>) =
+        database.playActivityDao().saveCounts(counts.map { ChartPlayCountEntity(it.title, it.songType.name, it.difficulty.name, it.count, it.isUpperBound) })
 
     suspend fun quarantineCount(): Int =
         database.quarantineRecordDao().count()

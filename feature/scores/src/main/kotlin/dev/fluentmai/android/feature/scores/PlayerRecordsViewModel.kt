@@ -225,6 +225,19 @@ internal class PlayerRecordsViewModel(
         runRecommendations()
     }
 
+    fun resetSettings() {
+        updatePlateKind(PlateKind.GENERAL)
+        val versions = _uiState.value.availableVersions
+        val selected = currentVersion?.majorVersion?.id?.takeIf { id -> versions.any { it.id == id } } ?: versions.firstOrNull()?.id
+        persist(KEY_PLATE_VERSION, selected)
+        _uiState.update { it.copy(selectedPlateVersionId = selected) }
+        updatePlateProgress()
+        updatePlateDifficulty(null)
+        updatePlateIncompleteOnly(true)
+        updatePlateSort(PlateListSort.LEVEL_DESC)
+        resetRecommendationFilters()
+    }
+
     private fun updatePlateProgress() {
         val playerCatalog = catalog ?: return
         val state = _uiState.value

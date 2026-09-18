@@ -26,21 +26,26 @@ internal class B50PosterRenderer {
         paint.color = Color.WHITE
         bitmap(background, RectF(0f, 0f, WIDTH.toFloat(), height.toFloat()))
         headingColor = Color.WHITE
-        val contentScale = minOf(1f, (height - 240f) / 2544f)
+        // The collection toggle changes its paint, not the geometry of the export.
+        val frame = profile?.frameArtwork?.let(images::get)?.takeIf(::hasCollectionArtwork)
+        val collectionHeight = frame?.let { (1380f * it.height / it.width).coerceIn(303f, 640f) } ?: 303f
+        val headerExtra = collectionHeight - 303f
+        val contentScale = minOf(1f, (height - 240f) / (2544f + headerExtra))
         canvas.translate((WIDTH - WIDTH * contentScale) / 2, 0f)
         canvas.scale(contentScale, contentScale)
         text("BEST 50", 62f, 101f, 72f, headingColor, bold = true)
-        header(best, profile, options)
-        section("旧版本Best35", best.oldBest, 480f, 504f, 35, Color.rgb(45, 173, 199))
-        section("当前版本Best15", best.newBest, 1935f, 1960f, 15, Color.rgb(158, 116, 218))
+        header(best, profile, options, collectionHeight)
+        section("旧版本Best35", best.oldBest, 480f + headerExtra, 504f + headerExtra, 35, Color.rgb(45, 173, 199))
+        section("当前版本Best15", best.newBest, 1935f + headerExtra, 1960f + headerExtra, 15, Color.rgb(158, 116, 218))
         return output
     }
 
-    private fun header(best: MaimaiBestSet, player: B50PlayerProfile?, options: B50DisplayOptions) {
-        val collectionPanel = RectF(60f, 137f, 1440f, 440f)
+    private fun header(best: MaimaiBestSet, player: B50PlayerProfile?, options: B50DisplayOptions, collectionHeight: Float) {
+        val collectionPanel = RectF(60f, 137f, 1440f, 137f + collectionHeight)
         rounded(collectionPanel, Color.WHITE, 20f, shadow = true)
-        if (options.background) player?.frameArtwork?.let { asset(it, collectionPanel, crop = true, radius = 20f) }
+        if (options.background) player?.frameArtwork?.let { asset(it, collectionPanel, radius = 20f) }
         // Nameplate surrounds all identity fields, like the in-game player card.
+        // Restore the full-width nameplate and the original scale of every identity field.
         val panel = RectF(80f, 154f, 1420f, 370f)
         rounded(panel, Color.argb(210, 255, 255, 255), 12f)
         if (options.nameplate) player?.plateArtwork?.let { asset(it, panel, radius = 12f) }
@@ -67,10 +72,10 @@ internal class B50PosterRenderer {
         }
         if (options.rank) player?.classRank?.let { asset(B50Assets.rank(it), RectF(534f, 180f, 626f, 235f)) }
 
-        val nameRect = RectF(306f, 240f, 866f, 293f)
+        val nameRect = RectF(306f, 240f, 786f, 293f)
         rounded(nameRect, Color.WHITE, 7f)
         val course = player?.courseRank?.takeIf { options.course }
-        val nameWidth = if (course != null) 396f else 536f
+        val nameWidth = if (course != null) 316f else 456f
         val name = ellipsized(player?.name ?: "本地玩家", 33f, nameWidth)
         text(name, 318f, 280f, 33f, ink, bold = true)
         if (course != null) {
@@ -79,15 +84,16 @@ internal class B50PosterRenderer {
         }
 
         if (options.trophy && player?.trophy != null) {
-            val trophyRect = RectF(306f, 300f, 866f, 343f)
+            val trophyRect = RectF(306f, 300f, 786f, 343f)
             val artwork = images[B50Assets.trophy(player.trophyColor)]
             if (artwork != null) banner(artwork, trophyRect)
             else rounded(trophyRect, Color.rgb(231, 229, 248), 10f)
             centeredText(player.trophy, trophyRect.centerX(), 329f, 23f, ink, trophyRect.width() - 32f)
         }
-        rounded(RectF(80f, 389f, 910f, 427f), Color.argb(225, 255, 255, 255), 12f)
+        val summaryY = collectionPanel.bottom - 51f
+        rounded(RectF(80f, summaryY, 910f, summaryY + 38f), Color.argb(225, 255, 255, 255), 12f)
         text("B35 ${best.oldBest.sumOf { it.rating ?: 0 }}  +  B15 ${best.newBest.sumOf { it.rating ?: 0 }}  =  ${best.rating}",
-            96f, 417f, 26f, ink, bold = true)
+            96f, summaryY + 28f, 26f, ink, bold = true)
     }
 
     private fun ratingFallbackColor(rating: Int): Int = when (posterRatingColor(rating)) {
@@ -270,6 +276,17 @@ internal class B50PosterRenderer {
 
     private fun lighten(color: Int) = Color.rgb((Color.red(color) + 255) / 2, (Color.green(color) + 255) / 2, (Color.blue(color) + 255) / 2)
     companion object { const val WIDTH = 1500; const val HEIGHT = 2665 }
+}
+
+/** Blank/default frames need no extra height; do not create an empty white banner. */
+internal fun hasCollectionArtwork(bitmap: Bitmap): Boolean {
+    val stepX = (bitmap.width / 64).coerceAtLeast(1)
+    val stepY = (bitmap.height / 32).coerceAtLeast(1)
+    for (y in 0 until bitmap.height step stepY) for (x in 0 until bitmap.width step stepX) {
+        val pixel = bitmap.getPixel(x, y)
+        if (Color.alpha(pixel) > 20 && minOf(Color.red(pixel), Color.green(pixel), Color.blue(pixel)) < 245) return true
+    }
+    return false
 }
 
 /** Ignore transparent padding and faint compression fringes without cropping status lettering. */

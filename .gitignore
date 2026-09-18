@@ -1,10 +1,12 @@
 .gradle/
+.kotlin/
 build/
 **/build/
 bin/
 **/bin/
 local.properties
 .idea/
+.DS_Store
 *.iml
 captures/
 externalNativeBuild/

@@ -36,6 +36,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.imageLoader
 import coil.request.ImageRequest
 import dev.fluentmai.android.core.model.*
+import dev.fluentmai.android.feature.settings.SettingsToggle
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
@@ -62,7 +63,7 @@ fun B50PosterScreen(
     val best = remember(scores, charts, majorVersions) { posterBestSet(scores, charts, majorVersions) }
     val loadCurrentProfile by rememberUpdatedState(loadProfile)
     val preferences = remember(context) { context.getSharedPreferences("b50_poster", android.content.Context.MODE_PRIVATE) }
-    var night by rememberSaveable { mutableStateOf(preferences.getBoolean("night_background", false)) }
+    var night by remember { mutableStateOf(preferences.getBoolean("night_background", false)) }
     var options by remember { mutableStateOf(B50DisplayOptions(
         preferences.getBoolean("show_trophy", true), preferences.getBoolean("show_nameplate", true),
         preferences.getBoolean("show_course", true), preferences.getBoolean("show_rank", true),
@@ -96,11 +97,6 @@ fun B50PosterScreen(
             Toast.makeText(context, "未获得存储权限，未保存图片。", Toast.LENGTH_LONG).show()
         }
     }
-    val scroll = rememberScrollState()
-    var handledScroll by remember { mutableIntStateOf(scrollToTopRequestId) }
-    LaunchedEffect(scrollToTopRequestId) {
-        if (handledScroll != scrollToTopRequestId) { handledScroll = scrollToTopRequestId; scroll.animateScrollTo(0) }
-    }
     LaunchedEffect(best, profileRevision, state.refresh, night, options) {
         val key = listOf(best, profileRevision, state.refresh, night, options)
         if (state.lastKey == key && state.bitmap != null) return@LaunchedEffect
@@ -128,7 +124,8 @@ fun B50PosterScreen(
                 } }.awaitAll().mapNotNull { (url, bitmap) -> bitmap?.let { url to it } }.toMap()
             }
             state.images = images
-            state.missing = requested.filterKeys { it !in images }.map { (url, label) -> label to url }
+            state.missing = requested.filterKeys { it !in images && (options.background || it != profile.player?.frameArtwork) }
+                .map { (url, label) -> label to url }
             state.bitmap = withContext(Dispatchers.Default) {
                 val background = BitmapFactory.decodeResource(context.resources,
                     if (night) R.drawable.b50_background_night else R.drawable.b50_background_day)
@@ -160,14 +157,14 @@ fun B50PosterScreen(
             OutlinedButton(onClick = { chooseBackground = true }, enabled = !state.loading) { Text(if (night) "背景 · 经典夜晚" else "背景 · 经典白天") }
             OutlinedButton(onClick = { showSettings = true }) { Text("显示设置") }
         }
-        Column(Modifier.weight(1f).verticalScroll(scroll).padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.weight(1f).padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             state.status?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             if (state.missing.isNotEmpty()) Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("有 ${state.missing.size} 张云端图片暂未加载", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
                 TextButton(onClick = { showDetails = true }) { Text("查看详情", color = MaterialTheme.colorScheme.primary) }
             }
             state.bitmap?.let { bitmap ->
-                Image(bitmap.asImageBitmap(), "玩家 B50 成绩大图", Modifier.fillMaxWidth().aspectRatio(bitmap.width.toFloat() / bitmap.height), contentScale = ContentScale.Fit)
+                ZoomableB50(bitmap, scrollToTopRequestId, Modifier.fillMaxWidth().weight(1f))
             }
             if (state.bitmap == null && state.loading) Text("正在准备封面与玩家装扮…", Modifier.padding(24.dp))
         }
@@ -189,11 +186,11 @@ fun B50PosterScreen(
                     "友人对战等级" to options.rank, "背景" to options.background).forEachIndexed { index, (label, enabled) ->
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text(label, Modifier.weight(1f))
-                        Switch(enabled, { value -> updateOptions(when (index) {
+                        SettingsToggle(enabled, { value -> updateOptions(when (index) {
                             0 -> options.copy(trophy = value); 1 -> options.copy(nameplate = value)
                             2 -> options.copy(course = value); 3 -> options.copy(rank = value)
                             else -> options.copy(background = value)
-                        }) })
+                        }) }, label)
                     }
                 }
                 Text("背景开关控制玩家信息区的游戏收藏品背景，不影响经典白天／经典夜晚底图。",

@@ -19,6 +19,7 @@ android {
     testOptions.unitTests.all {
         it.systemProperty("robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2")
     }
+    testOptions.unitTests.isIncludeAndroidResources = true
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -32,6 +33,7 @@ android {
 
 dependencies {
     implementation(project(":core:model"))
+    implementation(project(":feature:settings"))
     implementation("com.github.houbb:opencc4j:1.14.0")
     implementation(platform("androidx.compose:compose-bom:2024.10.00"))
     implementation("androidx.compose.foundation:foundation")
@@ -46,4 +48,6 @@ dependencies {
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.14.1")
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

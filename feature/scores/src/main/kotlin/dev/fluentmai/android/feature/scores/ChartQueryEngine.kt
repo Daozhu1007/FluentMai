@@ -288,16 +288,52 @@ internal enum class ChartSort(val label: String) {
     ToleranceAsc("容错升序"),
     ToleranceDesc("容错降序"),
     RatingDesc("Rating 降序"),
+    RatingAsc("Rating 升序"),
     SongIdAsc("歌曲 ID"),
+    SongIdDesc("歌曲 ID 降序"),
+    FittedAsc("拟合定数升序"),
+    FittedDesc("拟合定数降序"),
+    FitGapAsc("拟合分差升序"),
+    FitGapDesc("拟合分差降序"),
     VersionDesc("曲库版本降序"),
     VersionAsc("曲库版本升序"),
     AchievementAsc("成绩升序"),
     AchievementDesc("成绩降序"),
+    PlayCountAsc("PC 升序"),
+    PlayCountDesc("PC 降序"),
     TitleAsc("曲名升序"),
     TitleDesc("曲名降序");
 
+    val ascending get() = name.endsWith("Asc")
+    val kind get() = when (this) {
+        ConstantAsc, ConstantDesc -> ChartSortKind.Constant
+        ToleranceAsc, ToleranceDesc -> ChartSortKind.Tolerance
+        RatingAsc, RatingDesc -> ChartSortKind.Rating
+        SongIdAsc, SongIdDesc -> ChartSortKind.SongId
+        VersionAsc, VersionDesc -> ChartSortKind.Version
+        AchievementAsc, AchievementDesc -> ChartSortKind.Achievement
+        PlayCountAsc, PlayCountDesc -> ChartSortKind.PlayCount
+        TitleAsc, TitleDesc -> ChartSortKind.Title
+        FittedAsc, FittedDesc -> ChartSortKind.Fitted
+        FitGapAsc, FitGapDesc -> ChartSortKind.FitGap
+    }
+
+    companion object {
+        fun select(kind: ChartSortKind, ascending: Boolean) = entries.first { it.kind == kind && it.ascending == ascending }
+    }
+
     fun comparator(): Comparator<IndexedChart> {
         val primary = when (this) {
+            PlayCountAsc -> compareBy<IndexedChart> { it.score?.playCount == null }
+                .thenBy { it.score?.playCount ?: 0 }
+            PlayCountDesc -> compareBy<IndexedChart> { it.score?.playCount == null }
+                .thenByDescending { it.score?.playCount ?: 0 }
+            FittedAsc -> compareBy<IndexedChart> { it.chart.fittedConstant ?: Double.POSITIVE_INFINITY }
+            FittedDesc -> compareByDescending<IndexedChart> { it.chart.fittedConstant ?: Double.NEGATIVE_INFINITY }
+            FitGapAsc -> compareBy<IndexedChart> { it.chart.fitGap() ?: Double.POSITIVE_INFINITY }
+            FitGapDesc -> compareByDescending<IndexedChart> { it.chart.fitGap() ?: Double.NEGATIVE_INFINITY }
+            RatingAsc -> compareBy<IndexedChart> { it.rating ?: Int.MAX_VALUE }
+            SongIdDesc -> compareByDescending<IndexedChart> { it.chart.songId }.thenBy { it.chart.levelIndex }
             ConstantDesc -> compareByDescending<IndexedChart> { it.chart.levelValue ?: -1.0 }
                 .thenByDescending { it.chart.levelIndex }
                 .thenBy { it.normalizedTitle }
@@ -335,6 +371,13 @@ internal enum class ChartSort(val label: String) {
             .thenBy { it.chart.levelIndex }
     }
 }
+
+internal enum class ChartSortKind(val label: String) {
+    Constant("定数"), Fitted("拟合定数"), FitGap("拟合分差"), Tolerance("容错"),
+    Rating("Rating"), SongId("歌曲 ID"), Version("曲库版本"), Achievement("成绩"), PlayCount("PC"), Title("曲名")
+}
+
+private fun ChartRecord.fitGap(): Double? = fittedConstant?.let { fitted -> levelValue?.minus(fitted) }
 
 private fun ChartRecord.matchesLevel(query: String): Boolean {
     val trimmed = query.trim()

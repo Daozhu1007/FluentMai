@@ -15,6 +15,13 @@ class WahlapScorePageValidationTest {
         assertTrue(WahlapScorePageValidation.isScorePage(emptyPage))
     }
 
+    @Test fun sharedErrorScriptDoesNotMakeAValidListAnErrorPage() {
+        assertTrue(WahlapScorePageValidation.isScorePage(emptyPage.replace("</body>",
+            "<script>const message = '登录失败 错误码 title_error';</script></body>")))
+        assertFalse(WahlapScorePageValidation.isScorePage(emptyPage.replace("</body>",
+            "<img src='title_error.png'></body>")))
+    }
+
     @Test fun authenticationAndServerErrorsAreNotEmptyScores() {
         assertFalse(WahlapScorePageValidation.isScorePage("<html>登录失败</html>"))
         assertFalse(WahlapScorePageValidation.isScorePage("<html>服务繁忙</html>"))

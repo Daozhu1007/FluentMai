@@ -77,6 +77,8 @@ fun ImportScreen(
     scrollToTopRequestId: Int = 0,
     modifier: Modifier = Modifier,
     moduleBackgroundColor: Color = MaterialTheme.colorScheme.surface,
+    onCopyImportError: (() -> Unit)? = null,
+    importProgress: dev.fluentmai.android.core.model.ImportProgress? = null,
 ) {
     val isBusy = isImporting || isUploading
     var showRebuildConfirmation by remember { mutableStateOf(false) }
@@ -241,9 +243,19 @@ fun ImportScreen(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text(text = "导入状态", style = MaterialTheme.typography.titleMedium)
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(text = "导入状态", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                    onCopyImportError?.let { copy ->
+                        TextButton(onClick = copy) {
+                            Text("复制详细报错", style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
                 Text(text = importStatus)
-                Text(text = realImportSummary ?: "启动捕获后，复制授权链接发到微信并点开。捕获到授权请求后会自动导入本地成绩。")
+                importProgress?.let { ImportProgressPanel(it, isImporting) }
+                if (!isImporting || importProgress == null) Text(text = realImportSummary ?: "启动捕获后，复制授权链接发到微信并点开。捕获到授权请求后会自动导入本地成绩。")
                 errorMessage?.let { Text(text = it, color = MaterialTheme.colorScheme.error) }
             }
         }
