@@ -3,6 +3,7 @@ package dev.fluentmai.android.feature.scores
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import dev.fluentmai.android.core.model.ChartRecord
+import dev.fluentmai.android.core.model.japaneseConstantGap
 import dev.fluentmai.android.core.model.sssPlusTapGreatTolerance
 import kotlin.math.abs
 import kotlin.math.round
@@ -14,6 +15,9 @@ internal data class ThumbnailValueScale(
     val maximumTolerance: Int = 100,
 ) {
     fun position(field: ThumbnailField, chart: ChartRecord): Float? = when (field) {
+        // Comparisons use solid red/green; zero and unavailable values retain normal text.
+        ThumbnailField.JapaneseConstant, ThumbnailField.JapaneseGap -> chart.japaneseConstantGap()?.comparisonSign()
+        ThumbnailField.Fitted -> chart.visibleFitGap()?.comparisonSign()
         ThumbnailField.FitGap -> chart.visibleFitGap()?.let {
             (it / (maximumFitGap.takeIf { scale -> scale.isFinite() && scale > 0 } ?: 1.0)).toFloat().coerceIn(-1f, 1f)
         }
@@ -49,6 +53,12 @@ private fun ChartRecord.visibleFitGap(): Double? {
 }
 
 internal data class ThumbnailValuePalette(val red: Color, val yellow: Color, val green: Color)
+
+private fun Double.comparisonSign(): Float? = when {
+    this < 0 -> -1f
+    this > 0 -> 1f
+    else -> null
+}
 
 internal fun thumbnailValuePalette(lightTheme: Boolean) = if (lightTheme) {
     // Deeper gold/green/red remain readable on the light chart surface.

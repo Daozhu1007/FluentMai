@@ -16,6 +16,34 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ChartQueryEngineTest {
+    @Test fun difficultySelectionIsUnionAndEmptyMeansAll() {
+        val charts = Difficulty.entries.mapIndexed { i, difficulty -> chart(songId = i + 1, title = difficulty.name).copy(difficulty = difficulty, levelIndex = difficulty.levelIndex) }
+        val engine = ChartQueryEngine.create(charts, emptyList())
+        val selected = engine.query(ChartQueryFilters(difficulties = setOf(Difficulty.EXPERT, Difficulty.MASTER)), 25500)
+        assertEquals(setOf(Difficulty.EXPERT, Difficulty.MASTER), selected.items.map { it.chart.difficulty }.toSet())
+        assertEquals(5, engine.query(ChartQueryFilters(), 25500).matchingCount)
+        assertEquals("旧框时代", ChartVersionFilter.Classic.label)
+        assertEquals("DX时代", ChartVersionFilter.Dx.label)
+        assertEquals("maimai PLUS · 真", ChartVersionFilter.MaimaiPlus.label)
+        assertFalse(ChartVersionFilter.entries.any { it.label == "当前版本" })
+        assertTrue(ChartVersionFilter.Dx.matches(chart(songId = 10, title = "DX", songVersion = 20000), 25500))
+        assertFalse(ChartVersionFilter.Dx.matches(chart(songId = 11, title = "Old", songVersion = 19900), 25500))
+    }
+
+    @Test fun japaneseSortsUseCnMinusJpAndKeepMissingLast() {
+        val low = chart(songId = 1, title = "Low", levelValue = 14.0).copy(japaneseConstant = 13.5)
+        val equal = chart(songId = 2, title = "Equal", levelValue = 14.0).copy(japaneseConstant = 14.0)
+        val high = chart(songId = 3, title = "High", levelValue = 14.0).copy(japaneseConstant = 14.5)
+        val missing = chart(songId = 4, title = "Missing", levelValue = 14.0)
+        val engine = ChartQueryEngine.create(listOf(missing, equal, low, high), emptyList())
+        fun ids(sort: ChartSort) = engine.query(ChartQueryFilters(sort = sort), 25500).items.map { it.chart.songId }
+        assertEquals(listOf(1, 2, 3, 4), ids(ChartSort.JapaneseConstantAsc))
+        assertEquals(listOf(3, 2, 1, 4), ids(ChartSort.JapaneseConstantDesc))
+        assertEquals(listOf(3, 2, 1, 4), ids(ChartSort.JapaneseGapAsc))
+        assertEquals(listOf(1, 2, 3, 4), ids(ChartSort.JapaneseGapDesc))
+        assertEquals(listOf("定数", "日服定数", "国日差值", "水鱼拟合"), ChartSortKind.entries.take(4).map { it.label })
+    }
+
     @Test fun fittedAndGapSortsKeepMissingValuesLastAndUseOfficialMinusFitted() {
         val low = chart(songId = 1, title = "Low", levelValue = 14.0).copy(fittedConstant = 13.5)
         val equal = chart(songId = 2, title = "Equal", levelValue = 14.0).copy(fittedConstant = 14.0)
@@ -89,7 +117,7 @@ class ChartQueryEngineTest {
         val future = chart(songId = 3, title = "Future", levelValue = 15.0, songVersion = 26_000)
         val result = ChartQueryEngine.create(listOf(currentLow, future, currentHigh), emptyList()).query(
             filters = ChartQueryFilters(
-                version = ChartVersionFilter.Current,
+                version = ChartVersionFilter.Dx2026,
                 sort = ChartSort.ConstantDesc,
             ),
             currentVersion = 25_500,

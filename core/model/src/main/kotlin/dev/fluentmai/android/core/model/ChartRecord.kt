@@ -21,7 +21,19 @@ data class ChartRecord(
     val isDisabled: Boolean? = null,
     val fittedConstant: Double? = null,
     val fittedUpdatedAt: Long? = null,
+    val japaneseConstant: Double? = null,
+    val japaneseConstantCheckedAt: Long? = null,
+    val japaneseConstantSourceModifiedAt: Long? = null,
+    val japaneseConstantStatus: String = "尚未同步",
 )
+
+/** CN minus JP, rounded to the source precision to avoid negative zero and floating-point noise. */
+fun ChartRecord.japaneseConstantGap(): Double? {
+    val cn = levelValue?.takeIf { it.isFinite() } ?: return null
+    val jp = japaneseConstant?.takeIf { it.isFinite() } ?: return null
+    val gap = kotlin.math.round((cn - jp) * 10) / 10
+    return if (gap == 0.0) 0.0 else gap
+}
 
 enum class ChartAvailability {
     AVAILABLE,

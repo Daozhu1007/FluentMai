@@ -11,6 +11,24 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class ChartQueryViewModelTest {
+    @Test fun multipleDifficultiesToggleResetAndRestore() {
+        val handle = SavedStateHandle(mapOf("charts.difficulty" to "EXPERT", "charts.version" to "Current"))
+        val model = ChartQueryViewModel(handle)
+        assertEquals(setOf(Difficulty.EXPERT), model.uiState.value.filters.difficulties)
+        assertEquals(ChartVersionFilter.All, model.uiState.value.filters.version)
+        model.updateDifficulty(Difficulty.MASTER)
+        assertEquals(setOf(Difficulty.EXPERT, Difficulty.MASTER), ChartQueryViewModel(handle).uiState.value.filters.difficulties)
+        model.updateDifficulty(Difficulty.EXPERT)
+        assertEquals(setOf(Difficulty.MASTER), model.uiState.value.filters.difficulties)
+        model.updateDifficulty(null)
+        assertEquals(emptySet<Difficulty>(), ChartQueryViewModel(handle).uiState.value.filters.difficulties)
+        Difficulty.entries.forEach(model::updateDifficulty)
+        assertEquals(emptySet<Difficulty>(), model.uiState.value.filters.difficulties)
+        model.updateDifficulty(Difficulty.BASIC)
+        model.updateDifficulty(Difficulty.BASIC)
+        assertEquals(emptySet<Difficulty>(), model.uiState.value.filters.difficulties)
+    }
+
     @Test
     fun filtersSortAndScrollRestoreFromSavedState() {
         val handle = SavedStateHandle()
@@ -21,7 +39,7 @@ class ChartQueryViewModelTest {
         original.updateConstantRange(13.2, 14.7)
         original.updateDifficulty(Difficulty.MASTER)
         original.updateGenre(ChartGenreFilter.Maimai)
-        original.updateVersion(ChartVersionFilter.Current)
+        original.updateVersion(ChartVersionFilter.Dx2026)
         original.updateStatus(ChartStatusFilter.Played)
         original.updateSongType(SongType.DX)
         original.updateAchievementRange(99.5, 100.5)
@@ -36,9 +54,9 @@ class ChartQueryViewModelTest {
         assertEquals("", restored.uiState.value.filters.levelQuery)
         assertEquals(13.2, restored.uiState.value.filters.constantMin)
         assertEquals(14.7, restored.uiState.value.filters.constantMax)
-        assertEquals(Difficulty.MASTER, restored.uiState.value.filters.difficulty)
+        assertEquals(setOf(Difficulty.MASTER), restored.uiState.value.filters.difficulties)
         assertEquals(ChartGenreFilter.Maimai, restored.uiState.value.filters.genre)
-        assertEquals(ChartVersionFilter.Current, restored.uiState.value.filters.version)
+        assertEquals(ChartVersionFilter.Dx2026, restored.uiState.value.filters.version)
         assertEquals(ChartStatusFilter.Played, restored.uiState.value.filters.status)
         assertEquals(SongType.DX, restored.uiState.value.filters.songType)
         assertEquals(99.5, restored.uiState.value.filters.achievementMin)
@@ -102,7 +120,7 @@ class ChartQueryViewModelTest {
             ),
         )
 
-        assertNull(restored.uiState.value.filters.difficulty)
+        assertEquals(emptySet<Difficulty>(), restored.uiState.value.filters.difficulties)
         assertEquals(ChartGenreFilter.All, restored.uiState.value.filters.genre)
         assertEquals(ChartVersionFilter.All, restored.uiState.value.filters.version)
         assertEquals(ChartStatusFilter.All, restored.uiState.value.filters.status)

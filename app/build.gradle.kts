@@ -12,8 +12,8 @@ android {
         applicationId = "dev.fluentmai.android"
         minSdk = 26
         targetSdk = 34
-        versionCode = 13
-        versionName = "0.2.9-beta"
+        versionCode = 14
+        versionName = "0.3.0-beta"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -23,6 +23,11 @@ android {
 
     buildFeatures {
         compose = true
+    }
+
+    testOptions.unitTests.isIncludeAndroidResources = true
+    testOptions.unitTests.all {
+        it.systemProperty("robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2")
     }
 
     compileOptions {
@@ -38,6 +43,7 @@ android {
 dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:database"))
+    implementation("androidx.room:room-runtime:2.6.1")
     implementation(project(":core:importer"))
     implementation(project(":core:privacy"))
     implementation(project(":core:upload"))
@@ -62,5 +68,6 @@ dependencies {
     implementation("io.ktor:ktor-client-cio:3.0.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.14.1")
     testImplementation("org.json:json:20240303")
 }

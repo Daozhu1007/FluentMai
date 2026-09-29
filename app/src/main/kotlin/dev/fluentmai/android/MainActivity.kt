@@ -109,12 +109,12 @@ import java.text.Normalizer
 import kotlinx.coroutines.withContext
 
 private const val TAG = "FluentMaiImport"
-internal const val APP_VERSION = "0.2.8-beta"
+internal const val APP_VERSION = "0.3.0-beta"
 
 class MainActivity : ComponentActivity() {
+    private var openImportRequest by mutableStateOf(0L)
     private val database by lazy { FluentMaiDatabase.create(this) }
     private val repository by lazy { FluentMaiRepository(database) }
-    private val persistence by lazy { RoomImportPersistence(database) }
     private val privacyRedactor by lazy { PrivacyRedactor() }
     private val uploadTokenStore by lazy { UploadTokenStore(this) }
     private val themePreferences by lazy { ThemePreferences(this) }
@@ -138,6 +138,7 @@ class MainActivity : ComponentActivity() {
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (intent.getBooleanExtra(ImportForegroundService.OPEN_IMPORT, false)) openImportRequest++
         setContent {
             var themeMode by remember { mutableStateOf(themePreferences.mode) }
             var experimentalFeatures by remember { mutableStateOf(themePreferences.experimentalFeatures) }
@@ -146,6 +147,7 @@ class MainActivity : ComponentActivity() {
             FluentMaiTheme(themeMode) {
                 ProvideComponentSettings {
                 FluentMaiApp(
+                    openImportRequest = openImportRequest,
                     onResetSettings = {
                         themePreferences.reset()
                         themeMode = themePreferences.mode
@@ -168,10 +170,6 @@ class MainActivity : ComponentActivity() {
                         themePreferences.mode = mode
                     },
                     repository = repository,
-                    runRealImport = { authUrl, afterLoginAttempt, onProgress ->
-                        runRealImport(authUrl, afterLoginAttempt, onProgress)
-                    },
-                    runCookieImport = { cookieInput, onProgress -> runCookieImport(cookieInput, onProgress) },
                     loadLocalChartCatalog = { songCatalogStore.loadLocalCatalog() },
                     refreshChartCatalog = { songCatalogStore.refreshFromNetwork() },
                     loadLocalAliasCatalog = { knownSongIds -> songAliasStore.loadLocalCatalog(knownSongIds) },
@@ -187,126 +185,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private suspend fun runRealImport(
-        authUrl: String,
-        afterLoginAttempt: () -> Unit = {},
-        onProgress: (ImportProgress) -> Unit = {},
-    ): RealWahlapImportResult = withImportDiagnostics("微信捕获") { diagnostics ->
-        val efficientPc = themePreferences.efficientPc
-        val pageProgress = ImportPageReporter(onProgress)
-        onProgress(ImportProgress(ImportStage.Preparing, "正在登录 Wahlap"))
-        val client = WahlapHttpScorePageClient(redactor = privacyRedactor, onPlayerHome = B50PlayerStore(this)::capture, onDiagnostic = diagnostics::record)
-        try {
-            client.login(authUrl)
-        } finally {
-            afterLoginAttempt()
-        }
-        onProgress(ImportProgress(ImportStage.Preparing, "正在加载曲库"))
-        val catalog = fetchSongCatalogOrEmpty()
-        val activity = captureWahlapActivity(catalog, repository, diagnostics::record, onProgress) { client.fetchActivityPage(it) }
-        val pcIndex = WahlapPlayCountIndex()
-        val realImportAdapter = RealWahlapImportAdapter(
-            parser = WahlapFixtureParser(songCatalog = catalog),
-            sanitizeFailure = privacyRedactor::redact,
-        )
-        val result = realImportAdapter.importFetchedPages(
-            source = "wahlap:real-device",
-            pageProvider = WahlapScorePageProvider { difficulty ->
-                pageProgress.page(ImportStage.Scores, difficulty.ordinal, Difficulty.entries.size, "${difficulty.name} 成绩页") {
-                    client.fetchScorePage(difficulty).also { html ->
-                        pcIndex.addPage(html, difficulty, catalog)
-                    }
-                }
-            },
-            supplementalPageProvider = WahlapSupplementalPageProvider {
-                pageProgress.page(ImportStage.Supplemental, 0, WahlapSupplementalPages.pages.size, "Rating 对象补充页",
-                    complete = { it.size == WahlapSupplementalPages.pages.size }) { client.fetchSupplementalScorePages() }
-            },
-            persistence = persistence,
-        )
-        diagnostics.record("PC数爬取规则：${if (efficientPc) "效率优先" else "全部爬取"}")
-        val pc = if (efficientPc) captureEfficientPc(catalog, pcIndex.targets(), client::fetchActivityPage,
-            repository::savePlayCounts, {}, diagnostics::record, onPageProgress = onProgress)
-        else captureFullPlayCounts(pcIndex, result, client::fetchMusicDetail, client::fetchScorePage, catalog, onProgress, diagnostics::record)
-        result.copy(fetchedPlayRecordCount = activity.recordCount, failedPlayPageCount = activity.failedPages, activityCaptureAttempted = true,
-            fetchedPlayCountCharts = pc.chartCount, activityWarnings = activity.warnings + pc.warnings)
-    }
 
-    private suspend fun runCookieImport(cookieInput: String, onProgress: (ImportProgress) -> Unit = {}): RealWahlapImportResult = withImportDiagnostics("手动 Cookie") { diagnostics ->
-        val efficientPc = themePreferences.efficientPc
-        val pageProgress = ImportPageReporter(onProgress)
-        onProgress(ImportProgress(ImportStage.Preparing, "正在验证凭据并加载曲库"))
-        val credentials = WahlapCookieImportCredentials.parse(cookieInput)
-        val catalog = fetchSongCatalogOrEmpty()
-        val realImportAdapter = RealWahlapImportAdapter(
-            parser = WahlapFixtureParser(songCatalog = catalog),
-            sanitizeFailure = privacyRedactor::redact,
-        )
-        val client = WahlapManualCookieScorePageClient(
-            credentials = credentials,
-            redactor = privacyRedactor,
-            onPlayerHome = B50PlayerStore(this)::capture,
-            onDiagnostic = diagnostics::record,
-        )
-        try {
-            client.validateLogin()
-            val activity = captureWahlapActivity(catalog, repository, diagnostics::record, onProgress) { client.fetchActivityPage(it) }
-            val pcIndex = WahlapPlayCountIndex()
-            val result = realImportAdapter.importFetchedPages(
-                source = "wahlap:manual-cookie",
-                pageProvider = WahlapScorePageProvider { difficulty ->
-                    pageProgress.page(ImportStage.Scores, difficulty.ordinal, Difficulty.entries.size, "${difficulty.name} 成绩页") {
-                        client.fetchScorePage(difficulty).also { html ->
-                            pcIndex.addPage(html, difficulty, catalog)
-                        }
-                    }
-                },
-                supplementalPageProvider = WahlapSupplementalPageProvider {
-                    pageProgress.page(ImportStage.Supplemental, 0, WahlapSupplementalPages.pages.size, "Rating 对象补充页",
-                        complete = { it.size == WahlapSupplementalPages.pages.size }) { client.fetchSupplementalScorePages() }
-                },
-                persistence = persistence,
-            )
-            diagnostics.record("PC数爬取规则：${if (efficientPc) "效率优先" else "全部爬取"}")
-            val pc = if (efficientPc) captureEfficientPc(catalog, pcIndex.targets(), client::fetchActivityPage,
-                repository::savePlayCounts, {}, diagnostics::record, onPageProgress = onProgress)
-            else captureFullPlayCounts(pcIndex, result, client::fetchMusicDetail, client::fetchScorePage, catalog, onProgress, diagnostics::record)
-            result.copy(fetchedPlayRecordCount = activity.recordCount, failedPlayPageCount = activity.failedPages, activityCaptureAttempted = true,
-                fetchedPlayCountCharts = pc.chartCount, activityWarnings = activity.warnings + pc.warnings)
-        } finally {
-            client.close()
-        }
-    }
-
-    private suspend fun captureFullPlayCounts(
-        index: WahlapPlayCountIndex,
-        result: RealWahlapImportResult,
-        fetch: suspend (dev.fluentmai.android.core.importer.WahlapMusicDetailTarget) -> String,
-        refreshPage: suspend (Difficulty) -> String,
-        catalog: MaimaiSongCatalog,
-        onProgress: (ImportProgress) -> Unit,
-        onDiagnostic: (String) -> Unit,
-    ): PlayCountCaptureResult {
-        val known = repository.scores().filter { it.playCount != null }
-            .map { Triple(it.title, it.songType, it.difficulty) }.toSet()
-        // Fill missing/low-PC charts first; still refresh known counts on every import.
-        val targets = index.targets().sortedBy { target ->
-            target.difficulties.all { Triple(target.title, target.songType, it) in known }
-        }
-        val pc = captureWahlapPlayCounts(targets, fetch, repository::savePlayCounts, onDiagnostic = onDiagnostic, onPageProgress = onProgress,
-            refreshTarget = { target ->
-                val html = refreshPage(target.sourceDifficulty)
-                dev.fluentmai.android.core.importer.WahlapPlayCountParser.targets(html, target.sourceDifficulty, catalog).targets
-                    .firstOrNull { it.title == target.title && it.songType == target.songType }
-                    ?.copy(difficulties = target.difficulties)
-            })
-        val warnings = buildList {
-            addAll(pc.warnings)
-            if (index.missingLinks > 0) add("${index.missingLinks} 张已游玩谱面的详情链接未能解析，PC 未完整同步。")
-            if (result.failedDifficultyCount > 0) add("部分难度的成绩列表读取失败，PC 未完整同步。")
-            if (targets.isEmpty() && result.parsedRecordCount > 0) add("未取得单曲详情链接，PC 未同步；已保留原有 PC。")
-        }
-        return pc.copy(warnings = warnings.distinct())
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.getBooleanExtra(ImportForegroundService.OPEN_IMPORT, false)) openImportRequest++
     }
 
     private suspend fun uploadToDivingFish(
@@ -349,12 +232,9 @@ class MainActivity : ComponentActivity() {
         )
     }
 
+
     private fun fetchSongCatalogOrEmpty(): MaimaiSongCatalog =
-        runCatching { songCatalogClient.fetchCatalog() }
-            .getOrElse { error ->
-                Log.w(TAG, "LXNS song catalog unavailable: ${privacyRedactor.redact(error.message ?: error::class.java.simpleName)}")
-                MaimaiSongCatalog.Empty
-            }
+        runCatching { songCatalogClient.fetchCatalog() }.getOrElse { MaimaiSongCatalog.Empty }
 
     private fun List<ScoreRecord>.withCatalogSongIds(catalog: MaimaiSongCatalog): List<ScoreRecord> =
         map { score ->
@@ -369,6 +249,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun FluentMaiApp(
+    openImportRequest: Long,
     onResetSettings: () -> Unit,
     themeMode: ThemeMode,
     onThemeModeChanged: (ThemeMode) -> Unit,
@@ -379,8 +260,6 @@ private fun FluentMaiApp(
     experimentalFeatures: Boolean,
     onExperimentalFeaturesChanged: (Boolean) -> Unit,
     repository: FluentMaiRepository,
-    runRealImport: suspend (String, () -> Unit, (ImportProgress) -> Unit) -> RealWahlapImportResult,
-    runCookieImport: suspend (String, (ImportProgress) -> Unit) -> RealWahlapImportResult,
     loadLocalChartCatalog: suspend () -> SongCatalogSnapshot?,
     refreshChartCatalog: suspend () -> SongCatalogSnapshot,
     loadLocalAliasCatalog: suspend (Set<Int>) -> SongAliasSnapshot?,
@@ -401,6 +280,9 @@ private fun FluentMaiApp(
     val hookStatus by WahlapHookBridge.status.collectAsState()
     val isHookRunning by WahlapHookBridge.vpnRunning.collectAsState()
     var selectedTab by rememberSaveable { mutableStateOf(AppTab.Home) }
+    LaunchedEffect(openImportRequest) {
+        if (openImportRequest > 0) selectedTab = AppTab.Import
+    }
     var homeSelectedChartKey by rememberSaveable { mutableStateOf<String?>(null) }
     var chartsSelectedChartKey by rememberSaveable { mutableStateOf<String?>(null) }
     var playerProgressDestination by rememberSaveable { mutableStateOf<PlayerProgressDestination?>(null) }
@@ -415,16 +297,42 @@ private fun FluentMaiApp(
     var fittedSnapshot by remember { mutableStateOf<FittedSnapshot?>(null) }
     var fittedRefreshRequest by remember { mutableStateOf(0) }
     val fittedStore = remember { DivingFishFitStore(context.applicationContext) }
-    val chartRecords = remember(rawChartRecords, fittedSnapshot) {
+    val japaneseStore = remember { JapaneseConstantStore(context.applicationContext) }
+    var japaneseSnapshot by remember { mutableStateOf<JapaneseConstantSnapshot?>(null) }
+    var japaneseStatus by remember { mutableStateOf("尚未同步") }
+    val chartRecords = remember(rawChartRecords, fittedSnapshot, japaneseSnapshot, japaneseStatus) {
         rawChartRecords.map { chart -> chart.copy(
             fittedConstant = fittedSnapshot?.values?.get(fittedChartKey(chart.songId, chart.songType, chart.levelIndex)),
             fittedUpdatedAt = fittedSnapshot?.updatedAt,
+            japaneseConstant = japaneseSnapshot?.catalog?.find(chart),
+            japaneseConstantCheckedAt = japaneseSnapshot?.checkedAt,
+            japaneseConstantSourceModifiedAt = japaneseSnapshot?.sourceModifiedAt?.takeIf { it > 0 },
+            japaneseConstantStatus = japaneseStatus,
         ) }
     }
     componentEditor?.let { editor ->
         ComponentEditorDialog(editor, charts = chartRecords) { componentEditor = null }
     }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(lifecycle, fittedRefreshRequest) {
+        withContext(Dispatchers.IO) { japaneseStore.cached() }?.let {
+            japaneseSnapshot = it
+            japaneseStatus = "已载入缓存，等待联网检查"
+        }
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (isActive) {
+                japaneseStatus = "正在检查日服数据"
+                try {
+                    japaneseSnapshot = withContext(Dispatchers.IO) { japaneseStore.refresh() }
+                    japaneseStatus = "已同步数据源 · ${japaneseSnapshot?.catalog?.values?.size ?: 0} 张定数"
+                } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+                catch (_: Exception) {
+                    japaneseStatus = if (japaneseSnapshot != null) "同步失败，正在使用缓存" else "同步失败，暂无缓存"
+                }
+                delay(5 * 60 * 1000L)
+            }
+        }
+    }
     LaunchedEffect(lifecycle, fittedRefreshRequest) {
         withContext(Dispatchers.IO) { fittedStore.cached() }?.let { fittedSnapshot = it }
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -452,7 +360,6 @@ private fun FluentMaiApp(
     var importDiagnosticDetails by remember { mutableStateOf<String?>(null) }
     var importStatus by remember { mutableStateOf(ImportRunStatus.Idle) }
     var importProgress by remember { mutableStateOf<ImportProgress?>(null) }
-    var importPageFailed by remember { mutableStateOf(false) }
     var uploadStatus by remember { mutableStateOf(UploadRunStatus.Idle) }
     var divingFishToken by remember { mutableStateOf(uploadTokenStore.divingFishToken) }
     var lxnsToken by remember { mutableStateOf(uploadTokenStore.lxnsToken) }
@@ -471,11 +378,15 @@ private fun FluentMaiApp(
     val scope = rememberCoroutineScope()
     var settingsResetRevision by rememberSaveable { mutableStateOf(0) }
     val screenStateHolder = key(settingsResetRevision) { rememberSaveableStateHolder() }
+    val requestNotifications = rememberRequestImportNotifications()
+    val requestImportNotifications = rememberRequestImportBackgroundAccess(requestNotifications)
+
     val vpnPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
-            startVpnService(context)
+            try { ImportForegroundService.start(context); requestImportNotifications() }
+            catch (error: Exception) { WahlapHookBridge.setStatus("无法启动后台导入：${redactMessage(error.message.orEmpty())}") }
         } else {
             WahlapHookBridge.setStatus("没有获得 VPN 权限，无法从微信捕获授权请求。")
         }
@@ -509,6 +420,7 @@ private fun FluentMaiApp(
     }
 
     fun stopCaptureBeforeUpload() {
+        ImportForegroundService.cancelWaiting(context)
         if (isHookRunning) {
             stopVpnService(context)
             WahlapHookBridge.setStatus("上传前已停止 Hook 捕获，避免本地 VPN 影响外网上传。")
@@ -717,140 +629,63 @@ private fun FluentMaiApp(
         }
     }
 
-    suspend fun finishImportProgress(result: RealWahlapImportResult) {
-        val fetchedProgress = importProgress
-        importProgress = ImportProgress(ImportStage.Saving, "正在刷新本地成绩、PC 和游玩记录")
-        refreshState()
-        importProgress = if (result.isCompleteSuccess && result.activityWarnings.isEmpty() && !importPageFailed) {
-            ImportProgress(ImportStage.Saving, "导入完成", processedPages = 1, totalPages = 1, pageState = ImportPageState.Complete)
-        } else fetchedProgress?.copy(detail = "本次爬取已结束，未完整读取的页面请查看下方导入结果")
-    }
-
-    fun startCapturedRealImport(capturedAuthUrl: String) {
-        scope.launch {
-            isImporting = true
-            importStatus = ImportRunStatus.Importing
-            importProgress = ImportProgress(ImportStage.Preparing, "正在登录并准备同步")
-            importPageFailed = false
-            lastImportError = null
-            lastRealResult = null
-            importDiagnosticDetails = null
-            val captureStopped = java.util.concurrent.atomic.AtomicBoolean(false)
-            fun stopCaptureAfterLogin() {
-                if (captureStopped.compareAndSet(false, true)) {
-                    Log.i(TAG, "Stopping capture services after Wahlap login attempt")
-                    stopVpnService(context)
-                    WahlapHookHttpService.stop(context)
-                }
-            }
-            try {
-                WahlapHookBridge.setStatus("已捕获回跳授权，正在关闭捕获并登录 Wahlap。")
-                Log.i(TAG, "Starting real Wahlap import from captured auth URL")
-                val result = withContext(Dispatchers.IO) {
-                    runRealImport(capturedAuthUrl, ::stopCaptureAfterLogin) { progress ->
-                        scope.launch { if (isImporting) {
-                            importProgress = progress
-                            if (progress.failedPages > 0) importPageFailed = true
-                        } }
-                    }
-                }
-                lastRealResult = result
-                importDiagnosticDetails = result.diagnosticDetails.takeIf { importPageFailed || result.failedDifficultyCount > 0 || result.activityWarnings.isNotEmpty() || result.supplementalFailures.isNotEmpty() }
-                val importSucceeded = result.failedDifficultyCount == 0 && result.fetchedDifficultyCount > 0
-                importStatus = if (importSucceeded) {
-                    if (result.activityWarnings.isEmpty() && result.supplementalFailures.isEmpty() && !importPageFailed) ImportRunStatus.Success else ImportRunStatus.PartialSuccess
-                } else {
-                    ImportRunStatus.Failed
-                }
-                lastImportError = result.takeIf { it.failedDifficultyCount > 0 }
-                    ?.failures
-                    ?.joinToString("; ") { "${it.difficulty.name}: ${it.message}" }
-                finishImportProgress(result)
-                if (importSucceeded) automaticRatingRequestId += 1
-                Log.i(TAG, "real Wahlap import completed: ${result.safeSummary()}")
-            } catch (error: Exception) {
-                val safeMessage = redactMessage(error.message ?: error::class.java.simpleName)
-                lastImportError = safeMessage
-                importDiagnosticDetails = (error as? ImportDiagnosticException)?.details ?: diagnosticException(error)
-                importStatus = ImportRunStatus.Failed
-                Log.e(TAG, "real Wahlap import failed: $safeMessage")
-                importProgress = importProgress?.copy(pageState = ImportPageState.Failed, detail = "导入已停止，请查看下方错误信息")
-            } finally {
-                stopCaptureAfterLogin()
-                isImporting = false
-                WahlapHookBridge.finishImport()
-            }
-        }
-    }
-
     fun startManualCookieImport() {
-        val capturedInput = wahlapCookieInput.trim()
-        if (capturedInput.isBlank()) {
-            importProgress = null
-            importStatus = ImportRunStatus.Failed
-            lastImportError = "请先粘贴 Wahlap Cookie 或 Reqable 请求头。"
-            importDiagnosticDetails = lastImportError
+        if (ImportTaskStore.state.value.busy) {
+            Toast.makeText(context, "已有捕获或导入任务，请先结束当前任务", Toast.LENGTH_SHORT).show()
             return
         }
-        scope.launch {
-            isImporting = true
-            importStatus = ImportRunStatus.Importing
-            importProgress = ImportProgress(ImportStage.Preparing, "正在登录并准备同步")
-            importPageFailed = false
-            lastImportError = null
-            lastRealResult = null
-            importDiagnosticDetails = null
-            try {
-                stopVpnService(context)
-                WahlapHookHttpService.stop(context)
-                WahlapHookBridge.finishImport()
-                WahlapHookBridge.setStatus("正在使用 Wahlap Cookie 导入本地成绩。")
-                val result = withContext(Dispatchers.IO) {
-                    runCookieImport(capturedInput) { progress ->
-                        scope.launch { if (isImporting) {
-                            importProgress = progress
-                            if (progress.failedPages > 0) importPageFailed = true
-                        } }
-                    }
+        if (wahlapCookieInput.isBlank()) {
+            lastImportError = "请先粘贴 Wahlap Cookie 或 Reqable 请求头。"
+            importStatus = ImportRunStatus.Failed
+            return
+        }
+        try {
+            ImportForegroundService.start(context, wahlapCookieInput.trim())
+            requestImportNotifications()
+        } catch (error: Exception) {
+            lastImportError = redactMessage(error.message ?: "无法启动后台导入")
+            importStatus = ImportRunStatus.Failed
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        ImportTaskStore.state.collect { task ->
+            isImporting = task.phase == ImportTaskPhase.Running
+            importProgress = task.progress
+            lastRealResult = task.result
+            lastImportError = task.error
+            importDiagnosticDetails = task.diagnostics
+            importStatus = when (task.phase) {
+                ImportTaskPhase.Idle, ImportTaskPhase.Waiting -> ImportRunStatus.Idle
+                ImportTaskPhase.Running -> ImportRunStatus.Importing
+                ImportTaskPhase.Finished -> when {
+                    task.complete -> ImportRunStatus.Success
+                    task.succeeded -> ImportRunStatus.PartialSuccess
+                    else -> ImportRunStatus.Failed
                 }
-                lastRealResult = result
-                importDiagnosticDetails = result.diagnosticDetails.takeIf { importPageFailed || result.failedDifficultyCount > 0 || result.activityWarnings.isNotEmpty() || result.supplementalFailures.isNotEmpty() }
-                val importSucceeded = result.failedDifficultyCount == 0 && result.fetchedDifficultyCount > 0
-                importStatus = if (importSucceeded) {
-                    if (result.activityWarnings.isEmpty() && result.supplementalFailures.isEmpty() && !importPageFailed) ImportRunStatus.Success else ImportRunStatus.PartialSuccess
-                } else {
-                    ImportRunStatus.Failed
-                }
-                lastImportError = result.takeIf { it.failedDifficultyCount > 0 }
-                    ?.failures
-                    ?.joinToString("; ") { "${it.difficulty.name}: ${it.message}" }
-                finishImportProgress(result)
-                if (importSucceeded) automaticRatingRequestId += 1
-                Log.i(TAG, "manual Wahlap import completed: ${result.safeSummary()}")
-            } catch (error: Exception) {
-                val safeMessage = redactMessage(error.message ?: error::class.java.simpleName)
-                lastImportError = safeMessage
-                importDiagnosticDetails = (error as? ImportDiagnosticException)?.details ?: diagnosticException(error)
-                importStatus = ImportRunStatus.Failed
-                Log.e(TAG, "manual Wahlap import failed: $safeMessage")
-                importProgress = importProgress?.copy(pageState = ImportPageState.Failed, detail = "导入已停止，请查看下方错误信息")
-            } finally {
-                isImporting = false
+            }
+            if (task.phase == ImportTaskPhase.Finished) {
+                refreshState()
+                if (task.succeeded) automaticRatingRequestId += 1
             }
         }
     }
 
     fun startHookCapture() {
-        WahlapHookHttpService.start(context)
+        if (ImportTaskStore.state.value.busy) return
         val vpnPrepareIntent = VpnService.prepare(context)
         if (vpnPrepareIntent != null) {
             vpnPermissionLauncher.launch(vpnPrepareIntent)
         } else {
-            startVpnService(context)
+            try {
+                ImportForegroundService.start(context)
+                requestImportNotifications()
+            } catch (error: Exception) { WahlapHookBridge.setStatus("无法启动后台导入：${redactMessage(error.message.orEmpty())}") }
         }
     }
 
     fun stopHookCapture() {
+        ImportForegroundService.cancelWaiting(context)
         stopVpnService(context)
         WahlapHookHttpService.stop(context)
     }
@@ -881,11 +716,6 @@ private fun FluentMaiApp(
         refreshChartRecords()
     }
 
-    LaunchedEffect(Unit) {
-        WahlapHookBridge.capturedAuthUrls.collect { capturedAuthUrl ->
-            startCapturedRealImport(capturedAuthUrl)
-        }
-    }
 
     LaunchedEffect(isScoreStateLoaded, scores, chartRecords) {
         if (!isScoreStateLoaded) return@LaunchedEffect

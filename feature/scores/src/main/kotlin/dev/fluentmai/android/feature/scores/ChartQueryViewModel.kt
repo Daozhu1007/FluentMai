@@ -139,7 +139,14 @@ internal class ChartQueryViewModel(
     }
 
     fun updateDifficulty(value: Difficulty?) =
-        updateFilters { it.copy(difficulty = value) }
+        updateFilters {
+            val selected = when {
+                value == null -> emptySet()
+                value in it.difficulties -> it.difficulties - value
+                else -> it.difficulties + value
+            }
+            it.copy(difficulties = selected.takeUnless { set -> set.size == Difficulty.entries.size } ?: emptySet())
+        }
 
     fun updateGenre(value: ChartGenreFilter) =
         updateFilters { it.copy(genre = value) }
@@ -245,7 +252,8 @@ internal class ChartQueryViewModel(
         savedStateHandle[KEY_LEVEL] = filters.levelQuery
         savedStateHandle[KEY_CONSTANT_MIN] = filters.constantMin
         savedStateHandle[KEY_CONSTANT_MAX] = filters.constantMax
-        savedStateHandle[KEY_DIFFICULTY] = filters.difficulty?.name
+        savedStateHandle[KEY_DIFFICULTIES] = ArrayList(filters.difficulties.map { it.name })
+        savedStateHandle.remove<String>(KEY_DIFFICULTY)
         savedStateHandle[KEY_GENRE] = filters.genre.name
         savedStateHandle[KEY_VERSION] = filters.version.name
         savedStateHandle[KEY_STATUS] = filters.status.name
@@ -268,6 +276,7 @@ internal class ChartQueryViewModel(
         private const val KEY_CONSTANT_MIN = "charts.constant.min"
         private const val KEY_CONSTANT_MAX = "charts.constant.max"
         private const val KEY_DIFFICULTY = "charts.difficulty"
+        private const val KEY_DIFFICULTIES = "charts.difficulties"
         private const val KEY_GENRE = "charts.genre"
         private const val KEY_VERSION = "charts.version"
         private const val KEY_STATUS = "charts.status"
@@ -287,7 +296,9 @@ internal class ChartQueryViewModel(
                 levelQuery = handle[KEY_LEVEL] ?: "",
                 constantMin = handle[KEY_CONSTANT_MIN],
                 constantMax = handle[KEY_CONSTANT_MAX],
-                difficulty = enumValueOrNull<Difficulty>(handle[KEY_DIFFICULTY]),
+                difficulties = (handle.get<ArrayList<String>>(KEY_DIFFICULTIES)?.mapNotNull { enumValueOrNull<Difficulty>(it) }?.toSet()
+                    ?: setOfNotNull(enumValueOrNull<Difficulty>(handle[KEY_DIFFICULTY])))
+                    .takeUnless { it.size == Difficulty.entries.size } ?: emptySet(),
                 genre = enumValueOrDefault(handle[KEY_GENRE], ChartGenreFilter.All),
                 version = enumValueOrDefault(handle[KEY_VERSION], ChartVersionFilter.All),
                 status = enumValueOrDefault(handle[KEY_STATUS], ChartStatusFilter.All),

@@ -47,12 +47,12 @@ public class LocalVpnService extends VpnService implements Runnable {
     private static final String WAHLAP_CAPTURE_HOST = "tgk-wcaime.wahlap.com";
 
     public static LocalVpnService Instance;
-    public static boolean IsRunning = false;
+    public static volatile boolean IsRunning = false;
     private static int ID;
     private static int LOCAL_IP;
     private static final ConcurrentHashMap<onStatusChangedListener, Object> m_OnStatusChangedListeners = new ConcurrentHashMap<onStatusChangedListener, Object>();
 
-    private Thread m_VPNThread;
+    private volatile Thread m_VPNThread;
     private ParcelFileDescriptor m_VPNInterface;
     private TcpProxyServer m_TcpProxyServer;
     private DnsProxy m_DnsProxy;
@@ -93,14 +93,13 @@ public class LocalVpnService extends VpnService implements Runnable {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent != null && Objects.equals(intent.getAction(), DISCONNECT_INTENT)) {
-            IsRunning = false;
-            dispose();
-            stopForeground(true);
+        if (intent == null || Objects.equals(intent.getAction(), DISCONNECT_INTENT)) {
+            shutdown();
             return START_NOT_STICKY;
         }
 
         promoteToForeground();
+        if (m_VPNThread != null) return START_NOT_STICKY;
         IsRunning = true;
         WahlapHookBridge.setVpnRunning(true);
         try {
@@ -111,11 +110,12 @@ public class LocalVpnService extends VpnService implements Runnable {
             m_DnsProxy = new DnsProxy();
             m_DnsProxy.start();
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            shutdown();
+            return START_NOT_STICKY;
         }
         m_VPNThread = new Thread(this, "VPNServiceThread");
         m_VPNThread.start();
-        return START_STICKY;
+        return START_NOT_STICKY;
     }
 
     private void promoteToForeground() {
@@ -153,8 +153,8 @@ public class LocalVpnService extends VpnService implements Runnable {
 
     @Override
     public IBinder onBind(Intent intent) {
-        String action = intent.getAction();
-        if (action.equals(VpnService.SERVICE_INTERFACE)) {
+        String action = intent == null ? null : intent.getAction();
+        if (VpnService.SERVICE_INTERFACE.equals(action)) {
             return super.onBind(intent);
         }
         return null;
@@ -208,7 +208,7 @@ public class LocalVpnService extends VpnService implements Runnable {
     }
 
     @Override
-    public synchronized void run() {
+    public void run() {
         try {
             Log.d(TAG, "VPNService work thread is running... " + ID);
 
@@ -228,14 +228,18 @@ public class LocalVpnService extends VpnService implements Runnable {
         }
 
         writeLog("VpnProxy terminated.");
-        dispose();
+        Thread worker = Thread.currentThread();
+        m_Handler.post(() -> {
+            // A previous worker must never tear down a newly started capture.
+            if (m_VPNThread == worker) shutdown();
+        });
     }
 
     private void runVPN() throws Exception {
-        this.m_VPNInterface = establishVPN();
-        this.m_VPNOutputStream = new FileOutputStream(m_VPNInterface.getFileDescriptor());
-        try (FileInputStream in = new FileInputStream(m_VPNInterface.getFileDescriptor())) {
-            while (IsRunning) {
+        ParcelFileDescriptor descriptor = establishVPN();
+        if (descriptor == null) return;
+        try (FileInputStream in = new FileInputStream(descriptor.getFileDescriptor())) {
+            while (IsRunning && m_VPNThread == Thread.currentThread()) {
                 boolean idle = true;
                 int size = in.read(m_Packet);
                 if (size > 0) {
@@ -329,17 +333,13 @@ public class LocalVpnService extends VpnService implements Runnable {
         }
     }
 
-    private void waitUntilPreapred() {
-        while (prepare(this) != null) {
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException e) {
-                // Ignore
-            }
+    private void waitUntilPreapred() throws InterruptedException {
+        while (IsRunning && m_VPNThread == Thread.currentThread() && prepare(this) != null) {
+            Thread.sleep(100);
         }
     }
 
-    private ParcelFileDescriptor establishVPN() {
+    private ParcelFileDescriptor establishVPN() throws IOException {
 
         NatSessionManager.clearAllSessions();
 
@@ -375,9 +375,15 @@ public class LocalVpnService extends VpnService implements Runnable {
 
         builder.setSession(ProxyConfig.Instance.getSessionName());
 
-        ParcelFileDescriptor pfdDescriptor = builder.establish();
-        onStatusChanged(ProxyConfig.Instance.getSessionName() + " " + getString(R.string.vpn_connected_status), true);
-        return pfdDescriptor;
+        synchronized (this) {
+            // DNS above may finish after cancellation. Never recreate a stopped tunnel.
+            if (!IsRunning || m_VPNThread != Thread.currentThread()) return null;
+            m_VPNInterface = builder.establish();
+            if (m_VPNInterface == null) return null;
+            m_VPNOutputStream = new FileOutputStream(m_VPNInterface.getFileDescriptor());
+            onStatusChanged(ProxyConfig.Instance.getSessionName() + " " + getString(R.string.vpn_connected_status), true);
+            return m_VPNInterface;
+        }
     }
 
     private void addCaptureHostRoutes(Builder builder) {
@@ -425,10 +431,8 @@ public class LocalVpnService extends VpnService implements Runnable {
         }
     }
 
-    @Override
-    public void onDestroy() {
-        Log.d(TAG, "VPNService(%s) destroyed: " + ID);
-        if (IsRunning) dispose();
+    private void shutdown() {
+        dispose();
         try {
             if (m_TcpProxyServer != null) {
                 m_TcpProxyServer.stop();
@@ -444,6 +448,21 @@ public class LocalVpnService extends VpnService implements Runnable {
             }
         } catch (Exception ignored) {
         }
+        stopForeground(true);
+        getSystemService(NotificationManager.class).cancel(NOTIFICATION_ID);
+        stopSelf();
+    }
+
+    @Override
+    public void onRevoke() {
+        shutdown();
+        super.onRevoke();
+    }
+
+    @Override
+    public void onDestroy() {
+        shutdown();
+        if (Instance == this) Instance = null;
         super.onDestroy();
     }
 

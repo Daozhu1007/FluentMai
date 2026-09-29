@@ -8,6 +8,27 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ThumbnailValueColorsTest {
+    @Test fun japaneseAndFittedComparisonsUseSolidThemeColorsAndNeutralZero() {
+        val scale = ThumbnailValueScale()
+        for (field in listOf(ThumbnailField.JapaneseConstant, ThumbnailField.JapaneseGap, ThumbnailField.Fitted)) {
+            for (light in listOf(true, false)) {
+                val palette = thumbnailValuePalette(light)
+                val chart = previewChart().copy(levelValue = 14.0, japaneseConstant = 14.5, fittedConstant = 14.5)
+                assertEquals(palette.red, thumbnailValueColor(scale.position(field, chart), light, Color.Gray))
+                assertEquals(palette.green, thumbnailValueColor(scale.position(field, chart.copy(japaneseConstant = 13.5, fittedConstant = 13.5)), light, Color.Gray))
+                assertEquals(Color.Gray, thumbnailValueColor(scale.position(field, chart.copy(japaneseConstant = 14.0, fittedConstant = 14.0)), light, Color.Gray))
+                assertEquals(Color.Gray, thumbnailValueColor(scale.position(field, chart.copy(japaneseConstant = null, fittedConstant = null)), light, Color.Gray))
+            }
+        }
+        assertEquals("14.5", ThumbnailField.JapaneseConstant.value(previewChart(), null))
+        assertEquals("-0.2", ThumbnailField.JapaneseGap.value(previewChart(), null))
+        assertEquals("0.0", ThumbnailField.JapaneseGap.value(previewChart().copy(japaneseConstant = 14.3), null))
+        assertEquals("--", ThumbnailField.JapaneseGap.value(previewChart().copy(levelValue = null), null))
+        val fields = listOf(ThumbnailField.JapaneseConstant, ThumbnailField.JapaneseGap, ThumbnailField.Fitted, ThumbnailField.Constant)
+        assertEquals(fields, ComponentSettings.decode(fields.joinToString(",") { it.name }, emptySet()).thumbnailFields)
+        assertFalse("国日差值" in DetailAttributeGroups.getValue("谱面"))
+    }
+
     @Test fun quadraticStrengthIsSymmetricAndLeavesYellowQuickly() {
         assertEquals(0f, thumbnailColorStrength(0f), .00001f)
         assertEquals(.302169f, thumbnailColorStrength(.05f), .00001f)

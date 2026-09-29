@@ -86,6 +86,8 @@ internal fun previewChart() = ChartRecord(
     songType = SongType.DX, difficulty = Difficulty.MASTER, levelIndex = 3, level = "14", levelValue = 14.3,
     noteDesigner = "示例谱师", notes = ChartNotes(1000, 500, 100, 200, 150, 50),
     fittedConstant = 14.42, fittedUpdatedAt = 0L,
+    japaneseConstant = 14.5, japaneseConstantCheckedAt = 0L,
+    japaneseConstantSourceModifiedAt = 0L, japaneseConstantStatus = "示例数据，仅用于预览",
 )
 
 @Composable

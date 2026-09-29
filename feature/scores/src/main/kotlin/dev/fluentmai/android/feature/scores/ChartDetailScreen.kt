@@ -155,6 +155,7 @@ fun ChartDetailScreen(
                 DetailValue("类型", chart.songType.detailName())
                 DetailValue("难度", "${chart.difficulty.detailName()} ${chart.level}")
                 DetailValue("定数", chart.levelValue?.let { String.format(Locale.US, "%.1f", it) } ?: "--")
+                DetailValue("日服定数", chart.japaneseConstant?.let { String.format(Locale.US, "%.1f", it) } ?: "暂无可可靠匹配的数据")
                 DetailValue("水鱼拟合", chart.fittedConstant?.let { String.format(Locale.US, "%.4f", it) } ?: "暂无数据")
                 DetailValue("谱师", chart.noteDesigner.ifBlank { "--" })
                 DetailValue("总 Note", chart.notes?.total?.toString() ?: "--")
@@ -191,6 +192,9 @@ fun ChartDetailScreen(
         }
         if (showSection("别名与数据来源")) item {
             DetailSection(title = "别名与数据来源") {
+                DetailValue("日服数据", "OTOGE DB（社区整理，非官方实时接口）\n${chart.japaneseConstantStatus}\n前台每 5 分钟检查；谱面页刷新可立即检查")
+                DetailValue("日服检查时间", chart.japaneseConstantCheckedAt?.asLocalTime() ?: "尚未成功同步")
+                DetailValue("日服源文件更新", chart.japaneseConstantSourceModifiedAt?.asLocalTime() ?: "来源未提供时间")
                 if (editing || chart.fittedUpdatedAt != null) DetailValue("水鱼拟合更新", chart.fittedUpdatedAt?.asLocalTime() ?: "示例更新时间")
                 DetailValue("别名", songAliases.takeIf { it.isNotEmpty() }?.joinToString("、") ?: "暂无已映射别名")
                 if (aliasStatus == null || editing) {

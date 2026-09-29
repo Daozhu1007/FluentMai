@@ -1,6 +1,7 @@
 package dev.fluentmai.android.feature.scores
 
 import dev.fluentmai.android.core.model.ChartRecord
+import dev.fluentmai.android.core.model.japaneseConstantGap
 import dev.fluentmai.android.core.model.ChartIdentity
 import dev.fluentmai.android.core.model.AchievementRank
 import dev.fluentmai.android.core.model.Difficulty
@@ -18,7 +19,7 @@ internal data class ChartQueryFilters(
     val levelQuery: String = "",
     val constantMin: Double? = null,
     val constantMax: Double? = null,
-    val difficulty: Difficulty? = null,
+    val difficulties: Set<Difficulty> = emptySet(),
     val genre: ChartGenreFilter = ChartGenreFilter.All,
     val version: ChartVersionFilter = ChartVersionFilter.All,
     val status: ChartStatusFilter = ChartStatusFilter.All,
@@ -66,7 +67,7 @@ internal class ChartQueryEngine private constructor(
         val normalizedQuery = normalizeQuery(filters.searchQuery)
         val designerAliases = designerAliasesFor(normalizedQuery)
         val matched = entries.filter { entry ->
-            (filters.difficulty == null || entry.chart.difficulty == filters.difficulty) &&
+            (filters.difficulties.isEmpty() || entry.chart.difficulty in filters.difficulties) &&
                 filters.genre.matches(entry.normalizedGenre) &&
                 filters.version.matches(entry.chart, currentVersion) &&
                 entry.chart.matchesLevel(filters.levelQuery) &&
@@ -247,14 +248,13 @@ internal enum class ChartGenreFilter(val label: String) {
 
 internal enum class ChartVersionFilter(val label: String, private val versionId: Int? = null) {
     All("全部版本"),
-    Current("当前版本"),
     Dx2026("舞萌DX 2026", 25500),
     Dx2025("舞萌DX 2025", 25000),
     Dx2024("舞萌DX 2024", 24000),
     Dx2023("舞萌DX 2023", 23000),
     Dx2022("舞萌DX 2022", 22000),
     Dx2021("舞萌DX 2021", 21000),
-    Dx("舞萌DX", 20000),
+    Dx("DX时代", 20000),
     Finale("FiNALE · 輝", 19900),
     MilkPlus("MiLK PLUS · 雪", 19500),
     Milk("MiLK · 白", 19000),
@@ -266,14 +266,13 @@ internal enum class ChartVersionFilter(val label: String, private val versionId:
     Orange("ORANGE · 橙", 14000),
     GreenPlus("GreeN PLUS · 檄", 13000),
     Green("GreeN · 超", 12000),
-    MaimaiPlus("maimai PLUS", 11000),
+    MaimaiPlus("maimai PLUS · 真", 11000),
     Maimai("maimai · 真", 10000),
-    Classic("经典世代");
+    Classic("旧框时代");
 
     fun matches(chart: ChartRecord, currentVersion: Int): Boolean =
         when (this) {
             All -> true
-            Current -> currentVersion > 0 && chart.majorVersionId() == currentVersion
             Classic -> chart.majorVersionId()?.let { it < 20000 } == true
             else -> chart.majorVersionId() == versionId
         }
@@ -291,8 +290,12 @@ internal enum class ChartSort(val label: String) {
     RatingAsc("Rating 升序"),
     SongIdAsc("歌曲 ID"),
     SongIdDesc("歌曲 ID 降序"),
-    FittedAsc("拟合定数升序"),
-    FittedDesc("拟合定数降序"),
+    FittedAsc("水鱼拟合升序"),
+    FittedDesc("水鱼拟合降序"),
+    JapaneseConstantAsc("日服定数升序"),
+    JapaneseConstantDesc("日服定数降序"),
+    JapaneseGapAsc("国日差值升序"),
+    JapaneseGapDesc("国日差值降序"),
     FitGapAsc("拟合分差升序"),
     FitGapDesc("拟合分差降序"),
     VersionDesc("曲库版本降序"),
@@ -307,6 +310,8 @@ internal enum class ChartSort(val label: String) {
     val ascending get() = name.endsWith("Asc")
     val kind get() = when (this) {
         ConstantAsc, ConstantDesc -> ChartSortKind.Constant
+        JapaneseConstantAsc, JapaneseConstantDesc -> ChartSortKind.JapaneseConstant
+        JapaneseGapAsc, JapaneseGapDesc -> ChartSortKind.JapaneseGap
         ToleranceAsc, ToleranceDesc -> ChartSortKind.Tolerance
         RatingAsc, RatingDesc -> ChartSortKind.Rating
         SongIdAsc, SongIdDesc -> ChartSortKind.SongId
@@ -324,6 +329,10 @@ internal enum class ChartSort(val label: String) {
 
     fun comparator(): Comparator<IndexedChart> {
         val primary = when (this) {
+            JapaneseConstantAsc -> compareBy<IndexedChart> { it.chart.japaneseConstant ?: Double.POSITIVE_INFINITY }
+            JapaneseConstantDesc -> compareByDescending<IndexedChart> { it.chart.japaneseConstant ?: Double.NEGATIVE_INFINITY }
+            JapaneseGapAsc -> compareBy<IndexedChart> { it.chart.japaneseConstantGap() ?: Double.POSITIVE_INFINITY }
+            JapaneseGapDesc -> compareByDescending<IndexedChart> { it.chart.japaneseConstantGap() ?: Double.NEGATIVE_INFINITY }
             PlayCountAsc -> compareBy<IndexedChart> { it.score?.playCount == null }
                 .thenBy { it.score?.playCount ?: 0 }
             PlayCountDesc -> compareBy<IndexedChart> { it.score?.playCount == null }
@@ -373,7 +382,7 @@ internal enum class ChartSort(val label: String) {
 }
 
 internal enum class ChartSortKind(val label: String) {
-    Constant("定数"), Fitted("拟合定数"), FitGap("拟合分差"), Tolerance("容错"),
+    Constant("定数"), JapaneseConstant("日服定数"), JapaneseGap("国日差值"), Fitted("水鱼拟合"), FitGap("拟合分差"), Tolerance("容错"),
     Rating("Rating"), SongId("歌曲 ID"), Version("曲库版本"), Achievement("成绩"), PlayCount("PC"), Title("曲名")
 }
 

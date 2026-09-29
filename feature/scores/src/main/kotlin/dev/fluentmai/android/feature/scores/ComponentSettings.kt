@@ -7,11 +7,13 @@ import dev.fluentmai.android.core.model.*
 import java.util.Locale
 
 enum class ThumbnailField(val label: String) {
-    Constant("定数"), Bpm("BPM"), Version("版本"), Notes("物量"),
+    Constant("定数"), JapaneseConstant("日服定数"), JapaneseGap("国日差值"), Bpm("BPM"), Version("版本"), Notes("物量"),
     PlayCount("PC"), Fitted("水鱼拟合"), FitGap("拟合分差"), Tolerance("SSS+容错");
 
     fun value(chart: ChartRecord, score: ScoreRecord?, pc: ChartPlayCount? = null): String = when (this) {
         Constant -> chart.levelValue?.let { String.format(Locale.US, "%.1f", it) } ?: chart.level
+        JapaneseConstant -> chart.japaneseConstant?.takeIf { it.isFinite() }?.let { String.format(Locale.US, "%.1f", it) } ?: "--"
+        JapaneseGap -> chart.japaneseConstantGap()?.let { String.format(Locale.US, "%.1f", it) } ?: "--"
         Bpm -> chart.bpm?.toString() ?: "--"
         Version -> (chart.chartVersionName ?: chart.songVersionName ?: maimaiVersionNameFor(chart.chartVersion)
             ?: maimaiVersionNameFor(chart.songVersion) ?: "--").compactThumbnailVersion()
@@ -53,9 +55,9 @@ data class ComponentSettings(
 internal val DetailAttributeGroups = linkedMapOf(
     "标题" to listOf("封面", "曲名", "标题谱面身份", "标题定数"),
     "歌曲" to listOf("Song ID", "谱面身份", "曲师", "类别", "BPM", "歌曲版本", "谱面版本", "上线状态"),
-    "谱面" to listOf("类型", "难度", "定数", "水鱼拟合", "谱师", "总 Note", "Note 明细", "SSS+容错"),
+    "谱面" to listOf("类型", "难度", "定数", "日服定数", "水鱼拟合", "谱师", "总 Note", "Note 明细", "SSS+容错"),
     "玩家最佳" to listOf("达成率", "Rating 贡献", "FC", "FS", "DX Score", "PC"),
-    "别名与数据来源" to listOf("水鱼拟合更新", "别名", "别名数据", "来源", "更新时间", "数据版本", "覆盖", "未映射"),
+    "别名与数据来源" to listOf("日服数据", "日服检查时间", "日服源文件更新", "水鱼拟合更新", "别名", "别名数据", "来源", "更新时间", "数据版本", "覆盖", "未映射"),
 )
 
 class ComponentSettingsState(context: Context) {

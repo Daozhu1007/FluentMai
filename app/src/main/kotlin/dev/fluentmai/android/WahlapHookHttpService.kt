@@ -31,7 +31,7 @@ class WahlapHookHttpService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_STOP) {
+        if (intent == null || intent.action == ACTION_STOP) {
             stopServers()
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
@@ -40,11 +40,13 @@ class WahlapHookHttpService : Service() {
 
         promoteToForeground()
         startServers()
-        return START_STICKY
+        return START_NOT_STICKY
     }
 
     override fun onDestroy() {
         stopServers()
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        getSystemService(NotificationManager::class.java).cancel(NOTIFICATION_ID)
         super.onDestroy()
     }
 
