@@ -8,7 +8,7 @@ import time
 import unicodedata
 
 
-DIFFICULTY_NAMES = ["Basic", "Advanced", "Expert", "Master", "Re:Master"]
+DIFFICULTY_NAMES = ["BASIC", "ADVANCED", "EXPERT", "MASTER", "Re:MASTER"]
 DIFFICULTY_WIRE_NAMES = ["basic", "advanced", "expert", "master", "remaster"]
 VALID_FC = {"", "fc", "fcp", "ap", "app"}
 VALID_FS = {"", "sync", "fs", "fsp", "fsd", "fsdp"}
@@ -127,6 +127,13 @@ class Chart:
 
 
 @dataclass(frozen=True)
+class MajorVersion:
+    version_id: int
+    name: str
+    provider: str = ""
+
+
+@dataclass(frozen=True)
 class ParsedScoreRecord:
     title: str | None
     song_id: int | None = None
@@ -176,6 +183,13 @@ class ImportSummary:
     rejected: int
     failed: int
     message: str = ""
+    current_version_id: int | None = None
+    b35_count: int = 0
+    b15_count: int = 0
+    b35_rating: int = 0
+    b15_rating: int = 0
+    rating_before: int | None = None
+    rating_after: int | None = None
 
     @property
     def accepted(self) -> int:
@@ -194,4 +208,16 @@ class ImportSummary:
             "rejected": self.rejected,
             "failed": self.failed,
             "message": self.message,
+            "current_version_id": self.current_version_id,
+            "b35_count": self.b35_count,
+            "b15_count": self.b15_count,
+            "b35_rating": self.b35_rating,
+            "b15_rating": self.b15_rating,
+            "rating_before": self.rating_before,
+            "rating_after": self.rating_after,
+            "rating_delta": (
+                self.rating_after - self.rating_before
+                if self.rating_before is not None and self.rating_after is not None
+                else None
+            ),
         }

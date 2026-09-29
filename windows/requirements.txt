@@ -2,5 +2,6 @@ PyQt6>=6.5
 PyQt6-Fluent-Widgets>=1.5.0
 requests>=2.31
 beautifulsoup4>=4.12
+mitmproxy==11.0.2
 pytest>=8.0
 pyinstaller>=6.0

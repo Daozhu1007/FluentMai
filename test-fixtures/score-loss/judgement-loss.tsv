@@ -1,0 +1,4 @@
+case	tap	hold	slide	touch	break	note_kind	judgement	occurrences	target	expected_loss	expected_tolerated	expected_result
+tap_great	100	10	10	10	10	TAP	GREAT	1	100.5	0.09523809523809523	5	100.9047619047619
+break_2550	100	10	10	10	10	BREAK	PERFECT_HIGH	1	100.5	0.025	10	100.975
+break_2500	100	10	10	10	10	BREAK	PERFECT	1	100.5	0.05	10	100.95

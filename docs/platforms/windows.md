@@ -6,8 +6,8 @@ Windows is an independent Alpha / Development implementation under `windows/`. I
 
 - Technology: Python 3.10+, PyQt6, PyQt6-Fluent-Widgets, requests, Beautiful Soup, and SQLite
 - UI: independent desktop navigation and pages
-- Storage: independent local SQLite database
-- Packaging: PyInstaller one-directory portable build
+- Storage: independent AppData SQLite database with non-destructive legacy migration
+- Packaging: PyInstaller one-directory portable build plus a separate one-file loopback capture helper
 
 See [windows/README.md](../../windows/README.md) for setup, tests, packaging, smoke tests, features, and limitations.
 
@@ -20,9 +20,16 @@ python -m compileall -q -f windows scripts/windows
 .\scripts\windows\smoke_test.ps1 -Mode source
 .\scripts\windows\build_portable.ps1
 .\scripts\windows\smoke_test.ps1 -Mode package
+python scripts/windows/smoke_capture_helper.py --helper build/windows/dist/FluentMai/FluentMaiCaptureProxy.exe
 ```
 
-The Windows workflow runs only for changes under `windows/`, `scripts/windows/`, or its own workflow file. It uploads a development artifact after tests, compilation, source startup, packaging, packaged startup, and content checks succeed.
+The Windows workflow runs only for changes under `windows/`, `scripts/windows/`, or its own workflow file. It uploads a development artifact after tests, compilation, source startup, packaging, packaged startup, packaged-helper IPC startup, and content checks succeed.
+
+The capture foundation is local-only: a random authenticated loopback helper returns Wahlap pages in memory, the main process parses and atomically imports them, and a DPAPI-protected journal restores the exact WinINET/WinHTTP baseline after success, cancellation, failure, close, or the next startup. The authenticated WeChat WebView fetches all five difficulty pages from a no-store same-origin prompt and returns them to a nonce-protected path that the helper short-circuits locally; Cookies and raw pages are never persisted. Real-account and packaged-helper validation imported 1,632 local score rows, produced a 35/15 B35/B15 snapshot, and repeated twice without creating duplicate scores.
+
+The desktop shell is taskbar-, monitor-, and high-DPI-aware. Long import/settings documents have one primary scroll area; first-run and restored geometry is kept inside the active screen work area; removed-monitor restores return to the primary screen; and maximized state is stored in the per-user AppData settings file. Automated scale coverage runs at 100%, 125%, 150%, 175%, and 200%.
+
+Windows now implements the Android core product semantics through a desktop information architecture: local Overview, Import, one virtualized chart browser, Tools, Settings, and a standalone About destination. Rating/B35/B15, filter-dependent player statistics, editable Rating Trend, version plates, deterministic recommendations, selected-chart Note loss, version reference, and the Kaleid×Scope audited unavailable boundary are local-first. See [the Android–Windows feature matrix](../windows/android-windows-feature-matrix.md).
 
 ## Data, artwork, and release limits
 

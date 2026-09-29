@@ -1,0 +1,4 @@
+bucket	chart_version	count	level_value
+old	25000	40	13.0
+current	25500	20	14.0
+future	25501	5	15.0
