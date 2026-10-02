@@ -7,6 +7,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Looper
 import dev.fluentmai.android.core.importer.RealWahlapImportResult
+import dev.fluentmai.android.core.importer.WahlapDifficultyFailure
+import dev.fluentmai.android.core.importer.WahlapImportOutcome
 import dev.fluentmai.android.core.model.*
 import kotlinx.coroutines.CompletableDeferred
 import org.junit.After
@@ -98,6 +100,39 @@ class ImportForegroundServiceTest {
         assertFalse(ImportTaskStore.state.value.complete)
         assertTrue(ImportTaskStore.state.value.succeeded)
         assertEquals("成绩已导入，部分数据未完整同步", shadowOf(manager).getNotification(8290).extras.getString(Notification.EXTRA_TITLE))
+    }
+
+    @Test fun partialImportWithPersistedDifficultiesCountsAsSucceeded() {
+        controller.get().onStartCommand(cookieIntent(), 0, 1)
+        await { FakeImportService.starts == 1 }
+        FakeImportService.completion.complete(
+            success().copy(
+                importResult = ImportResult("test", 12, 0, 0, 0, 1),
+                failedDifficultyCount = 1,
+                failures = listOf(WahlapDifficultyFailure(Difficulty.MASTER, "HTTP 503")),
+                outcome = WahlapImportOutcome.PARTIAL,
+            ),
+        )
+        await { ImportTaskStore.state.value.phase == ImportTaskPhase.Finished }
+        assertTrue(ImportTaskStore.state.value.succeeded)
+        assertFalse(ImportTaskStore.state.value.complete)
+        assertEquals("成绩已导入，部分数据未完整同步", shadowOf(manager).getNotification(8290).extras.getString(Notification.EXTRA_TITLE))
+    }
+
+    @Test fun failedOutcomeNeverCountsAsSucceededEvenWhenSomePagesWereFetched() {
+        controller.get().onStartCommand(cookieIntent(), 0, 1)
+        await { FakeImportService.starts == 1 }
+        FakeImportService.completion.complete(
+            success().copy(
+                failedDifficultyCount = 5,
+                failures = Difficulty.entries.map { WahlapDifficultyFailure(it, "HTTP 503") },
+                outcome = WahlapImportOutcome.FAILED,
+            ),
+        )
+        await { ImportTaskStore.state.value.phase == ImportTaskPhase.Finished }
+        assertFalse(ImportTaskStore.state.value.succeeded)
+        assertFalse(ImportTaskStore.state.value.complete)
+        assertEquals("导入未完成", shadowOf(manager).getNotification(8290).extras.getString(Notification.EXTRA_TITLE))
     }
 
     @Test fun waitingCanBeCancelledAndNeverRestartsAutomatically() {

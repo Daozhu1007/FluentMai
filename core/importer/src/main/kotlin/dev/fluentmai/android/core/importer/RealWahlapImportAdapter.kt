@@ -26,6 +26,21 @@ data class WahlapSupplementalFailure(
     val message: String,
 )
 
+/**
+ * Overall outcome of one import run.
+ *
+ * COMPLETE: every difficulty (and supplemental page) was fetched and persisted.
+ * PARTIAL: at least one difficulty (or supplemental page) fetch failed, but other sources
+ *          produced records that were safely persisted; failed difficulties keep their
+ *          pre-existing local records.
+ * FAILED:  nothing was fetched and parsed, so nothing was persisted.
+ */
+enum class WahlapImportOutcome {
+    COMPLETE,
+    PARTIAL,
+    FAILED,
+}
+
 data class RealWahlapImportResult(
     val importResult: ImportResult,
     val parsedRecordCount: Int,
@@ -41,8 +56,9 @@ data class RealWahlapImportResult(
     val fetchedPlayCountCharts: Int = 0,
     val activityWarnings: List<String> = emptyList(),
     val diagnosticDetails: String = "",
+    val outcome: WahlapImportOutcome = WahlapImportOutcome.COMPLETE,
 ) {
-    val isCompleteSuccess: Boolean = failedDifficultyCount == 0 && supplementalFailures.isEmpty()
+    val isCompleteSuccess: Boolean = outcome == WahlapImportOutcome.COMPLETE
 }
 
 class RealWahlapImportAdapter(
@@ -107,7 +123,9 @@ class RealWahlapImportAdapter(
             }
         }
 
-        if (failures.isNotEmpty()) {
+        // An import aborts only when failures left nothing to persist. A failure-free run with
+        // zero parsed records is a legitimate empty-account import and still writes its batch.
+        if (failures.isNotEmpty() && parsedRecords.isEmpty()) {
             return RealWahlapImportResult(
                 importResult = ImportResult(
                     batchId = "",
@@ -117,21 +135,32 @@ class RealWahlapImportAdapter(
                     quarantined = 0,
                     rejected = failures.size,
                 ),
-                parsedRecordCount = parsedRecords.size,
+                parsedRecordCount = 0,
                 fetchedDifficultyCount = fetchedDifficultyCount,
                 failedDifficultyCount = failures.size,
                 failures = failures,
                 fetchedSupplementalPageCount = fetchedSupplementalPageCount,
                 parsedSupplementalRecordCount = parsedSupplementalRecordCount,
                 supplementalFailures = supplementalFailures,
+                outcome = WahlapImportOutcome.FAILED,
             )
         }
 
+        // Partial-safe persistence: records parsed from successful difficulties (and supplemental
+        // pages) are persisted even when other difficulties failed. The pipeline only upserts
+        // fetched records and never deletes, so failed difficulties keep their pre-existing local
+        // records instead of being invalidated by the whole run.
         val importResult = pipeline.importParsedRecords(
             source = source,
             parsed = parsedRecords,
             persistence = persistence,
         )
+
+        val outcome = if (failures.isEmpty() && supplementalFailures.isEmpty()) {
+            WahlapImportOutcome.COMPLETE
+        } else {
+            WahlapImportOutcome.PARTIAL
+        }
 
         return RealWahlapImportResult(
             importResult = importResult,
@@ -142,6 +171,7 @@ class RealWahlapImportAdapter(
             fetchedSupplementalPageCount = fetchedSupplementalPageCount,
             parsedSupplementalRecordCount = parsedSupplementalRecordCount,
             supplementalFailures = supplementalFailures,
+            outcome = outcome,
         )
     }
 
