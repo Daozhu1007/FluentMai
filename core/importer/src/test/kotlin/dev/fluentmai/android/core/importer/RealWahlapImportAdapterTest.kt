@@ -62,7 +62,7 @@ class RealWahlapImportAdapterTest {
     }
 
     @Test
-    fun oneDifficultyFailureDoesNotWritePartialLocalScores() = runTest {
+    fun oneDifficultyFailurePersistsTheSuccessfulDifficulties() = runTest {
         val persistence = RealImportMemoryPersistence()
         val adapter = adapter()
 
@@ -80,10 +80,129 @@ class RealWahlapImportAdapterTest {
         assertEquals(4, result.fetchedDifficultyCount)
         assertEquals(1, result.failedDifficultyCount)
         assertEquals(Difficulty.ADVANCED, result.failures.single().difficulty)
+        assertEquals(12, result.importResult.inserted)
+        assertEquals(12, result.importResult.updated + result.importResult.inserted + result.importResult.skippedDuplicate + result.importResult.quarantined)
+        assertEquals(12, persistence.scores.size)
+        assertEquals(WahlapImportOutcome.PARTIAL, result.outcome)
+        assertFalse(result.isCompleteSuccess)
+    }
+
+    @Test
+    fun failedDifficultyKeepsItsPreviousLocalRecords() = runTest {
+        val persistence = RealImportMemoryPersistence()
+        persistence.scores["stale-master"] = ScoreRecord(
+            id = "stale-master",
+            title = "Stale Master Record",
+            difficulty = Difficulty.MASTER,
+            level = "13",
+            levelIndex = 3,
+            achievement = 97.5,
+            dxScore = 2200,
+            fc = null,
+            fs = null,
+            sourceBatchId = "old-batch",
+            importedAt = 1L,
+        )
+        val adapter = adapter()
+
+        val result = adapter.importFetchedPages(
+            source = "wahlap-partial-keeps-old-test",
+            pageProvider = WahlapScorePageProvider { difficulty ->
+                if (difficulty == Difficulty.MASTER) {
+                    throw IllegalStateException("HTTP 504")
+                }
+                resourceText("wahlap_valid_fixture.html")
+            },
+            persistence = persistence,
+        )
+
+        assertEquals(WahlapImportOutcome.PARTIAL, result.outcome)
+        assertEquals(Difficulty.MASTER, result.failures.single().difficulty)
+        // The four fetched difficulties were persisted on top of the previous data…
+        assertEquals(13, persistence.scores.size)
+        // …and the failed difficulty still serves its previous local records.
+        assertTrue(persistence.scores.containsKey("stale-master"))
+        assertEquals("old-batch", persistence.scores.getValue("stale-master").sourceBatchId)
+    }
+
+    @Test
+    fun allDifficultiesFailedProducesFailedOutcomeWithoutDestructiveWrites() = runTest {
+        val persistence = RealImportMemoryPersistence()
+        persistence.scores["precious"] = ScoreRecord(
+            id = "precious",
+            title = "Pre-existing Record",
+            difficulty = Difficulty.BASIC,
+            level = "4",
+            levelIndex = 0,
+            achievement = 90.0,
+            dxScore = 1000,
+            fc = null,
+            fs = null,
+            sourceBatchId = "old-batch",
+            importedAt = 1L,
+        )
+        val adapter = adapter()
+
+        val result = adapter.importFetchedPages(
+            source = "wahlap-all-failed-test",
+            pageProvider = WahlapScorePageProvider { difficulty ->
+                throw IllegalStateException("HTTP 503 on ${difficulty.name}")
+            },
+            persistence = persistence,
+        )
+
+        assertEquals(WahlapImportOutcome.FAILED, result.outcome)
         assertEquals(0, result.importResult.inserted)
-        assertEquals(1, result.importResult.rejected)
-        assertTrue(persistence.scores.isEmpty())
+        assertEquals(5, result.importResult.rejected)
+        assertEquals("", result.importResult.batchId)
+        // Nothing was persisted for the failed run, and nothing pre-existing was destroyed.
         assertTrue(persistence.batches.isEmpty())
+        assertEquals(1, persistence.scores.size)
+        assertTrue(persistence.scores.containsKey("precious"))
+    }
+
+    @Test
+    fun legitimateEmptyAccountImportsAsComplete() = runTest {
+        val persistence = RealImportMemoryPersistence()
+        val emptyPage = """
+            <html><body><form action="/maimai-mobile/record/musicSort/search/">
+            <input name="diff" value="0"><input name="sort" value="1">
+            </form><div>没有符合条件的乐曲。</div></body></html>
+        """.trimIndent()
+
+        val result = adapter().importFetchedPages(
+            source = "wahlap-empty-account-test",
+            pageProvider = WahlapScorePageProvider { emptyPage },
+            persistence = persistence,
+        )
+
+        assertEquals(5, result.fetchedDifficultyCount)
+        assertEquals(0, result.failedDifficultyCount)
+        assertEquals(0, result.parsedRecordCount)
+        assertEquals(WahlapImportOutcome.COMPLETE, result.outcome)
+        assertTrue(result.isCompleteSuccess)
+        assertEquals(1, persistence.batches.size)
+        assertEquals(0, persistence.scores.size)
+    }
+
+    @Test
+    fun supplementalFailureAloneYieldsPartialWithPersistedDifficulties() = runTest {
+        val persistence = RealImportMemoryPersistence()
+        val adapter = adapter(difficulties = listOf(Difficulty.BASIC))
+
+        val result = adapter.importFetchedPages(
+            source = "wahlap-supplemental-failed-test",
+            pageProvider = WahlapScorePageProvider { resourceText("wahlap_valid_fixture.html") },
+            supplementalPageProvider = WahlapSupplementalPageProvider {
+                throw IllegalStateException("HTTP 502")
+            },
+            persistence = persistence,
+        )
+
+        assertEquals(3, result.importResult.inserted)
+        assertEquals(1, result.supplementalFailures.size)
+        assertEquals(WahlapImportOutcome.PARTIAL, result.outcome)
+        assertEquals(3, persistence.scores.size)
     }
 
     @Test

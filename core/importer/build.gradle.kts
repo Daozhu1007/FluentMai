@@ -19,6 +19,7 @@ sourceSets {
 
 dependencies {
     implementation(project(":core:model"))
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
     implementation("org.json:json:20240303")
     implementation("org.jsoup:jsoup:1.18.1")
     testImplementation(project(":core:privacy"))
