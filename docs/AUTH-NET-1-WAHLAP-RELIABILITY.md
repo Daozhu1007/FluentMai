@@ -1,7 +1,8 @@
 # AUTH-NET-1 — Wahlap Import Reliability Hardening (v0.3.0 port)
 
-Status: implemented on branch `auth-net-1-v030` (worktree `D:\Code\FluentMai-authnet-v030`), awaiting
-owner real-device validation (Xiaomi 23116PN5BC / Android 36).
+Status: DRAFT / WIP / NOT ACCEPTED / NOT FOR RELEASE on `auth-net-1-v030`.
+The 2026-10-03 review repair is recorded in [AUTH-NET-1-REVIEW-FIX.md](AUTH-NET-1-REVIEW-FIX.md).
+Device acceptance remains BLOCKED; no device testing was performed in the review-fix round.
 Baseline: canonical `d734660719f94db523af1053bbc915bdc76d7c19` ("Restore complete scores screen for
 v0.3.0 Beta", versionCode 14). Scope: captured-auth import and manual-cookie import Wahlap
 networking, import result semantics, and their integration with the v0.3.0 background import
@@ -83,7 +84,7 @@ pattern, and whether eliminating it fixes owner-device occurrences. The 404/1000
 remains **unproven**; other candidate mechanisms include the single-use `code`/`state` expiring
 between capture (WeChat browser hits the local redirect service) and the app's replay (e.g. long
 delays inside WeChat), and genuine server-side flakiness. Per-import session isolation below is
-accurately described as **eliminating a proven contamination source and testing a leading
+accurately described as **eliminating a proven contamination source and testing a plausible
 hypothesis** — not as a guaranteed fix.
 
 ### 1.3 Ktor CIO connection handling after a request timeout (verified, unchanged from legacy)
@@ -217,7 +218,7 @@ Before (v0.3.0):
 - `authReplayHeaders`/`pendingAuthCookies` were process-global and cleared only inside
   `getAuthUrl()`; captured credentials could in principle outlive their import.
 
-After:
+After initial `919ea16` implementation (historical; superseded by this review fix):
 
 - `WahlapWechatAuthUrlClient.maimaiDxAuthUrl()` — clears any stale captured state, then uses a
   fresh throwaway `WahlapImportHttpClient` per call (closed after); the authorize request starts
@@ -240,13 +241,33 @@ After:
   cookies/headers are attached only to callback-shaped requests; consumption leaves the store
   empty.
 
+Current architecture after the 2026-10-03 review fix:
+
+- `WahlapAuthCaptureStore.beginAttempt()` closes any unfinished attempt and creates one fresh
+  `WahlapOAuthAttempt`, owning its HTTP client, jar and browser replay context.
+- Authorize URL generation keeps this client alive after success. Failure discards that attempt;
+  a late failure from an older authorize request cannot discard a newer one.
+- The VPN bridge attaches captured browser context to the current attempt. The importer consumes
+  the exact captured URL once and receives that same attempt, not another client. Consuming the
+  handoff copy never clears authorize cookies. Callback seeds browser cookies alongside existing
+  cookies; home, score, supplemental, activity, PC and enrichment requests retain that jar.
+- Capture shutdown discards only an unfinished attempt. Once transferred, the import runner owns
+  closure, with a `finally` enclosing login as well as later work. Cancellation, login failure,
+  completion and replacement all terminate the corresponding lifetime.
+- Manual Cookie imports retain their separate per-instance client and credentials.
+- Both supplemental clients return `WahlapSupplementalFetchResult(pages, failures)`. Every failed
+  required page stays visible, successful pages still persist, and all coroutine cancellation
+  propagates. A run with any required-source failure and no useful parsed records is FAILED and
+  performs no writes. A failure-free empty account remains COMPLETE.
+
 ## 7. Privacy impact
 
 - New attempt diagnostics are **structurally credential-free**:
-  `category=… attempt=n/m elapsedMs=… outcome=… willRetry=… [status=…] [bytes=…] [error=SimpleClassName]`.
+  `category=… attempt=n/m elapsedMs=… outcome=… willRetry=… [status=…] [chars=…] [error=SimpleClassName]`.
   They are built only from primitive fields; no exception messages, no URLs, no headers, no
   cookie values are ever passed into `WahlapAttemptLog.toSafeLogLine()`. They are written to both
   logcat and the per-import diagnostics report (after `sanitizeImportDiagnostic`).
+- `responseChars` measures decoded `String.length` and emits `chars=`; it is not a wire-byte metric.
 - Exception messages that may embed URLs still pass through `PrivacyRedactor.redact()` exactly as
   before when they surface in failures/UI.
 - Cookie summaries remain names-only (`count=N names=domain:name|…`); captured replay headers and
@@ -257,6 +278,9 @@ After:
 - No new data is persisted; Room schema unchanged; no credentials anywhere in the new tests.
 
 ## 8. Tests and results
+
+The list below records the initial implementation. Current review regression coverage and exact
+results are in [AUTH-NET-1-REVIEW-FIX.md](AUTH-NET-1-REVIEW-FIX.md).
 
 See `AUTH-NET-1-V030-PORT.md` §7 for the run record. New regression coverage (mapped to the
 required scenarios):
@@ -295,11 +319,9 @@ See `AUTH-NET-1-V030-PORT.md` §8 for the complete list with roles.
 ## 10. Remaining uncertainty
 
 1. **404 / error 100001 root cause** — unproven. Per-import session isolation eliminates the
-   proven cross-import contamination, and tests that leading hypothesis, but the owner-device
-   validation is the actual verdict. If 404/100001 still occurs on a fresh session, next
-   suspects are code/state expiry between capture and replay and server-side flakiness; the
-   attempt diagnostics added here (timing, per-attempt outcomes) make one run sufficient to
-   distinguish these.
+   proven cross-import contamination while preserving same-attempt continuity. Neither change
+   establishes a cause for 404/100001. Code/state expiry and server-side behavior remain
+   hypotheses; timing and outcome diagnostics may help investigate them in a later hardware round.
 2. **Whether 60s is enough for the worst score pages.** Evidence only proves >30s. If the owner
    still times out at 60s, the number is one constant in `WahlapRequestCatalog` — but the retries
    and partial persistence already bound the damage.

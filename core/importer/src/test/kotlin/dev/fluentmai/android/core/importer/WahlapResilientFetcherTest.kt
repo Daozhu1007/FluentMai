@@ -263,7 +263,7 @@ class WahlapResilientFetcherTest {
             onAttempt = logs::add,
         ) { _, meta ->
             meta.httpStatus = 200
-            meta.responseBytes = 482_113L
+            meta.responseChars = 482_113L
             "page"
         }
 
@@ -273,7 +273,7 @@ class WahlapResilientFetcherTest {
         assertTrue(line.contains("elapsedMs="))
         assertTrue(line.contains("outcome=success"))
         assertTrue(line.contains("status=200"))
-        assertTrue(line.contains("bytes=482113"))
+        assertTrue(line.contains("chars=482113"))
         assertFalse(line.contains("cookie", ignoreCase = true))
         assertFalse(line.contains("token", ignoreCase = true))
         assertFalse(line.contains("https://"))

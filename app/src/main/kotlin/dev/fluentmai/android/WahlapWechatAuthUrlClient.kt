@@ -8,44 +8,44 @@ import kotlinx.coroutines.CancellationException
 /**
  * Builds the WeChat OAuth authorize entry URL by following the Wahlap authorize redirect chain.
  *
- * Each call uses its own throwaway [WahlapImportHttpClient], so the authorize request starts a
- * fresh session and can never inherit cookies from a previous import or from an import that runs
- * later. Any stale captured callback state is discarded first: a new authorize entry must never
- * replay an older authorization attempt. The request is deliberately attempted once: it starts
- * (not completes) an authorization, and if it fails the user can simply tap the hook link again.
+ * Each call begins a fresh complete OAuth attempt, replacing any unfinished attempt. Its client
+ * remains owned by the handoff after authorize succeeds, so callback/home/import share the same
+ * jar. Authorize is attempted once; failure closes only this attempt.
  */
 class WahlapWechatAuthUrlClient(
     private val redactor: PrivacyRedactor,
+    private val handoff: WahlapAuthCaptureHandoff = WahlapAuthCaptureStore,
+    private val authorizeUrl: String = MAIMAI_DX_AUTHORIZE_URL,
+    private val acceptRedirect: (String) -> Boolean = {
+        it.contains("tgk-wcaime.wahlap.com", ignoreCase = true) || it.contains("maimai-dx", ignoreCase = true)
+    },
 ) {
     fun maimaiDxAuthUrl(): String {
-        val httpClient = WahlapImportHttpClient()
+        val attempt = handoff.beginAttempt()
         try {
-            WahlapAuthCaptureStore.clear()
             return kotlinx.coroutines.runBlocking {
-                val finalUrl = httpClient.fetchAuthorizeRedirectFinalUrl(MAIMAI_DX_AUTHORIZE_URL)
+                val finalUrl = attempt.httpClient.fetchAuthorizeRedirectFinalUrl(authorizeUrl)
                 Log.i(
                     TAG,
                     "Generated Wahlap auth URL final=${safeUrlSummary(finalUrl)} " +
-                        "cookies=${httpClient.cookieSummary()}",
+                        "cookies=${attempt.httpClient.cookieSummary()}",
                 )
 
-                if (!finalUrl.contains("tgk-wcaime.wahlap.com", ignoreCase = true) &&
-                    !finalUrl.contains("maimai-dx", ignoreCase = true)
-                ) {
+                if (!acceptRedirect(finalUrl) || !handoff.isCurrent(attempt)) {
                     throw IOException("Unexpected Wahlap auth redirect")
                 }
 
                 finalUrl.replace("redirect_uri=https", "redirect_uri=http")
             }
         } catch (error: CancellationException) {
+            handoff.discardPendingAttempt(attempt)
             throw error
         } catch (error: Exception) {
+            handoff.discardPendingAttempt(attempt)
             throw IOException(
                 "生成舞萌微信授权地址失败：${redactor.redact(error.message ?: error::class.java.simpleName)}",
                 error,
             )
-        } finally {
-            runCatching { httpClient.close() }
         }
     }
 

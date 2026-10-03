@@ -8,6 +8,8 @@ import dev.fluentmai.android.core.importer.WahlapRequestCategory
 import dev.fluentmai.android.core.importer.WahlapResilientFetcher
 import dev.fluentmai.android.core.importer.WahlapScorePageUrls
 import dev.fluentmai.android.core.importer.WahlapSupplementalPage
+import dev.fluentmai.android.core.importer.WahlapSupplementalFetchResult
+import dev.fluentmai.android.core.importer.WahlapSupplementalFailure
 import dev.fluentmai.android.core.model.Difficulty
 import dev.fluentmai.android.core.privacy.PrivacyRedactor
 import io.ktor.client.HttpClient
@@ -25,6 +27,8 @@ import java.io.Closeable
 import java.io.IOException
 import java.util.Locale
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ensureActive
+import kotlin.coroutines.coroutineContext
 
 data class WahlapCookieImportCredentials(
     val cookies: Map<String, String>,
@@ -143,6 +147,8 @@ class WahlapManualCookieScorePageClient(
     private val onPlayerHome: (String) -> Unit = {},
     private val onDiagnostic: (String) -> Unit = {},
     private val fetcher: WahlapResilientFetcher = WahlapResilientFetcher(),
+    private val supplementalPages: List<WahlapSupplementalPages.Page> = WahlapSupplementalPages.pages,
+    private val mapRequestUrl: (String) -> String = { it },
 ) : Closeable {
     private val client = HttpClient(CIO) {
         install(HttpTimeout)
@@ -229,8 +235,11 @@ class WahlapManualCookieScorePageClient(
         return response.body
     }
 
-    suspend fun fetchSupplementalScorePages(): List<WahlapSupplementalPage> =
-        SUPPLEMENTAL_SCORE_PAGE_URLS.mapNotNull { candidate ->
+    suspend fun fetchSupplementalScorePages(): WahlapSupplementalFetchResult {
+        val pages = mutableListOf<WahlapSupplementalPage>()
+        val failures = mutableListOf<WahlapSupplementalFailure>()
+        supplementalPages.forEach { candidate ->
+            coroutineContext.ensureActive()
             val response = runCatching {
                 request(
                     label = "manual-${candidate.label}",
@@ -255,21 +264,25 @@ class WahlapManualCookieScorePageClient(
                     page
                 }
             }.getOrElse { error ->
+                if (error is CancellationException) throw error
+                val message = sanitizeImportDiagnostic(redactor.redact(error.message ?: error::class.java.simpleName))
+                failures += WahlapSupplementalFailure(candidate.label, message)
                 Log.w(
                     TAG,
-                    "Manual supplemental ${candidate.label} request failed: " +
-                        redactor.redact(error.message ?: error::class.java.simpleName),
+                    "Manual supplemental ${candidate.label} request failed: $message",
                 )
-                return@mapNotNull null
+                return@forEach
             }
             Log.i(
                 TAG,
                 "Manual supplemental ${candidate.label}: status=${response.statusCode} " +
-                    "type=${response.contentType.orEmpty()} bytes=${response.body.length} " +
+                    "type=${response.contentType.orEmpty()} chars=${response.body.length} " +
                     "scoreLike=${looksLikeScorePage(response.body)}",
             )
-            WahlapSupplementalPage(label = candidate.label, html = response.body)
+            pages += WahlapSupplementalPage(label = candidate.label, html = response.body)
         }
+        return WahlapSupplementalFetchResult(pages, failures)
+    }
 
     /** Best-effort fetch for optional player-profile enrichment: null on any failure. */
     private suspend fun fetchOptionalPage(url: String): String? =
@@ -305,7 +318,7 @@ class WahlapManualCookieScorePageClient(
                     onDiagnostic("请求尝试 $label ${attemptLog.toSafeLogLine()}")
                 },
             ) { profile, meta ->
-                val response = client.get(rawUrl) {
+                val response = client.get(mapRequestUrl(rawUrl)) {
                     timeout {
                         requestTimeoutMillis = profile.requestTimeoutMs
                         connectTimeoutMillis = profile.connectTimeoutMs
@@ -333,7 +346,7 @@ class WahlapManualCookieScorePageClient(
                     finalUrl = response.call.request.url.toString(),
                 )
                 meta.httpStatus = page.statusCode
-                meta.responseBytes = page.body.length.toLong()
+                meta.responseChars = page.body.length.toLong()
                 if (category != WahlapRequestCategory.AUTH_CALLBACK &&
                     category != WahlapRequestCategory.AUTH_AUTHORIZE &&
                     page.statusCode !in 200..299
@@ -364,7 +377,6 @@ class WahlapManualCookieScorePageClient(
     private companion object {
         private const val TAG = "WahlapManualCookie"
         private const val HOME_URL = "https://maimai.wahlap.com/maimai-mobile/home/"
-        private val SUPPLEMENTAL_SCORE_PAGE_URLS = WahlapSupplementalPages.pages
 
         private fun defaultNavigationHeaders(): Map<String, String> =
             linkedMapOf(

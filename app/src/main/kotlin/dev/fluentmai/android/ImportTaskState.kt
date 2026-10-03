@@ -25,7 +25,7 @@ internal data class ImportTaskState(
      * FAILED means nothing was persisted.
      */
     val succeeded: Boolean get() = result?.let {
-        it.fetchedDifficultyCount > 0 && it.outcome != WahlapImportOutcome.FAILED
+        (it.fetchedDifficultyCount > 0 || it.parsedRecordCount > 0) && it.outcome != WahlapImportOutcome.FAILED
     } == true
     val complete: Boolean get() = succeeded && result?.outcome == WahlapImportOutcome.COMPLETE && !pageFailed &&
         result?.let { it.activityWarnings.isEmpty() && it.failedPlayPageCount == 0 } == true

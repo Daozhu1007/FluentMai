@@ -7,12 +7,44 @@ import dev.fluentmai.android.core.model.ScoreRecord
 import dev.fluentmai.android.core.model.SongType
 import dev.fluentmai.android.core.privacy.PrivacyRedactor
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.CancellationException
+import org.junit.Assert.assertSame
+import org.junit.Assert.fail
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RealWahlapImportAdapterTest {
+    @Test fun scoreProviderCancellationStopsBeforeNextDifficultyOrAnyWrites() = runTest {
+        val persistence = RealImportMemoryPersistence()
+        val cancelled = CancellationException("fixture cancellation")
+        var requests = 0
+        try {
+            adapter().importFetchedPages("fixture-cancelled", WahlapScorePageProvider {
+                requests++
+                throw cancelled
+            }, persistence)
+            fail("cancellation must propagate")
+        } catch (error: CancellationException) { assertSame(cancelled, error) }
+        assertEquals(1, requests)
+        assertTrue(persistence.batches.isEmpty())
+        assertTrue(persistence.scores.isEmpty())
+    }
+
+    @Test fun supplementalProviderCancellationNeverBecomesFailureOrPersistsEarlierScores() = runTest {
+        val persistence = RealImportMemoryPersistence()
+        val cancelled = CancellationException("fixture cancellation")
+        try {
+            adapter(difficulties = listOf(Difficulty.BASIC)).importFetchedPages("fixture-cancelled",
+                WahlapScorePageProvider { resourceText("wahlap_valid_fixture.html") }, persistence,
+                WahlapSupplementalPageProvider { throw cancelled })
+            fail("cancellation must propagate")
+        } catch (error: CancellationException) { assertSame(cancelled, error) }
+        assertTrue(persistence.batches.isEmpty())
+        assertTrue(persistence.scores.isEmpty())
+    }
+
     @Test
     fun importsAllFiveDifficultyPagesThroughExistingPipeline() = runTest {
         val calls = mutableListOf<Difficulty>()
@@ -260,12 +292,12 @@ class RealWahlapImportAdapterTest {
             source = "wahlap-supplemental-test",
             pageProvider = WahlapScorePageProvider { resourceText("wahlap_valid_fixture.html") },
             supplementalPageProvider = WahlapSupplementalPageProvider {
-                listOf(
+                WahlapSupplementalFetchResult(pages = listOf(
                     WahlapSupplementalPage(
                         label = "rating-target-music",
                         html = resourceText("wahlap_rating_target_supplemental_synthetic_fixture.html"),
                     ),
-                )
+                ))
             },
             persistence = persistence,
         )

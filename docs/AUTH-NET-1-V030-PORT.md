@@ -1,6 +1,10 @@
 # AUTH-NET-1 — v0.3.0 Port Record
 
 Date: 2026-10-02. Branch: `auth-net-1-v030` (worktree `D:\Code\FluentMai-authnet-v030`).
+This is the historical port record. The authorize/callback lifetime was subsequently corrected in
+[AUTH-NET-1-REVIEW-FIX.md](AUTH-NET-1-REVIEW-FIX.md); the initial split-session design below is
+superseded. Device acceptance is still BLOCKED.
+
 Companion documents: `AUTH-NET-1-BASELINE-RESCUE.md` (audit, preserved verbatim),
 `AUTH-NET-1-WAHLAP-RELIABILITY.md` (corrected design/behavior record).
 
@@ -149,7 +153,7 @@ Deleted:
 | All-or-nothing persistence discarded 294 parsed records | Proven (code + device evidence) |
 | Process-global cookie jar was never cleared across imports | Proven (code) |
 | OAuth callback is consumed first by the WeChat browser | **Retracted** — the intercepted HTTP callback terminates at the local redirect service; the app's HTTPS replay is the first real callback request |
-| Per-import session isolation fixes the 404/error-100001 auth failures | Hypothesis (leading) — unproven until owner-device validation |
+| Per-import session isolation fixes the 404/error-100001 auth failures | Plausible hypothesis — unproven; device acceptance remains blocked |
 | Code/state expiry between capture and replay can cause auth failures | Hypothesis — unproven; attempt diagnostics now make it measurable |
 | Ktor CIO connections cannot be poisoned by a request timeout | Verified against Ktor 3.0.1 sources |
 

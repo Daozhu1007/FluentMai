@@ -45,7 +45,7 @@ class WahlapResilientFetcher(
                         outcome = WahlapAttemptOutcome.SUCCESS,
                         willRetry = false,
                         httpStatus = meta.httpStatus,
-                        responseBytes = meta.responseBytes,
+                        responseChars = meta.responseChars,
                     ),
                 )
                 return value
@@ -68,7 +68,7 @@ class WahlapResilientFetcher(
                         },
                         willRetry = willRetry,
                         httpStatus = meta.httpStatus,
-                        responseBytes = meta.responseBytes,
+                        responseChars = meta.responseChars,
                         errorType = WahlapAttemptLog.errorTypeOf(error),
                     ),
                 )

@@ -9,7 +9,6 @@ import io.ktor.client.plugins.cookies.cookies
 import io.ktor.client.plugins.timeout
 import io.ktor.client.request.get
 import io.ktor.client.request.headers
-import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
 import io.ktor.http.Url
@@ -18,24 +17,27 @@ import dev.fluentmai.android.core.importer.WahlapRequestCategory
 import dev.fluentmai.android.core.importer.WahlapTimeoutProfile
 import java.io.Closeable
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * One HTTP client per Wahlap import run, with its own cookie storage and captured-auth state.
- *
- * The previous design used a process-global object whose AcceptAllCookiesStorage accumulated
- * session cookies across imports. Stale cookies from an earlier run were then attached to the
- * OAuth authorize request and the callback replay of the next run, which intermittently broke
- * the login (callback 404, home error 100001). Creating a fresh client per import guarantees
- * that a new OAuth flow starts with an empty cookie jar; the only pre-existing state it carries
- * is the captured callback replay state, which belongs to the same capture.
- *
- * Instances are cheap enough to build per import and MUST be closed when the import ends.
+ * One HTTP client and cookie jar per complete OAuth attempt, from authorize through import.
+ * This eliminates cross-import state contamination while preserving authorize-stage state.
+ * Cookie contamination has not been established as the cause of callback 404/error 100001.
+ * The owning attempt MUST close this client when finished, failed or replaced.
  */
 class WahlapImportHttpClient(
-    private val authReplay: WahlapAuthReplayState = WahlapAuthReplayState(),
+    authReplay: WahlapAuthReplayState = WahlapAuthReplayState(),
     val cookieStorage: AcceptAllCookiesStorage = AcceptAllCookiesStorage(),
     private val isAuthCallback: (String) -> Boolean = Companion::isAuthCallbackUrl,
 ) : Closeable {
+    @Volatile
+    private var authReplay = authReplay
+    private val closed = AtomicBoolean(false)
+
+    internal fun attachAuthReplay(state: WahlapAuthReplayState) {
+        check(!closed.get()) { "OAuth HTTP client is closed" }
+        authReplay = state
+    }
     private val client = HttpClient(CIO) {
         expectSuccess = false
         install(HttpCookies) {
@@ -57,6 +59,7 @@ class WahlapImportHttpClient(
         timeoutProfile: WahlapTimeoutProfile,
         detailReferer: String? = null,
     ): WahlapPageResponse {
+        check(!closed.get()) { "OAuth HTTP client is closed" }
         val uri = Url(rawUrl)
         val isAuthCallback = isAuthCallback(rawUrl)
         if (isAuthCallback) {
@@ -117,6 +120,7 @@ class WahlapImportHttpClient(
      * authorization and a human can simply tap the hook link again.
      */
     suspend fun fetchAuthorizeRedirectFinalUrl(rawUrl: String): String {
+        check(!closed.get()) { "OAuth HTTP client is closed" }
         val profile = dev.fluentmai.android.core.importer.WahlapRequestCatalog
             .timeoutProfile(WahlapRequestCategory.AUTH_AUTHORIZE)
         val response = client.get(rawUrl) {
@@ -145,10 +149,13 @@ class WahlapImportHttpClient(
     }
 
     override fun close() {
-        client.close()
+        if (closed.compareAndSet(false, true)) {
+            authReplay = WahlapAuthReplayState()
+            client.close()
+        }
     }
 
-    /** The captured browser UA wins on the callback replay; other pages use the WeChat Android UA. */
+    /** Once captured, the browser UA is retained for the attempt; otherwise use the Android UA. */
     private fun defaultUserAgent(): String =
         authReplay.headers.entries
             .firstOrNull { it.key.equals(HttpHeaders.UserAgent, ignoreCase = true) }

@@ -9,16 +9,19 @@ import dev.fluentmai.android.core.importer.WahlapRequestCategory
 import dev.fluentmai.android.core.importer.WahlapResilientFetcher
 import dev.fluentmai.android.core.importer.WahlapScorePageUrls
 import dev.fluentmai.android.core.importer.WahlapSupplementalPage
+import dev.fluentmai.android.core.importer.WahlapSupplementalFetchResult
+import dev.fluentmai.android.core.importer.WahlapSupplementalFailure
 import dev.fluentmai.android.core.importer.WahlapMusicDetailTarget
 import dev.fluentmai.android.core.model.Difficulty
 import dev.fluentmai.android.core.privacy.PrivacyRedactor
 import java.io.IOException
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ensureActive
+import kotlin.coroutines.coroutineContext
 
 /**
- * Login + page fetch orchestration for one captured-auth import run. Holds a dedicated
- * [WahlapImportHttpClient] so the whole run shares one fresh cookie session; close it when done.
+ * Login + page fetch orchestration using the same [WahlapOAuthAttempt] that generated authorize.
+ * Callback, home and all import pages retain its jar; close the attempt when done.
  *
  * Retry policy comes from [WahlapRequestCategory]: score, home, and supplemental GETs are
  * idempotent and retried with backoff (including HTTP-level transient statuses), while the OAuth
@@ -30,33 +33,18 @@ class WahlapHttpScorePageClient(
     private val redactor: PrivacyRedactor,
     private val onPlayerHome: (String) -> Unit = {},
     private val onDiagnostic: (String) -> Unit = {},
-    private val authReplayProvider: () -> WahlapAuthReplayState = WahlapAuthCaptureStore::consumeReplayState,
-    private val httpClientFactory: (WahlapAuthReplayState) -> WahlapImportHttpClient = { WahlapImportHttpClient(it) },
+    private val attempt: WahlapOAuthAttempt,
+    private val supplementalPages: List<WahlapSupplementalPages.Page> = WahlapSupplementalPages.pages,
+    private val mapRequestUrl: (String) -> String = { it },
     private val fetcher: WahlapResilientFetcher = WahlapResilientFetcher(),
 ) : AutoCloseable {
-    private val closed = AtomicBoolean(false)
-
-    /** Consumed once at construction; no captured credentials stay available to a later import. */
-    private val authReplay = authReplayProvider()
-
-    @Volatile
-    private var httpClientRef: WahlapImportHttpClient? = null
-
-    private fun httpClient(): WahlapImportHttpClient {
-        httpClientRef?.let { return it }
-        synchronized(this) {
-            httpClientRef?.let { return it }
-            return httpClientFactory(authReplay).also { httpClientRef = it }
-        }
-    }
+    private fun httpClient(): WahlapImportHttpClient = attempt.httpClient
 
     suspend fun login(authUrl: String) {
         val normalizedAuthUrl = normalizeWahlapAuthUrl(authUrl)
         Log.i(
             TAG,
             "Wahlap auth request: ${safeUrlSummary(normalizedAuthUrl)} " +
-                "replayHeaders=${authReplay.headers.size} " +
-                "pendingAuthCookies=${if (authReplay.pendingAuthCookies != null) 1 else 0} " +
                 "cookiesBefore=${cookieSummary()}",
         )
 
@@ -160,8 +148,11 @@ class WahlapHttpScorePageClient(
         return response.body
     }
 
-    suspend fun fetchSupplementalScorePages(): List<WahlapSupplementalPage> =
-        SUPPLEMENTAL_SCORE_PAGE_URLS.mapNotNull { candidate ->
+    suspend fun fetchSupplementalScorePages(): WahlapSupplementalFetchResult {
+        val pages = mutableListOf<WahlapSupplementalPage>()
+        val failures = mutableListOf<WahlapSupplementalFailure>()
+        supplementalPages.forEach { candidate ->
+            coroutineContext.ensureActive()
             val response = runCatching {
                 request(
                     label = candidate.label,
@@ -186,22 +177,26 @@ class WahlapHttpScorePageClient(
                     page
                 }
             }.getOrElse { error ->
+                if (error is CancellationException) throw error
+                val message = sanitizeImportDiagnostic(redactor.redact(error.message ?: error::class.java.simpleName))
+                failures += WahlapSupplementalFailure(candidate.label, message)
                 Log.w(
                     TAG,
-                    "Supplemental ${candidate.label} request failed: " +
-                        redactor.redact(error.message ?: error::class.java.simpleName),
+                    "Supplemental ${candidate.label} request failed: $message",
                 )
-                return@mapNotNull null
+                return@forEach
             }
             Log.i(
                 TAG,
                 "Supplemental ${candidate.label}: status=${response.statusCode} " +
-                    "type=${response.contentType.orEmpty()} bytes=${response.body.length} " +
+                    "type=${response.contentType.orEmpty()} chars=${response.body.length} " +
                     "scoreLike=${looksLikeScorePage(response.body)} " +
                     "ratingLike=${looksLikeRatingTargetPage(response.body)}",
             )
-            WahlapSupplementalPage(label = candidate.label, html = response.body)
+            pages += WahlapSupplementalPage(label = candidate.label, html = response.body)
         }
+        return WahlapSupplementalFetchResult(pages, failures)
+    }
 
     /** Best-effort fetch for optional player-profile enrichment: null on any failure. */
     private suspend fun fetchOptionalPage(url: String): String? =
@@ -223,12 +218,7 @@ class WahlapHttpScorePageClient(
             null
         }
 
-    override fun close() {
-        if (closed.compareAndSet(false, true)) {
-            // Null when the import failed before any request: never force client creation on close.
-            httpClientRef?.let { runCatching { it.close() } }
-        }
-    }
+    override fun close() = attempt.close()
 
     /**
      * Runs one categorized Wahlap GET with the category's retry policy. HTTP-level status
@@ -247,9 +237,9 @@ class WahlapHttpScorePageClient(
                 category = category,
                 onAttempt = { attemptLog -> logAttempt(label, attemptLog) },
             ) { profile, meta ->
-                val response = httpClient().fetchPage(rawUrl, category, profile, detailReferer)
+                val response = httpClient().fetchPage(mapRequestUrl(rawUrl), category, profile, detailReferer)
                 meta.httpStatus = response.statusCode
-                meta.responseBytes = response.body.length.toLong()
+                meta.responseChars = response.body.length.toLong()
                 if (category != WahlapRequestCategory.AUTH_CALLBACK &&
                     category != WahlapRequestCategory.AUTH_AUTHORIZE &&
                     response.statusCode !in 200..299
@@ -305,7 +295,6 @@ class WahlapHttpScorePageClient(
 
     private companion object {
         private const val TAG = "WahlapHttpScore"
-        private val SUPPLEMENTAL_SCORE_PAGE_URLS = WahlapSupplementalPages.pages
     }
 }
 

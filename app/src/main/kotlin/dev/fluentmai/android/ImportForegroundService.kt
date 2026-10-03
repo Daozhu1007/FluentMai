@@ -143,6 +143,7 @@ open class ImportForegroundService : Service() {
     }
 
     private fun stopCapture() {
+        WahlapAuthCaptureStore.discardPendingAttempt()
         // A VPN can remain system-bound after stopService; explicitly close its tunnel.
         startService(Intent(this, LocalVpnService::class.java).setAction(LocalVpnService.DISCONNECT_INTENT))
         WahlapHookHttpService.stop(this)

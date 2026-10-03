@@ -18,8 +18,8 @@ import org.junit.Test
 
 /**
  * Regression coverage for AUTH-NET-1: each import run must get its own cookie session. The old
- * process-global client accumulated cookies across imports, and stale sessions from a previous
- * run intermittently broke the next OAuth login (callback 404, home error 100001).
+ * process-global client accumulated cookies across imports, creating cross-import contamination.
+ * These tests do not establish a cause for observed callback 404/error 100001.
  */
 class WahlapImportHttpClientTest {
     @Test
