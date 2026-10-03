@@ -11,6 +11,11 @@ import dev.fluentmai.android.core.importer.WahlapDifficultyFailure
 import dev.fluentmai.android.core.importer.WahlapImportOutcome
 import dev.fluentmai.android.core.model.*
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.runBlocking
+import dev.fluentmai.android.core.importer.*
+import dev.fluentmai.android.core.privacy.PrivacyRedactor
+import io.ktor.http.Url
+import java.io.File
 import org.junit.After
 import org.junit.Assert.*
 import org.junit.Before
@@ -117,6 +122,58 @@ class ImportForegroundServiceTest {
         assertTrue(ImportTaskStore.state.value.succeeded)
         assertFalse(ImportTaskStore.state.value.complete)
         assertEquals("成绩已导入，部分数据未完整同步", shadowOf(manager).getNotification(8290).extras.getString(Notification.EXTRA_TITLE))
+    }
+
+    private fun perPageSupplementalResult(useful: Boolean): RealWahlapImportResult = runBlocking {
+        val html = if (useful) File("../fixtures/wahlap_valid_fixture.html").readText() else
+            """<html><body><form action="/maimai-mobile/record/musicSort/search/">
+                <input name="diff" value="0"><input name="sort" value="1"></form>
+                <div>没有符合条件的乐曲。</div></body></html>"""
+        WahlapLoopbackServer { request ->
+            WahlapLoopbackServer.Response(if (request.path.contains("ratingTargetMusic")) 503 else 200, html)
+        }.use { server ->
+            WahlapHttpScorePageClient(PrivacyRedactor(), attempt = WahlapOAuthAttempt(),
+                mapRequestUrl = { server.url(Url(it).encodedPath) }, fetcher = WahlapResilientFetcher(delayFor = {})).use { client ->
+                RealWahlapImportAdapter(difficulties = listOf(Difficulty.BASIC)).importFetchedPages(
+                    "fixture-service", WahlapScorePageProvider(client::fetchScorePage), BoundaryPersistence(),
+                    WahlapSupplementalPageProvider(client::fetchSupplementalScorePages))
+            }
+        }
+    }
+
+    @Test fun realPerPageSupplementalFailureProducesPartialNotificationAndTaskState() {
+        val result = perPageSupplementalResult(useful = true)
+        assertEquals(WahlapImportOutcome.PARTIAL, result.outcome)
+        assertEquals("rating-target-music", result.supplementalFailures.single().label)
+        controller.get().onStartCommand(cookieIntent(), 0, 1)
+        await { FakeImportService.starts == 1 }
+        FakeImportService.completion.complete(result)
+        await { ImportTaskStore.state.value.phase == ImportTaskPhase.Finished }
+        assertTrue(ImportTaskStore.state.value.succeeded)
+        assertFalse(ImportTaskStore.state.value.complete)
+        assertEquals(result.supplementalFailures, ImportTaskStore.state.value.result?.supplementalFailures)
+        assertEquals("成绩已导入，部分数据未完整同步", shadowOf(manager).getNotification(8290).extras.getString(Notification.EXTRA_TITLE))
+    }
+
+    @Test fun realSupplementalFailureWithEmptyScoresProducesFailedNotification() {
+        val result = perPageSupplementalResult(useful = false)
+        assertEquals(WahlapImportOutcome.FAILED, result.outcome)
+        controller.get().onStartCommand(cookieIntent(), 0, 1)
+        await { FakeImportService.starts == 1 }
+        FakeImportService.completion.complete(result)
+        await { ImportTaskStore.state.value.phase == ImportTaskPhase.Finished }
+        assertFalse(ImportTaskStore.state.value.succeeded)
+        assertFalse(ImportTaskStore.state.value.complete)
+        assertEquals("导入未完成", shadowOf(manager).getNotification(8290).extras.getString(Notification.EXTRA_TITLE))
+    }
+
+    @Test fun cancellingAuthorizationWaitClosesItsUnfinishedAttempt() {
+        controller.get().onStartCommand(Intent(context, FakeImportService::class.java).setAction("wait_for_wechat"), 0, 1)
+        val attempt = WahlapAuthCaptureStore.beginAttempt()
+        controller.get().onStartCommand(Intent(context, FakeImportService::class.java).setAction("cancel_import_wait"), 0, 2)
+        // The handoff is also discarded directly during service shutdown, before Android destroys Hook.
+        assertTrue(attempt.isClosed)
+        assertFalse(ImportTaskStore.state.value.busy)
     }
 
     @Test fun failedOutcomeNeverCountsAsSucceededEvenWhenSomePagesWereFetched() {

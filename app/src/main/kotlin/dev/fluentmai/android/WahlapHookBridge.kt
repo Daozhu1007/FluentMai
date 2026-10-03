@@ -39,10 +39,16 @@ object WahlapHookBridge {
         }
 
         val authUrl = rawUrl.trim()
-        val replayHeaderCount = WahlapAuthCaptureStore.storeReplayHeaders(rawRequestHeaders)
+        val replayHeaderCount = WahlapAuthCaptureStore.captureCallback(authUrl, rawRequestHeaders)
+        if (replayHeaderCount == null) {
+            importRunning.set(false)
+            status.value = "No active OAuth attempt; open the hook link again."
+            return
+        }
         Log.i(TAG, "Emitting captured Wahlap auth URL immediately replayHeaderCount=$replayHeaderCount")
         status.value = "Captured Wahlap auth request; importing."
         if (!capturedAuthUrls.tryEmit(authUrl)) {
+            WahlapAuthCaptureStore.discardPendingAttempt()
             importRunning.set(false)
             status.value = "Captured Wahlap auth request, but import queue was not ready."
             Log.w(TAG, "Captured Wahlap auth URL could not be emitted")
@@ -53,6 +59,7 @@ object WahlapHookBridge {
     fun isImporting(): Boolean = importRunning.get()
 
     fun finishImport() {
+        WahlapAuthCaptureStore.discardPendingAttempt()
         importRunning.set(false)
     }
 

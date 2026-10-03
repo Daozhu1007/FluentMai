@@ -1,14 +1,8 @@
 package dev.fluentmai.android
 
 import java.util.Locale
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicReference
 
-/**
- * Captured replay state of exactly one OAuth callback request: the request headers to replay
- * (minus hop-by-hop headers) and the browser's Cookie header, which is seeded into the import
- * client's cookie storage when the callback URL is requested.
- */
+/** Browser context; Cookie is seeded into the attempt jar rather than replayed as a header. */
 data class WahlapAuthReplayState(
     val headers: Map<String, String> = emptyMap(),
     val pendingAuthCookies: String? = null,
@@ -17,65 +11,93 @@ data class WahlapAuthReplayState(
 }
 
 /**
- * Process-wide handoff for the request captured by the VPN tunnel when the WeChat browser hit
- * the OAuth callback. The import client consumes the state for exactly one request — the
- * AUTH_CALLBACK GET — because the callback URL carries a single-use code bound to the browser's
- * session context.
- *
- * The store never logs and never returns header values outside the client replay path. Every
- * capture clears and refills the map, so headers from an older capture can never leak into a
- * newer import, and consuming clears the store so no credentials remain available for a later
- * import.
+ * Synchronized handoff from hook authorize to VPN capture to the import service. Owns only the
+ * unfinished attempt: consumption transfers ownership without replacing its client or jar.
+ * Closing capture services cannot close an already-consumed import session. Never logs raw state.
  */
-object WahlapAuthCaptureStore {
-    private val replayHeaders = ConcurrentHashMap<String, String>()
-    private val pendingAuthCookies = AtomicReference<String?>(null)
+open class WahlapAuthCaptureHandoff(
+    private val attemptFactory: () -> WahlapOAuthAttempt = { WahlapOAuthAttempt() },
+) {
+    private var pendingAttempt: WahlapOAuthAttempt? = null
+    private var capturedUrl: String? = null
+    private var replayState = WahlapAuthReplayState()
 
-    fun storeReplayHeaders(rawRequestHeaders: String): Int {
+    @Synchronized
+    fun beginAttempt(): WahlapOAuthAttempt {
+        discardPendingAttempt()
+        return attemptFactory().also { pendingAttempt = it }
+    }
+
+    @Synchronized
+    fun isCurrent(attempt: WahlapOAuthAttempt): Boolean = pendingAttempt === attempt && !attempt.isClosed
+
+    /** Null means no current authorize attempt, or its callback was already captured. */
+    @Synchronized
+    fun captureCallback(authUrl: String, rawRequestHeaders: String): Int? {
+        val attempt = pendingAttempt?.takeUnless { it.isClosed } ?: return null
+        if (capturedUrl != null) return null
+        val count = storeReplayHeaders(rawRequestHeaders)
+        attempt.capture(replayState)
+        capturedUrl = authUrl.trim()
+        return count
+    }
+
+    /** Match the captured callback before transferring ownership; never replay a later attempt. */
+    @Synchronized
+    fun consumeAttempt(authUrl: String): WahlapOAuthAttempt {
+        check(capturedUrl == authUrl.trim()) { "No matching captured OAuth attempt" }
+        val attempt = checkNotNull(pendingAttempt) { "OAuth attempt already consumed" }
+        check(!attempt.isClosed) { "OAuth attempt is closed" }
+        pendingAttempt = null
+        capturedUrl = null
         clear()
-        rawRequestHeaders
-            .lineSequence()
-            .drop(1)
-            .forEach { line ->
-                if (line.isBlank()) return@forEach
-                val separator = line.indexOf(':')
-                if (separator <= 0) return@forEach
-                val name = line.substring(0, separator).trim()
-                val value = line.substring(separator + 1).trim()
-                if (name.isBlank() || value.isBlank()) return@forEach
-                val normalized = name.lowercase(Locale.ROOT)
-                if (normalized == "cookie") {
-                    pendingAuthCookies.set(value)
-                    return@forEach
-                }
-                if (normalized in SKIPPED_REPLAY_HEADERS) return@forEach
-                replayHeaders[name] = value
+        return attempt
+    }
+
+    @Synchronized
+    fun discardPendingAttempt(attempt: WahlapOAuthAttempt? = pendingAttempt) {
+        if (attempt !== pendingAttempt) return
+        pendingAttempt = null
+        capturedUrl = null
+        clear()
+        attempt?.close()
+    }
+
+    @Synchronized
+    fun storeReplayHeaders(rawRequestHeaders: String): Int {
+        val headers = linkedMapOf<String, String>()
+        var cookies: String? = null
+        rawRequestHeaders.lineSequence().drop(1).forEach { line ->
+            val separator = line.indexOf(':')
+            if (separator <= 0) return@forEach
+            val name = line.substring(0, separator).trim()
+            val value = line.substring(separator + 1).trim()
+            if (name.isBlank() || value.isBlank()) return@forEach
+            when (name.lowercase(Locale.ROOT)) {
+                "cookie" -> cookies = value
+                in SKIPPED_REPLAY_HEADERS -> Unit
+                else -> headers[name] = value
             }
-        return replayHeaders.size
+        }
+        replayState = WahlapAuthReplayState(headers.toMap(), cookies)
+        return headers.size
     }
 
-    fun replayHeaderSnapshot(): Map<String, String> = replayHeaders.toMap()
+    @Synchronized
+    fun replayHeaderSnapshot(): Map<String, String> = replayState.headers.toMap()
 
-    /**
-     * Takes the captured state of the current authorization attempt and clears the store, so a
-     * later import can never replay credentials that belong to this one.
-     */
-    fun consumeReplayState(): WahlapAuthReplayState {
-        val headers = replayHeaders.toMap()
-        val cookies = pendingAuthCookies.getAndSet(null)
-        replayHeaders.clear()
-        return WahlapAuthReplayState(headers = headers, pendingAuthCookies = cookies)
-    }
+    /** Consuming browser context leaves authorize cookies in the existing attempt jar intact. */
+    @Synchronized
+    fun consumeReplayState(): WahlapAuthReplayState = replayState.also { clear() }
 
+    @Synchronized
     fun clear() {
-        replayHeaders.clear()
-        pendingAuthCookies.set(null)
+        replayState = WahlapAuthReplayState()
     }
 
-    private val SKIPPED_REPLAY_HEADERS = setOf(
-        "host",
-        "connection",
-        "content-length",
-        "proxy-connection",
-    )
+    private companion object {
+        val SKIPPED_REPLAY_HEADERS = setOf("host", "connection", "content-length", "proxy-connection")
+    }
 }
+
+object WahlapAuthCaptureStore : WahlapAuthCaptureHandoff()

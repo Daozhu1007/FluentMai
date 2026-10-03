@@ -151,7 +151,8 @@ enum class WahlapAttemptOutcome {
  */
 class WahlapAttemptMeta {
     var httpStatus: Int? = null
-    var responseBytes: Long? = null
+    /** Length of the decoded response String; not wire bytes. */
+    var responseChars: Long? = null
 }
 
 /**
@@ -167,7 +168,7 @@ data class WahlapAttemptLog(
     val outcome: WahlapAttemptOutcome,
     val willRetry: Boolean,
     val httpStatus: Int? = null,
-    val responseBytes: Long? = null,
+    val responseChars: Long? = null,
     val errorType: String? = null,
 ) {
     fun toSafeLogLine(): String = buildString {
@@ -177,7 +178,7 @@ data class WahlapAttemptLog(
         append(" outcome=").append(outcome.name.lowercase())
         append(" willRetry=").append(willRetry)
         httpStatus?.let { append(" status=").append(it) }
-        responseBytes?.let { append(" bytes=").append(it) }
+        responseChars?.let { append(" chars=").append(it) }
         errorType?.let { append(" error=").append(it) }
     }
 

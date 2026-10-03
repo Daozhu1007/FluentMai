@@ -28,13 +28,18 @@ internal class WahlapImportRunner(context: Context) : AutoCloseable {
         val efficientPc = themePreferences.efficientPc
         val pageProgress = ImportPageReporter(onProgress)
         onProgress(ImportProgress(ImportStage.Preparing, "正在登录 Wahlap"))
-        val client = WahlapHttpScorePageClient(redactor = privacyRedactor, onPlayerHome = B50PlayerStore(context)::capture, onDiagnostic = diagnostics::record)
+        val client = WahlapHttpScorePageClient(
+            redactor = privacyRedactor,
+            onPlayerHome = B50PlayerStore(context)::capture,
+            onDiagnostic = diagnostics::record,
+            attempt = WahlapAuthCaptureStore.consumeAttempt(authUrl),
+        )
         try {
-            client.login(authUrl)
-        } finally {
-            afterLoginAttempt()
-        }
-        try {
+            try {
+                client.login(authUrl)
+            } finally {
+                afterLoginAttempt()
+            }
             onProgress(ImportProgress(ImportStage.Preparing, "正在加载曲库"))
             val catalog = fetchSongCatalogOrEmpty()
             val activity = captureWahlapActivity(catalog, repository, diagnostics::record, onProgress) { client.fetchActivityPage(it) }
@@ -54,7 +59,7 @@ internal class WahlapImportRunner(context: Context) : AutoCloseable {
                 },
                 supplementalPageProvider = WahlapSupplementalPageProvider {
                     pageProgress.page(ImportStage.Supplemental, 0, WahlapSupplementalPages.pages.size, "Rating 对象补充页",
-                        complete = { it.size == WahlapSupplementalPages.pages.size }) { client.fetchSupplementalScorePages() }
+                        complete = { it.failures.isEmpty() && it.pages.size == WahlapSupplementalPages.pages.size }) { client.fetchSupplementalScorePages() }
                 },
                 persistence = persistence,
             )
@@ -65,8 +70,8 @@ internal class WahlapImportRunner(context: Context) : AutoCloseable {
             result.copy(fetchedPlayRecordCount = activity.recordCount, failedPlayPageCount = activity.failedPages, activityCaptureAttempted = true,
                 fetchedPlayCountCharts = pc.chartCount, activityWarnings = activity.warnings + pc.warnings)
         } finally {
-            // The per-import cookie session and captured-auth state end with this run.
-            runCatching { client.close() }
+            // Close the complete OAuth attempt even when login or its shutdown callback failed.
+            client.close()
         }
     }
 
@@ -102,7 +107,7 @@ internal class WahlapImportRunner(context: Context) : AutoCloseable {
                 },
                 supplementalPageProvider = WahlapSupplementalPageProvider {
                     pageProgress.page(ImportStage.Supplemental, 0, WahlapSupplementalPages.pages.size, "Rating 对象补充页",
-                        complete = { it.size == WahlapSupplementalPages.pages.size }) { client.fetchSupplementalScorePages() }
+                        complete = { it.failures.isEmpty() && it.pages.size == WahlapSupplementalPages.pages.size }) { client.fetchSupplementalScorePages() }
                 },
                 persistence = persistence,
             )
@@ -151,6 +156,7 @@ internal class WahlapImportRunner(context: Context) : AutoCloseable {
     private fun fetchSongCatalogOrEmpty(): MaimaiSongCatalog =
         runCatching { songCatalogClient.fetchCatalog() }
             .getOrElse { error ->
+                if (error is kotlinx.coroutines.CancellationException) throw error
                 Log.w(TAG, "LXNS song catalog unavailable: ${privacyRedactor.redact(error.message ?: error::class.java.simpleName)}")
                 MaimaiSongCatalog.Empty
             }
