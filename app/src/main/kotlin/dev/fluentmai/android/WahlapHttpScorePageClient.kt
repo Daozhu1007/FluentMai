@@ -1,30 +1,63 @@
 package dev.fluentmai.android
 
 import android.util.Log
+import dev.fluentmai.android.core.importer.WahlapAttemptLog
+import dev.fluentmai.android.core.importer.WahlapAuthFailurePageException
+import dev.fluentmai.android.core.importer.WahlapHttpStatusException
+import dev.fluentmai.android.core.importer.WahlapNonRetryableException
+import dev.fluentmai.android.core.importer.WahlapRequestCategory
+import dev.fluentmai.android.core.importer.WahlapResilientFetcher
 import dev.fluentmai.android.core.importer.WahlapScorePageUrls
 import dev.fluentmai.android.core.importer.WahlapSupplementalPage
+import dev.fluentmai.android.core.importer.WahlapSupplementalFetchResult
+import dev.fluentmai.android.core.importer.WahlapSupplementalFailure
 import dev.fluentmai.android.core.importer.WahlapMusicDetailTarget
 import dev.fluentmai.android.core.model.Difficulty
 import dev.fluentmai.android.core.privacy.PrivacyRedactor
-import io.ktor.client.statement.bodyAsText
-import io.ktor.http.HttpHeaders
 import java.io.IOException
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ensureActive
+import kotlin.coroutines.coroutineContext
 
+/**
+ * Login + page fetch orchestration using the same [WahlapOAuthAttempt] that generated authorize.
+ * Callback, home and all import pages retain its jar; close the attempt when done.
+ *
+ * Retry policy comes from [WahlapRequestCategory]: score, home, and supplemental GETs are
+ * idempotent and retried with backoff (including HTTP-level transient statuses), while the OAuth
+ * callback ([WahlapRequestCategory.AUTH_CALLBACK]) is attempted exactly once because its
+ * authorization code is single-use — its non-2xx status is returned, not thrown, so the home
+ * probe below still runs and decides the login outcome.
+ */
 class WahlapHttpScorePageClient(
     private val redactor: PrivacyRedactor,
     private val onPlayerHome: (String) -> Unit = {},
     private val onDiagnostic: (String) -> Unit = {},
-) {
-    fun login(authUrl: String) {
+    private val attempt: WahlapOAuthAttempt,
+    private val supplementalPages: List<WahlapSupplementalPages.Page> = WahlapSupplementalPages.pages,
+    private val mapRequestUrl: (String) -> String = { it },
+    private val fetcher: WahlapResilientFetcher = WahlapResilientFetcher(),
+) : AutoCloseable {
+    private fun httpClient(): WahlapImportHttpClient = attempt.httpClient
+
+    suspend fun login(authUrl: String) {
         val normalizedAuthUrl = normalizeWahlapAuthUrl(authUrl)
         Log.i(
             TAG,
             "Wahlap auth request: ${safeUrlSummary(normalizedAuthUrl)} " +
                 "cookiesBefore=${cookieSummary()}",
         )
-        val auth = request(label = "auth", rawUrl = normalizedAuthUrl)
-        Log.i(TAG, "Wahlap auth response cookies=${cookieSummary()}")
+
+        val auth = request(
+            label = "auth",
+            category = WahlapRequestCategory.AUTH_CALLBACK,
+            rawUrl = normalizedAuthUrl,
+        )
+        Log.i(
+            TAG,
+            "Wahlap auth response status=${auth.statusCode} " +
+                "final=${safeUrlSummary(auth.finalUrl)} cookies=${cookieSummary()}",
+        )
         if (auth.statusCode !in 200..299) {
             Log.w(
                 TAG,
@@ -33,103 +66,202 @@ class WahlapHttpScorePageClient(
             )
         }
 
-        Log.i(TAG, "Wahlap home request cookiesBefore=${cookieSummary()}")
-        val home = request(label = "home", rawUrl = HOME_URL)
-        Log.i(TAG, "Wahlap home response cookies=${cookieSummary()}")
-        if (home.statusCode !in 200..299) {
-            throw IOException("Wahlap login failed: status=${home.statusCode}")
+        val home = request(
+            label = "home",
+            category = WahlapRequestCategory.LOGIN_HOME,
+            rawUrl = WahlapImportHttpClient.HOME_URL,
+        ) { page ->
+            if (page.statusCode !in 200..299) {
+                throw WahlapHttpStatusException(page.statusCode)
+            }
+            if (looksLikeAuthFailure(page.body)) {
+                throw IOException(
+                    "Wahlap login failed: home page is not authenticated",
+                    WahlapAuthFailurePageException("auth failure page"),
+                )
+            }
+            page
         }
-        if (looksLikeAuthFailure(home.body)) {
-            throw IOException("Wahlap login failed: home page is not authenticated")
-        }
+        Log.i(
+            TAG,
+            "Wahlap home response status=${home.statusCode} " +
+                "final=${safeUrlSummary(home.finalUrl)} cookies=${cookieSummary()}",
+        )
         onPlayerHome(home.body)
-        onPlayerHome(runBlocking { enrichWahlapPlayerHome(home.body) { url ->
-            val response = WahlapKtorClient.getWahlapPage(url)
-            val body = response.bodyAsText()
-            body.takeIf { response.status.value in 200..299 && !looksLikeAuthFailure(body) }
-        } })
+        onPlayerHome(
+            enrichWahlapPlayerHome(home.body) { url ->
+                fetchOptionalPage(url)
+            },
+        )
     }
 
-    fun fetchScorePage(difficulty: Difficulty): String {
+    suspend fun fetchScorePage(difficulty: Difficulty): String {
         val response = request(
             label = "score ${difficulty.name}",
+            category = WahlapRequestCategory.SCORE_PAGE,
             rawUrl = WahlapScorePageUrls.scorePageUrl(difficulty, incremental = true),
-        )
-        if (response.statusCode !in 200..299) {
-            throw IOException("Wahlap score fetch failed: difficulty=${difficulty.name} status=${response.statusCode}")
-        }
-        if (response.contentType != null && !response.contentType.contains("html", ignoreCase = true)) {
-            throw IOException("Wahlap score fetch failed: difficulty=${difficulty.name} unexpected content type")
-        }
-        if (looksLikeAuthFailure(response.body) || !looksLikeScorePage(response.body)) {
-            throw IOException("Wahlap score fetch failed: difficulty=${difficulty.name} unexpected page")
+        ) { page ->
+            if (page.contentType != null && !page.contentType.contains("html", ignoreCase = true)) {
+                throw IOException(
+                    "Wahlap score fetch failed: difficulty=${difficulty.name} unexpected content type",
+                    WahlapNonRetryableException("unexpected content type"),
+                )
+            }
+            if (looksLikeAuthFailure(page.body)) {
+                throw IOException(
+                    "Wahlap score fetch failed: difficulty=${difficulty.name} session is not authenticated",
+                    WahlapAuthFailurePageException("auth failure page"),
+                )
+            }
+            if (!looksLikeScorePage(page.body)) {
+                // Retryable on purpose: a transiently truncated or garbled response can fail this
+                // shape check; the bounded retry re-downloads and re-validates.
+                throw IOException("Wahlap score fetch failed: difficulty=${difficulty.name} unexpected page")
+            }
+            page
         }
         return response.body
     }
 
     suspend fun fetchActivityPage(url: String): String {
         val safeUrl = requireNotNull(dev.fluentmai.android.core.importer.WahlapActivityParser.safeActivityUrl(url))
-        val response = WahlapKtorClient.getWahlapPage(safeUrl)
-        val body = response.bodyAsText()
-        onDiagnostic("最近记录：${describeWahlapResponse(response.status.value, response.call.request.url.toString(), body)}")
-        validateActivityResponse(response.status.value, response.call.request.url.toString(), body)
-        return body
+        val response = request(
+            label = "play-records",
+            category = WahlapRequestCategory.SUPPLEMENTAL_PAGE,
+            rawUrl = safeUrl,
+        )
+        onDiagnostic("最近记录：${describeWahlapResponse(response.statusCode, response.finalUrl, response.body)}")
+        validateActivityResponse(response.statusCode, response.finalUrl, response.body)
+        return response.body
     }
 
     suspend fun fetchMusicDetail(target: WahlapMusicDetailTarget): String {
         val url = requireNotNull(dev.fluentmai.android.core.importer.WahlapPlayCountParser.safeDetailUrl(target.url))
-        val response = WahlapKtorClient.getWahlapPage(url, WahlapScorePageUrls.scorePageUrl(target.sourceDifficulty))
-        val body = response.bodyAsText()
-        onDiagnostic("单曲详情：${describeWahlapResponse(response.status.value, response.call.request.url.toString(), body)}")
-        validateActivityResponse(response.status.value, response.call.request.url.toString(), body)
-        return body
+        val response = request(
+            label = "music-detail",
+            category = WahlapRequestCategory.SUPPLEMENTAL_PAGE,
+            rawUrl = url,
+            detailReferer = WahlapScorePageUrls.scorePageUrl(target.sourceDifficulty),
+        )
+        onDiagnostic("单曲详情：${describeWahlapResponse(response.statusCode, response.finalUrl, response.body)}")
+        validateActivityResponse(response.statusCode, response.finalUrl, response.body)
+        return response.body
     }
 
-    fun fetchSupplementalScorePages(): List<WahlapSupplementalPage> =
-        SUPPLEMENTAL_SCORE_PAGE_URLS.mapNotNull { candidate ->
+    suspend fun fetchSupplementalScorePages(): WahlapSupplementalFetchResult {
+        val pages = mutableListOf<WahlapSupplementalPage>()
+        val failures = mutableListOf<WahlapSupplementalFailure>()
+        supplementalPages.forEach { candidate ->
+            coroutineContext.ensureActive()
             val response = runCatching {
-                request(label = candidate.label, rawUrl = candidate.url)
+                request(
+                    label = candidate.label,
+                    category = WahlapRequestCategory.SUPPLEMENTAL_PAGE,
+                    rawUrl = candidate.url,
+                ) { page ->
+                    if (page.statusCode !in 200..299) {
+                        throw WahlapHttpStatusException(page.statusCode)
+                    }
+                    if (page.contentType != null && !page.contentType.contains("html", ignoreCase = true)) {
+                        throw IOException(
+                            "Supplemental ${candidate.label} unexpected content type",
+                            WahlapNonRetryableException("unexpected content type"),
+                        )
+                    }
+                    if (looksLikeAuthFailure(page.body)) {
+                        throw IOException(
+                            "Supplemental ${candidate.label} session is not authenticated",
+                            WahlapAuthFailurePageException("auth failure page"),
+                        )
+                    }
+                    page
+                }
             }.getOrElse { error ->
-                Log.w(TAG, "Supplemental ${candidate.label} request failed: ${redactor.redact(error.message ?: error::class.java.simpleName)}")
-                return@mapNotNull null
+                if (error is CancellationException) throw error
+                val message = sanitizeImportDiagnostic(redactor.redact(error.message ?: error::class.java.simpleName))
+                failures += WahlapSupplementalFailure(candidate.label, message)
+                Log.w(
+                    TAG,
+                    "Supplemental ${candidate.label} request failed: $message",
+                )
+                return@forEach
             }
             Log.i(
                 TAG,
                 "Supplemental ${candidate.label}: status=${response.statusCode} " +
-                    "type=${response.contentType.orEmpty()} bytes=${response.body.length} " +
+                    "type=${response.contentType.orEmpty()} chars=${response.body.length} " +
                     "scoreLike=${looksLikeScorePage(response.body)} " +
                     "ratingLike=${looksLikeRatingTargetPage(response.body)}",
             )
-            if (response.statusCode !in 200..299) return@mapNotNull null
-            if (response.contentType != null && !response.contentType.contains("html", ignoreCase = true)) {
-                return@mapNotNull null
+            pages += WahlapSupplementalPage(label = candidate.label, html = response.body)
+        }
+        return WahlapSupplementalFetchResult(pages, failures)
+    }
+
+    /** Best-effort fetch for optional player-profile enrichment: null on any failure. */
+    private suspend fun fetchOptionalPage(url: String): String? =
+        runCatching {
+            val page = request(
+                label = "player-collection",
+                category = WahlapRequestCategory.SUPPLEMENTAL_PAGE,
+                rawUrl = url,
+            ) { response ->
+                if (response.statusCode !in 200..299) {
+                    throw WahlapHttpStatusException(response.statusCode)
+                }
+                response
             }
-            if (looksLikeAuthFailure(response.body)) {
-                return@mapNotNull null
-            }
-            WahlapSupplementalPage(label = candidate.label, html = response.body)
+            page.body.takeIf { !looksLikeAuthFailure(it) }
+        }.getOrElse { error ->
+            if (error is CancellationException) throw error
+            Log.i(TAG, "Player collection page skipped: ${redactor.redact(error.message ?: error::class.java.simpleName)}")
+            null
         }
 
-    private fun request(label: String, rawUrl: String): HttpResponse =
+    override fun close() = attempt.close()
+
+    /**
+     * Runs one categorized Wahlap GET with the category's retry policy. HTTP-level status
+     * validation happens inside the fetch so transient server statuses take part in the retry
+     * loop — except for the auth callback, whose status is inspected by the caller.
+     */
+    private suspend fun request(
+        label: String,
+        category: WahlapRequestCategory,
+        rawUrl: String,
+        detailReferer: String? = null,
+        validate: suspend (WahlapPageResponse) -> WahlapPageResponse = { it },
+    ): WahlapPageResponse =
         try {
-            runBlocking {
-                val response = WahlapKtorClient.getWahlapPage(rawUrl)
-                HttpResponse(
-                    statusCode = response.status.value,
-                    contentType = response.headers[HttpHeaders.ContentType],
-                    body = response.bodyAsText(),
-                    finalUrl = response.call.request.url.toString(),
-                ).also { onDiagnostic("$label：${describeWahlapResponse(it.statusCode, it.finalUrl, it.body)}；类型=${it.contentType}") }
+            fetcher.fetch(
+                category = category,
+                onAttempt = { attemptLog -> logAttempt(label, attemptLog) },
+            ) { profile, meta ->
+                val response = httpClient().fetchPage(mapRequestUrl(rawUrl), category, profile, detailReferer)
+                meta.httpStatus = response.statusCode
+                meta.responseChars = response.body.length.toLong()
+                if (category != WahlapRequestCategory.AUTH_CALLBACK &&
+                    category != WahlapRequestCategory.AUTH_AUTHORIZE &&
+                    response.statusCode !in 200..299
+                ) {
+                    throw WahlapHttpStatusException(response.statusCode)
+                }
+                onDiagnostic("$label：${describeWahlapResponse(response.statusCode, response.finalUrl, response.body)}；类型=${response.contentType}")
+                validate(response)
             }
-        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+        } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Exception) {
             onDiagnostic("$label 请求异常：${diagnosticException(error)}")
             throw IOException("$label request failed: ${redactor.redact(error.message ?: error::class.java.simpleName)}", error)
         }
 
-    private fun cookieSummary(): String =
-        runBlocking { WahlapKtorClient.safeCookieSummary() }
+    private fun logAttempt(label: String, attemptLog: WahlapAttemptLog) {
+        Log.i(TAG, "Wahlap request $label ${attemptLog.toSafeLogLine()}")
+        onDiagnostic("请求尝试 $label ${attemptLog.toSafeLogLine()}")
+    }
+
+    private suspend fun cookieSummary(): String = httpClient().cookieSummary()
 
     private fun looksLikeAuthFailure(html: String): Boolean {
         val normalized = html.lowercase()
@@ -161,17 +293,8 @@ class WahlapHttpScorePageClient(
                 "duplicatedHttpInPath=${path.lowercase().contains("http://")}"
         }.getOrElse { "unparseable" }
 
-    private data class HttpResponse(
-        val statusCode: Int,
-        val contentType: String?,
-        val body: String,
-        val finalUrl: String,
-    )
-
     private companion object {
         private const val TAG = "WahlapHttpScore"
-        private const val HOME_URL = "https://maimai.wahlap.com/maimai-mobile/home/"
-        private val SUPPLEMENTAL_SCORE_PAGE_URLS = WahlapSupplementalPages.pages
     }
 }
 

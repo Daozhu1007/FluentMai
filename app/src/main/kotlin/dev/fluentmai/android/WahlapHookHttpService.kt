@@ -21,6 +21,7 @@ import java.net.Socket
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
+import kotlinx.coroutines.CancellationException
 
 class WahlapHookHttpService : Service() {
     private var hookServer: SimpleHttpServer? = null
@@ -69,6 +70,7 @@ class WahlapHookHttpService : Service() {
     }
 
     private fun stopServers() {
+        WahlapAuthCaptureStore.discardPendingAttempt()
         hookServer?.stop()
         redirectServer?.stop()
         hookServer = null
@@ -125,6 +127,7 @@ class WahlapHookHttpService : Service() {
             WahlapHookBridge.setStatus("微信已打开 Hook 链接，正在生成舞萌授权跳转。")
             HookHttpResponse.redirect(authUrlClient.maimaiDxAuthUrl())
         }.getOrElse { error ->
+            if (error is CancellationException) throw error
             val safeMessage = redactor.redact(error.message ?: error::class.java.simpleName)
             Log.e(TAG, "Failed to build Wahlap auth URL: $safeMessage")
             HookHttpResponse.html(500, "生成舞萌授权跳转失败：$safeMessage")
