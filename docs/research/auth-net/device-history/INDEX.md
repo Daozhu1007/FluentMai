@@ -1,6 +1,7 @@
 # AUTH-NET device investigation history
 
-Curated 2026-10-04; engineering transition and final-APK session added 2026-10-05.
+Curated 2026-10-04; engineering transition, final-APK session and replacement
+bounded-retry acceptance added 2026-10-05.
 All windows below use Asia/Shanghai (UTC+08:00).
 **DRAFT / WIP / NOT ACCEPTED / NOT FOR RELEASE. PR #7 remains Draft.**
 
@@ -29,10 +30,25 @@ used source `9dd6b2c` and verified installed APK `cebb50dd…`. Attempt 1 reject
 after exactly one callback replay and offered fresh retry; attempt 2 generated a
 new authorization but an execution delay exceeded the 10-minute capture wait.
 It ended FAILED without capturing/replaying that callback. Attempt 3 was not
-generated. **Final-binary acceptance remains incomplete**; no
-`FINAL_BINARY_BOUNDED_FRESH_AUTH_RETRY_VALIDATED` marker is awarded. This timeout
-does not establish a final-binary defect. Control APK/install metadata and
+generated. That interrupted run did not award the final-binary retry marker and
+did not establish a final-binary defect. Control APK/install metadata and
 validation import-batch rows were preserved, and validation services ended.
+
+The Owner-authorized [3B-R2 replacement session](AUTH-NET-3A.md#auth-net-3b-r2-replacement-exact-final-binary-acceptance)
+then used fetched HEAD `1d389a0` (production implementation `9dd6b2c`) and the same
+exact installed APK `cebb50dd…`, without rebuilding/reinstalling. All three fresh
+transactions completed promptly: each callback replayed exactly once, returned
+404, then reached unauthenticated Home. UI advanced 1/3 retry → 2/3 retry → 3/3
+FAILED with no retry button or automatic fourth transaction. Natural capture/VPN
+and service cleanup was measured after each rejection; validation import-batch
+rows and control APK/install metadata were preserved. Awarded:
+`FINAL_BINARY_BOUNDED_FRESH_AUTH_RETRY_VALIDATED`;
+`AUTHENTICATED_IMPORT_ACCEPTANCE_STILL_BLOCKED`.
+**The exact-final-binary bounded retry gate is closed.** `READY_FOR_NEXT_PRODUCT_PHASE`
+applies to that gate under the Owner's three-rejection rule; authenticated full
+import, score retry recovery and PARTIAL persistence remain unvalidated.
+PR #7 remains Draft / WIP / NOT ACCEPTED / NOT FOR RELEASE. No further OAuth session
+was run or authorized in this task.
 
 The strongest measured differential is [2K](AUTH-NET-2K.md): immediately adjacent
 phone FAIL/SUCCESS attempts changed the callback **first hop from 404 to 302**.
@@ -98,6 +114,7 @@ reports are not pooled into a controlled experiment.
 | AUTH-NET-2L-R2 | Oct 4, 23:40–00:05 | Same phone APK; PID 1167 across both attachments | 4 fresh transactions all first-hop 404; r/t/state/code integrity 4/4 MATCH; first-hop header values identical; every hop EO-Cache-Status MISS | NO_COMPLETE_DIFFERENTIAL (CASE E); STOP_CLIENT_SIDE_ROOT_CAUSE_FORENSICS recommended | Header values equal within four FAILs; no SUCCESS or complete value-level comparison across outcomes; server-side per-transaction/per-window state leads residual explanations, not proven | STILL_VALID | [2L-R2](AUTH-NET-2L-R2.md) |
 | AUTH-NET-3A | Oct 5, 00:57–01:07 | 24018RPACC tablet; separate validation 0.3.0-beta / 14 | Three fresh callback requests, each once; callback 404 followed by unauthenticated Home; retry UI 1/3 → 2/3 → bounded FAILED 3/3 | BOUNDED_FRESH_AUTH_RETRY_FLOW_VALIDATED; AUTHENTICATED_IMPORT_ACCEPTANCE_STILL_BLOCKED | Product mitigation observed; final generation-window gate tested separately; score/import hardware acceptance remains blocked | STILL_VALID | [3A implementation/device report](AUTH-NET-3A.md) |
 | AUTH-NET-3B | Oct 5, 01:46–02:09 | 24018RPACC tablet; exact final source 9dd6b2c / installed APK cebb50dd… | Attempt 1: callback replay once, 404, unauthenticated Home, retry at 1/3; attempt 2: fresh authorize at 2/3, execution delay, capture timeout, zero callback replay; no third transaction | Acceptance incomplete; AUTHENTICATED_IMPORT_ACCEPTANCE_STILL_BLOCKED retained | The interrupted sequence does not close the exact-final-binary 3/3 gap or establish a production defect; no final retry/full import/recovery/PARTIAL hardware marker | INCONCLUSIVE | [3B exact-final-APK session](AUTH-NET-3A.md#auth-net-3b-exact-final-apk-session--acceptance-incomplete) |
+| AUTH-NET-3B-R2 | Oct 5, 02:41–02:46 | 24018RPACC tablet; fetched HEAD 1d389a0, implementation 9dd6b2c / unchanged exact installed APK cebb50dd… | One replacement logical import, 3 fresh transactions, 1 callback replay each, all callback 404 → unauthenticated Home; 1/3 retry → 2/3 retry → 3/3 FAILED; natural cleanup and no new import batch | FINAL_BINARY_BOUNDED_FRESH_AUTH_RETRY_VALIDATED; AUTHENTICATED_IMPORT_ACCEPTANCE_STILL_BLOCKED | Exact-final-binary bounded retry gate closed; READY_FOR_NEXT_PRODUCT_PHASE is scoped to this gate, not authenticated import or release acceptance | STILL_VALID | [3B-R2 replacement acceptance](AUTH-NET-3A.md#auth-net-3b-r2-replacement-exact-final-binary-acceptance) |
 
 ## Failure categories and acceptance boundary
 

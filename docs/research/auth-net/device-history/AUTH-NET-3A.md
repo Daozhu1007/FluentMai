@@ -293,6 +293,118 @@ ACCEPTED / NOT FOR RELEASE**. Report delivery is Owner manual only; no ChatGPT o
 CTO relay was opened. Private APKs, logs, database copies, UI XML, screenshots,
 device serials, OAuth values and local paths are excluded from Git.
 
+## AUTH-NET-3B-R2 replacement exact-final-binary acceptance
+
+2026-10-05, UTC+08:00. The Owner explicitly authorized **one replacement logical
+import session with a fresh maximum of three OAuth transactions**. The interrupted
+3B session above is retained as history and does not consume this replacement
+budget. This run completed the final-binary bounded retry gate; it did not complete
+authenticated import acceptance.
+
+### Preflight and immutable binary
+
+After initial direct Git connectivity failures, `git fetch origin` succeeded with
+per-command empty proxy settings and HTTP/1.1. Both fetched
+`origin/auth-net-1-v030` and GitHub's branch/PR readback matched required HEAD
+`1d389a023012d51c189773e859ccfe2315b15469`. The existing clean detached 3A
+worktree matched that HEAD. Its difference from implementation source
+`9dd6b2c56ec8bfafa765e77fe6b62cac7334fd29` contained only the two history documents;
+production sources and build configuration were unchanged.
+
+The installed validation APK was copied back and independently SHA-256 checked
+before and after the run. Both measurements were
+`cebb50dd116fb94ebfa166fe4c64054816e9b2fcadb7684f5cfcdb05aabf6ceb`.
+No rebuild, reinstall, uninstall, data clear or production-code change occurred.
+Validation remained 0.3.0-beta / 14, first installed 2026-10-03 11:15:16,
+last updated 2026-10-05 01:24:07. ADB selected the verified **24018RPACC tablet
+only**. The Owner phone was not accessed.
+
+### Complete replacement sequence
+
+WeChat's File Transfer Assistant self-chat was prepared before generation. The
+ordinary `启动捕获` and `复制授权` actions started attempt 1. Each subsequent
+transaction was generated and copied by exactly one `重新授权` action in the
+same logical import. Each fresh link was sent only to that self-chat and opened
+promptly. Existing product logs and ordinary UI/service snapshots were used;
+no instrumentation, JDI/ART observer, synthetic callback, header/Cookie
+investigation, fault injection or manufactured concurrency was used.
+
+| Attempt | Fresh authorize generated | Callback captured | Callback replay request / response | Home decision | Product state |
+| --- | --- | --- | --- | --- | --- |
+| 1/3 | 02:41:00.824 | 02:42:16.490 | **1** request at 02:42:16.514; response 02:42:17.316, HTTP 404, attempt 1/1, willRetry=false | 02:42:19.902; HTTP 200, unauthenticated, WahlapAuthorizationRetryRequiredException | AUTH_RETRY_AVAILABLE; UI 1/3 with `重新授权`; capture/VPN and services stopped |
+| 2/3 | 02:43:14.734 | 02:44:11.584 | **1** request at 02:44:11.601; response 02:44:12.412, HTTP 404, attempt 1/1, willRetry=false | 02:44:14.787; HTTP 200, unauthenticated, same typed auth rejection | AUTH_RETRY_AVAILABLE; UI 2/3 with `重新授权`; capture/VPN and services stopped |
+| 3/3 | 02:44:51.661 | 02:45:55.910 | **1** request at 02:45:55.927; response 02:45:56.737, HTTP 404, attempt 1/1, willRetry=false | 02:45:59.714; HTTP 200, unauthenticated, same typed auth rejection | FAILED; UI 3/3, no `重新授权`, capture/VPN and services stopped |
+
+Generation-to-capture intervals were approximately **76, 57 and 64 seconds**;
+all fresh links were opened within the execution target of approximately two
+minutes. No capture timeout or external interruption occurred. The entire OAuth
+sequence finished before the 04:00–07:00 maintenance window; no maintenance
+behavior was used as failure evidence. The existing 10-minute product timeout
+was unchanged.
+
+Observed sequence: AUTHORIZING 1/3 → AUTH_RETRY_AVAILABLE 1/3 → user retry →
+AUTHORIZING 2/3 → AUTH_RETRY_AVAILABLE 2/3 → user retry → AUTHORIZING 3/3 →
+FAILED 3/3. The final UI said
+`已尝试 3 次授权，仍未登录成功。请稍后重新开始导入。`.
+There were exactly three generation events, three callback replay requests,
+three callback request-completion records and three unauthenticated Home decisions.
+No automatic fourth generation/replay was observed through the final readback.
+The ordinary manual-start action was left untouched: no attempt 4 and no second
+replacement session were run.
+
+The rejected transaction's visible authorization was discarded, capture stopped
+before each retry, and the fresh attempt advanced its counter normally. No old
+service or callback affected the subsequent attempts in this ordinary sequence.
+This is observed serial-flow evidence; deliberate stale-callback/concurrency
+qualification and internal HTTP-client object disposal were not independently
+observed on hardware. Their deterministic evidence remains in the 3A section.
+
+### Hardware markers and import boundary
+
+Awarded on the exact final installed APK:
+
+- `FINAL_BINARY_BOUNDED_FRESH_AUTH_RETRY_VALIDATED`
+- `AUTHENTICATED_IMPORT_ACCEPTANCE_STILL_BLOCKED`
+
+**Authenticated Home: NO, 0/3.** Recent records, BASIC, ADVANCED, EXPERT, MASTER,
+RE_MASTER, supplemental/rating target, PC, parsing, new import persistence and
+COMPLETE/PARTIAL import outcomes were **UNREACHED**. The terminal FAILED was an
+authorization-budget outcome. Neither score retry recovery nor PARTIAL persistence
+was observed. Do not award `AUTH_NET_COMPLETE_IMPORT_VALIDATED`,
+`REAL_DEVICE_RETRY_RECOVERY_VALIDATED` or `REAL_DEVICE_PARTIAL_PERSISTENCE_VALIDATED`.
+
+### Data preservation and natural cleanup
+
+Control APK SHA-256 was
+`d58043448620ab470d2fb2e8c01ff3e874fe7339f112fbc147741cadf7e1ff17` before and after.
+Control remained 0.2.9-beta / 13 with first-install and last-update time
+2026-09-22 11:46:51. Package/install metadata was unchanged. The control package
+was not launched, replaced, uninstalled or cleared; its private data was not read
+or independently hashed. Full control-DB byte identity is not claimed.
+
+Read-only validation DB/WAL copies before generation and after terminal rejection
+both contained **1,730 score records, 1 import batch, 2 quarantine records**.
+The sorted complete import-batch row digest was identical in both snapshots.
+Other measured table counts also matched: 0 cached Wahlap score pages,
+1 rating-history row, 50 play records and 1,730 chart-play-count rows.
+No rejected attempt produced a new or duplicate import batch. This does not claim
+byte identity of the entire validation database.
+
+After each rejection, validation-package `dumpsys activity services` reported
+`(nothing)`, the product UI reported `Capture stopped.`, and VPN management showed
+active VPN type -1, null session and null underlying networks. Cleanup occurred
+naturally; no force-stop was used. Socket-listener state was not independently
+measured. The local logcat capture was stopped after final evidence collection.
+
+**Final verdict: `READY_FOR_NEXT_PRODUCT_PHASE`**, limited to closing the exact
+final-binary bounded fresh-auth-retry gate under the Owner's stated three-rejection
+acceptance rule. Authenticated import acceptance remains blocked; this is not
+release approval. No specific final-binary production defect was established.
+PR #7 remains **Draft / WIP / NOT ACCEPTED / NOT FOR RELEASE**. Only this report
+and the history index are changed for delivery. Private APKs, logs, DB/WAL copies,
+UI XML, screenshots, device serials, OAuth values and local paths remain outside
+Git. Report delivery is Owner manual only; no ChatGPT or CTO relay was opened.
+
 ## Changed files and delivery
 
 Production app files under `app/src/main/kotlin/dev/fluentmai/android/`:
@@ -314,11 +426,10 @@ the final commit-range scan and push receipt are recorded in the Owner delivery
 report. Raw logs, UI XML, screenshots, device identifiers, local
 paths, private init scripts and APKs are excluded from Git.
 
-Recommendation: keep PR #7 **Draft / WIP / NOT ACCEPTED / NOT FOR RELEASE**.
-Next acceptance work should be one separately authorized bounded session on the
-exact final APK in a future usable authentication window, continuing the entire
-real import if Home authenticates. Do not resume broad client-side root-cause
-forensics or spend a fourth transaction in this session.
+Recommendation after 3B-R2: keep PR #7 **Draft / WIP / NOT ACCEPTED / NOT FOR
+RELEASE**. The exact-final-binary bounded retry gate is closed; authenticated import
+remains a separate unresolved acceptance gate. No further OAuth session is authorized
+in this task. Do not resume broad client-side root-cause forensics.
 
 ## Evidence boundary
 
