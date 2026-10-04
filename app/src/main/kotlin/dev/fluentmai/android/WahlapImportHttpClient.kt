@@ -33,6 +33,7 @@ class WahlapImportHttpClient(
     @Volatile
     private var authReplay = authReplay
     private val closed = AtomicBoolean(false)
+    private val callbackStarted = AtomicBoolean(false)
 
     internal fun attachAuthReplay(state: WahlapAuthReplayState) {
         check(!closed.get()) { "OAuth HTTP client is closed" }
@@ -60,6 +61,9 @@ class WahlapImportHttpClient(
         detailReferer: String? = null,
     ): WahlapPageResponse {
         check(!closed.get()) { "OAuth HTTP client is closed" }
+        if (category == WahlapRequestCategory.AUTH_CALLBACK) {
+            check(callbackStarted.compareAndSet(false, true)) { "OAuth callback already used" }
+        }
         val uri = Url(rawUrl)
         val isAuthCallback = isAuthCallback(rawUrl)
         if (isAuthCallback) {

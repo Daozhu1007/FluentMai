@@ -98,7 +98,9 @@ class ImportForegroundServiceTest {
         ImportForegroundService.start(context)
         controller.get().onStartCommand(shadowOf(RuntimeEnvironment.getApplication()).nextStartedService, 0, 1)
         assertEquals(ImportTaskPhase.Waiting, ImportTaskStore.state.value.phase)
-        WahlapHookBridge.capturedAuthUrls.tryEmit("synthetic-authorization")
+        WahlapAuthCaptureStore.beginAttempt()
+        WahlapAuthCaptureStore.captureCallback("http://fixture/synthetic-authorization", "")
+        WahlapHookBridge.capturedAuthUrls.tryEmit("http://fixture/synthetic-authorization")
         await { FakeImportService.starts == 1 }
         FakeImportService.completion.complete(success().copy(activityWarnings = listOf("部分 PC 未读取")))
         await { ImportTaskStore.state.value.phase == ImportTaskPhase.Finished }

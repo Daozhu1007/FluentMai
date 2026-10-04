@@ -27,7 +27,6 @@ class WahlapHookHttpService : Service() {
     private var hookServer: SimpleHttpServer? = null
     private var redirectServer: SimpleHttpServer? = null
     private val redactor = PrivacyRedactor()
-    private val authUrlClient by lazy { WahlapWechatAuthUrlClient(redactor) }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -66,11 +65,13 @@ class WahlapHookHttpService : Service() {
             WahlapHookBridge.setStatus("本地 Hook 服务已启动，请复制链接到微信打开。")
         } else {
             WahlapHookBridge.setStatus("本地 Hook 服务启动失败：端口未能监听。")
+            WahlapHookBridge.captureFailed(ImportFailureCategory.CAPTURE_VPN)
         }
     }
 
     private fun stopServers() {
-        WahlapAuthCaptureStore.discardPendingAttempt()
+        // ImportForegroundService owns unfinished attempts. A late Hook onDestroy must not
+        // discard a new service's fresh authorization.
         hookServer?.stop()
         redirectServer?.stop()
         hookServer = null
@@ -120,16 +121,20 @@ class WahlapHookHttpService : Service() {
         }
 
     private fun serveMaimaiAuthRedirect(): HookHttpResponse {
-        if (WahlapHookBridge.isImporting()) {
+        val expectedExecution = ImportTaskStore.state.value.executionId
+        if (WahlapHookBridge.isImporting() || ImportTaskStore.state.value.phase != ImportTaskPhase.Waiting) {
             return HookHttpResponse.html(202, "查分进程已经开始，请切回 FluentMai 等待导入完成。")
         }
         return runCatching {
             WahlapHookBridge.setStatus("微信已打开 Hook 链接，正在生成舞萌授权跳转。")
-            HookHttpResponse.redirect(authUrlClient.maimaiDxAuthUrl())
+            HookHttpResponse.redirect(WahlapWechatAuthUrlClient(redactor, canAuthorize = {
+                ImportTaskStore.state.value.let { it.executionId == expectedExecution && it.phase == ImportTaskPhase.Waiting }
+            }).maimaiDxAuthUrl())
         }.getOrElse { error ->
             if (error is CancellationException) throw error
             val safeMessage = redactor.redact(error.message ?: error::class.java.simpleName)
             Log.e(TAG, "Failed to build Wahlap auth URL: $safeMessage")
+            WahlapHookBridge.captureFailed(ImportFailureCategory.AUTHORIZE_GENERATION, expectedExecution)
             HookHttpResponse.html(500, "生成舞萌授权跳转失败：$safeMessage")
         }
     }

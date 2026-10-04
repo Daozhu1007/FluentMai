@@ -109,8 +109,10 @@ transactions, so the mission's paired differential (CASES A–D) could not be fo
 
 ## Evidence limitations
 
-- Without a SUCCESS this round, FAIL-vs-SUCCESS header-value and edge comparisons rest on
-  2K's single retained SUCCESS; this round adds four integrity-perfect FAILs.
+- This round adds four integrity-perfect FAILs and no SUCCESS. Measured request header
+  values were identical within those four failures. 2K retains the first-hop FAIL→SUCCESS
+  pair, but did not measure every value-level field newly added by 2L; those fields cannot
+  be declared equal or disproven as explanations across outcomes.
 - Timing is host breakpoint-receipt intervals under debugger suspension; never causal.
 - The standalone ART fixture could not be re-run on this user build (documented above);
   on-device validation of the unchanged layout paths relies on the 2K fixture plus this
@@ -120,23 +122,24 @@ transactions, so the mission's paired differential (CASES A–D) could not be fo
 
 ## Current interpretation
 
-Intra-transaction OAuth parameter integrity is now proven intact in 4/4 additional fresh
-transactions (on top of 2B/2K), the first-hop request construction is value-identical
-across attempts, every first hop was a fresh MISS on the same edge banner, and the failure
-body is byte-stable across two days and separate windows. Nothing observable on the client
-differs between this round's four 404s and the historical 302 successes (2K 18:37, R1
-03:08). `OAUTH_TRANSACTION_INTEGRITY_DEFECT_FOUND`, `REQUEST_VALUE_DIFFERENTIAL_FOUND`, and
-`BACKEND_AFFINITY_DIFFERENTIAL_SUPPORTED` are all **not** awarded. The residual explanation
-space is server-side per-transaction/per-window state, exactly as 2K framed it.
+Intra-transaction OAuth parameter integrity was intact in 4/4 additional fresh failures;
+measured first-hop request header values were identical within those four failures. Every
+first hop was a fresh MISS on the same edge banner, and the failure body is byte-stable
+across two days and separate windows. 2K remains the retained first-hop FAIL→SUCCESS pair;
+it did not measure every value-level field newly added by 2L. Thus these observations do
+not establish equality of every client-observable field across FAIL and SUCCESS.
+`OAUTH_TRANSACTION_INTEGRITY_DEFECT_FOUND`, `REQUEST_VALUE_DIFFERENTIAL_FOUND`, and
+`BACKEND_AFFINITY_DIFFERENTIAL_SUPPORTED` are all **not** awarded. No explanatory
+client-side defect has been identified. Server-side per-transaction/per-window state
+remains the leading residual explanation space, not a proven cause.
 
 **`STOP_CLIENT_SIDE_ROOT_CAUSE_FORENSICS` is recommended.** The formal CASE D gate was not
-reached (no pair), but the marginal value of further client-side differentials is now
-negative: every client-observable field has been measured equal across outcomes. The next
+reached (no pair), but the accumulated evidence makes further broad client-side forensics
+low-value. The next
 engineering direction remains **BOUNDED_FRESH_OAUTH_TRANSACTION_RETRY** (failed fresh
 transaction → discard its single-use code/state → new authorization → bounded retry; never
-replay a callback code). If one more measurement is ever justified, it should be a paired
-run spanning a server-state transition (e.g. a maintenance/recovery window), which is the
-only client-observable axis left.
+replay a callback code). Broad client-side root-cause forensics are closed unless a
+materially new production symptom contradicts this evidence.
 
 ## Raw evidence provenance
 

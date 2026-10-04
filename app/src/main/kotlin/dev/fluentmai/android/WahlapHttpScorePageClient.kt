@@ -75,10 +75,7 @@ class WahlapHttpScorePageClient(
                 throw WahlapHttpStatusException(page.statusCode)
             }
             if (looksLikeAuthFailure(page.body)) {
-                throw IOException(
-                    "Wahlap login failed: home page is not authenticated",
-                    WahlapAuthFailurePageException("auth failure page"),
-                )
+                throw WahlapAuthorizationRetryRequiredException()
             }
             page
         }

@@ -20,6 +20,10 @@ open class WahlapAuthCaptureHandoff(
 ) {
     private var pendingAttempt: WahlapOAuthAttempt? = null
     private var capturedUrl: String? = null
+    private var authorizeUrl: String? = null
+    private var callbackIdentity: Map<String, String> = emptyMap()
+    private val authorizeLock = Any()
+    private var generatingAuthorize = false
     private var replayState = WahlapAuthReplayState()
 
     @Synchronized
@@ -31,16 +35,55 @@ open class WahlapAuthCaptureHandoff(
     @Synchronized
     fun isCurrent(attempt: WahlapOAuthAttempt): Boolean = pendingAttempt === attempt && !attempt.isClosed
 
+    /** Serializes duplicate UI/hook requests. A transaction is generated once and then reused
+     * only as an authorize entry, never as a callback replay. Failed transactions are discarded. */
+    fun authorize(canAuthorize: () -> Boolean = { true }, generate: (WahlapOAuthAttempt) -> String): String = synchronized(authorizeLock) {
+        val attempt = synchronized(this) {
+            check(canAuthorize()) { "Authorization is no longer requested" }
+            authorizeUrl?.let { check(capturedUrl == null); return it }
+            beginAttempt().also { generatingAuthorize = true }
+        }
+        try {
+            val url = generate(attempt)
+            synchronized(this) {
+                check(canAuthorize() && isCurrent(attempt)) { "OAuth attempt was replaced" }
+                val entry = io.ktor.http.Url(url)
+                val redirect = entry.parameters["redirect_uri"]?.let { io.ktor.http.Url(it) }
+                callbackIdentity = buildMap {
+                    for (key in listOf("r", "t")) redirect?.parameters?.get(key)?.let { put(key, it) }
+                    (entry.parameters["state"] ?: redirect?.parameters?.get("state"))?.let { put("state", it) }
+                }
+                if (entry.host.equals("open.weixin.qq.com", ignoreCase = true)) {
+                    check(callbackIdentity.keys.containsAll(listOf("r", "t", "state"))) {
+                        "Authorize transaction identity missing"
+                    }
+                }
+                authorizeUrl = url
+                generatingAuthorize = false
+                return url
+            }
+        } catch (error: Exception) {
+            discardPendingAttempt(attempt)
+            throw error
+        }
+    }
+
     /** Null means no current authorize attempt, or its callback was already captured. */
     @Synchronized
     fun captureCallback(authUrl: String, rawRequestHeaders: String): Int? {
         val attempt = pendingAttempt?.takeUnless { it.isClosed } ?: return null
-        if (capturedUrl != null) return null
+        if (generatingAuthorize || capturedUrl != null) return null
+        val callback = runCatching { io.ktor.http.Url(authUrl.trim()) }.getOrNull() ?: return null
+        if (callbackIdentity.any { (key, value) -> callback.parameters.getAll(key) != listOf(value) }) return null
         val count = storeReplayHeaders(rawRequestHeaders)
         attempt.capture(replayState)
         capturedUrl = authUrl.trim()
         return count
     }
+
+    @Synchronized
+    fun isCapturedCallback(authUrl: String): Boolean =
+        capturedUrl == authUrl.trim() && pendingAttempt?.isClosed == false
 
     /** Match the captured callback before transferring ownership; never replay a later attempt. */
     @Synchronized
@@ -50,6 +93,9 @@ open class WahlapAuthCaptureHandoff(
         check(!attempt.isClosed) { "OAuth attempt is closed" }
         pendingAttempt = null
         capturedUrl = null
+        authorizeUrl = null
+        callbackIdentity = emptyMap()
+        generatingAuthorize = false
         clear()
         return attempt
     }
@@ -59,6 +105,9 @@ open class WahlapAuthCaptureHandoff(
         if (attempt !== pendingAttempt) return
         pendingAttempt = null
         capturedUrl = null
+        authorizeUrl = null
+        callbackIdentity = emptyMap()
+        generatingAuthorize = false
         clear()
         attempt?.close()
     }
