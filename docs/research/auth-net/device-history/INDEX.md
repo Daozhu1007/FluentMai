@@ -18,13 +18,24 @@ UA and observed request header-name sets were the same; each pre-replay jar was
 empty before browser-cookie seeding. These observations weaken simple
 Cookie-presence and process-global-jar priming explanations for that pair.
 
-The leading investigation area is **server-side transaction state, OAuth parameter
-integrity, backend affinity, and remaining unmeasured metadata**. These are
-candidate explanations, not established causes. Non-UA/non-Cookie header-value
-equality and fresh OAuth query-value integrity were not measured; timing causality
-was not established. A first-hop 302 followed by authenticated Home proves that
-the callback endpoint can serve a successful transaction. It supersedes the
-global route-unavailable interpretation of 2H/2I, without erasing their observed 404s.
+[2L-R2](AUTH-NET-2L-R2.md) (2026-10-04, after 2K) then spent the final four-attempt
+budget on four fresh transactions that all failed first-hop 404, and measured the
+fields 2K could not: intra-transaction `r/t/state/code` integrity passed in **4/4**
+attempts; first-hop request header **values** were identical across all four; every
+first hop was EO-Cache-Status MISS on the same `nginx/1.29.5` banner with the FAIL
+body byte-identical to 2K's. Client-observable request construction is now measured
+equivalent across historical FAIL and SUCCESS outcomes; the residual explanation
+space is server-side per-transaction/per-window state.
+**`STOP_CLIENT_SIDE_ROOT_CAUSE_FORENSICS` is recommended**; the next engineering
+direction is `BOUNDED_FRESH_OAUTH_TRANSACTION_RETRY`.
+
+The leading historical investigation area — server-side transaction state, OAuth
+parameter integrity, backend affinity, and remaining unmeasured metadata — has been
+narrowed accordingly: parameter integrity and metadata are no longer candidates
+(2L-R2 measured them clean); timing was never established. A first-hop 302 followed
+by authenticated Home proves that the callback endpoint can serve a successful
+transaction. It supersedes the global route-unavailable interpretation of 2H/2I,
+without erasing their observed 404s.
 
 [Phone build forensics](AUTH-NET-2J-PRECHECK.md) also corrects a control assumption:
 the phone's installed APK is probably from the early AUTH-NET line near `919ea16`,
@@ -56,6 +67,7 @@ reports are not pooled into a controlled experiment.
 | AUTH-NET-2J-PRECHECK | Oct 4, 16:21–16:27 | 23116PN5BC phone; 0.3.0-beta / 14 | 19/20 DEX match 919ea16 reference; auth-class disassemblies match | PHONE_BUILD_IDENTIFIED_PROBABLY | Early AUTH-NET lineage likely; stock/global-client assumption excluded; exact SHA unknown | STILL_VALID | [Forensics](AUTH-NET-2J-PRECHECK.md) |
 | AUTH-NET-2J-R2 | Oct 4, 16:47–16:58 | Same phone APK; #3/#4 same replacement process | FAIL→SUCCESS; final callback 404→200; first hop unobserved | INCONCLUSIVE_CALLBACK_METADATA_INCOMPLETE | Differential exists; fuller 2K metadata is new evidence, not recovered R2 data | PARTIALLY_SUPERSEDED | [R2](AUTH-NET-2J-R2.md) |
 | AUTH-NET-2K | Oct 4, 18:36–18:37 starts | Same phone APK; same live process/attachment | First hop 404→302; compared Cookie values SAME, normalized UA same, pre-replay jars empty | FIRST_HOP_AUTH_DIFFERENTIAL_CONFIRMED; SERVER_SIDE_STATE_OR_TIMING_DIFFERENTIAL_SUPPORTED | Measured differential; server state/parameter integrity/affinity/unmeasured metadata remain candidates | STILL_VALID | [2K](AUTH-NET-2K.md) |
+| AUTH-NET-2L-R2 | Oct 4, 23:40–00:05 | Same phone APK; PID 1167 across both attachments | 4 fresh transactions all first-hop 404; r/t/state/code integrity 4/4 MATCH; first-hop header values identical; every hop EO-Cache-Status MISS | NO_COMPLETE_DIFFERENTIAL (CASE E); STOP_CLIENT_SIDE_ROOT_CAUSE_FORENSICS recommended | Client-side request construction measured equivalent across outcomes; residual is server-side per-transaction/per-window state | STILL_VALID | [2L-R2](AUTH-NET-2L-R2.md) |
 
 ## Failure categories and acceptance boundary
 
@@ -95,6 +107,7 @@ Directory names below are provenance labels, not working links to private artifa
 | AUTH-NET-2J-PRECHECK-20261004-162157 | Missing phone build identity correction added in [Precheck](AUTH-NET-2J-PRECHECK.md) |
 | AUTH-NET-2J-R2-20261004 | Missing differential and observation gaps added in [R2](AUTH-NET-2J-R2.md) |
 | AUTH-NET-2K-20261004 | Full critical caveats and measured adjacent pair curated in [2K](AUTH-NET-2K.md) |
+| AUTH-NET-2L-R2-20261004 | Final differential round (integrity/header-value/edge measurements, 4 FAILs) curated in [2L-R2](AUTH-NET-2L-R2.md) |
 
 No separate 2I directory or final 2I results report was found. Its monitor evidence
 is embedded in the 2G directory. No new acceptance test was run to fill gaps.
@@ -104,7 +117,7 @@ Existing implementation/port/baseline-rescue reports are linked rather than dupl
 
 ## CTO review map
 
-**MUST READ:** this index, [2K](AUTH-NET-2K.md),
+**MUST READ:** this index, [2K](AUTH-NET-2K.md), [2L-R2](AUTH-NET-2L-R2.md),
 [Phone forensics](AUTH-NET-2J-PRECHECK.md), [R2](AUTH-NET-2J-R2.md),
 and [Recovery interpretation corrections](AUTH-NET-RECOVERY-WINDOW-20261004.md).
 
