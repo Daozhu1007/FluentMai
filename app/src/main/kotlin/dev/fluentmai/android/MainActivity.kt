@@ -370,6 +370,8 @@ private fun FluentMaiApp(
     var hookLink by remember { mutableStateOf(WahlapHookHttpService.HOOK_URL) }
     var wahlapCookieInput by remember { mutableStateOf("") }
     var isPreparingHookLink by remember { mutableStateOf(false) }
+    val authTask by ImportTaskStore.state.collectAsState()
+    var requestedFreshAuth by remember { mutableStateOf<ImportTaskState?>(null) }
     var isImporting by remember { mutableStateOf(false) }
     var isUploading by remember { mutableStateOf(false) }
     var isSettingsOpen by rememberSaveable { mutableStateOf(false) }
@@ -385,9 +387,16 @@ private fun FluentMaiApp(
         ActivityResultContracts.StartActivityForResult(),
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
-            try { ImportForegroundService.start(context); requestImportNotifications() }
+            try {
+                requestedFreshAuth?.let { ImportForegroundService.retryAuthorization(context, it) }
+                    ?: ImportForegroundService.start(context)
+                requestImportNotifications()
+            }
             catch (error: Exception) { WahlapHookBridge.setStatus("无法启动后台导入：${redactMessage(error.message.orEmpty())}") }
         } else {
+            requestedFreshAuth = null
+            ImportTaskStore.state.value = ImportTaskState(id = System.nanoTime(), phase = ImportTaskPhase.Finished,
+                failureCategory = ImportFailureCategory.CAPTURE_VPN, error = "没有获得 VPN 权限，无法捕获微信授权请求")
             WahlapHookBridge.setStatus("没有获得 VPN 权限，无法从微信捕获授权请求。")
         }
     }
@@ -658,6 +667,7 @@ private fun FluentMaiApp(
             importStatus = when (task.phase) {
                 ImportTaskPhase.Idle, ImportTaskPhase.Waiting -> ImportRunStatus.Idle
                 ImportTaskPhase.Running -> ImportRunStatus.Importing
+                ImportTaskPhase.AuthRetryAvailable -> ImportRunStatus.Failed
                 ImportTaskPhase.Finished -> when {
                     task.complete -> ImportRunStatus.Success
                     task.succeeded -> ImportRunStatus.PartialSuccess
@@ -673,12 +683,14 @@ private fun FluentMaiApp(
 
     fun startHookCapture() {
         if (ImportTaskStore.state.value.busy) return
+        requestedFreshAuth = ImportTaskStore.state.value.takeIf { it.phase == ImportTaskPhase.AuthRetryAvailable }
         val vpnPrepareIntent = VpnService.prepare(context)
         if (vpnPrepareIntent != null) {
             vpnPermissionLauncher.launch(vpnPrepareIntent)
         } else {
             try {
-                ImportForegroundService.start(context)
+                requestedFreshAuth?.let { ImportForegroundService.retryAuthorization(context, it) }
+                    ?: ImportForegroundService.start(context)
                 requestImportNotifications()
             } catch (error: Exception) { WahlapHookBridge.setStatus("无法启动后台导入：${redactMessage(error.message.orEmpty())}") }
         }
@@ -691,23 +703,41 @@ private fun FluentMaiApp(
     }
 
     fun copyHookUrl() {
+        if (isPreparingHookLink || ImportTaskStore.state.value.phase != ImportTaskPhase.Waiting) return
+        val expectedExecution = ImportTaskStore.state.value.executionId
+        isPreparingHookLink = true
         scope.launch {
-            isPreparingHookLink = true
             try {
                 val authUrl = withContext(Dispatchers.IO) {
-                    WahlapWechatAuthUrlClient(authUrlRedactor).maimaiDxAuthUrl()
+                    WahlapWechatAuthUrlClient(authUrlRedactor, canAuthorize = {
+                        ImportTaskStore.state.value.let { it.executionId == expectedExecution && it.phase == ImportTaskPhase.Waiting }
+                    }).maimaiDxAuthUrl()
                 }
+                if (ImportTaskStore.state.value.executionId != expectedExecution ||
+                    ImportTaskStore.state.value.phase != ImportTaskPhase.Waiting) return@launch
                 hookLink = authUrl
                 copyTextToClipboard(context, "FluentMai 微信授权链接", authUrl)
                 WahlapHookBridge.setStatus("微信授权链接已复制。请发到微信并点开，VPN 会捕获回跳授权。")
             } catch (error: Exception) {
+                if (error is kotlinx.coroutines.CancellationException) throw error
+                if (ImportTaskStore.state.value.executionId != expectedExecution) return@launch
                 val safeMessage = redactMessage(error.message ?: error::class.java.simpleName)
                 hookLink = WahlapHookHttpService.HOOK_URL
-                copyTextToClipboard(context, "FluentMai 备用 Hook 链接", WahlapHookHttpService.HOOK_URL)
-                WahlapHookBridge.setStatus("生成微信授权链接失败，已复制备用本地链接：$safeMessage")
+                WahlapHookBridge.setStatus("生成微信授权链接失败：$safeMessage")
+                WahlapHookBridge.captureFailed(ImportFailureCategory.AUTHORIZE_GENERATION, expectedExecution)
             } finally {
                 isPreparingHookLink = false
             }
+        }
+    }
+
+    LaunchedEffect(authTask.executionId, authTask.phase) {
+        if (authTask.phase != ImportTaskPhase.Waiting) hookLink = WahlapHookHttpService.HOOK_URL
+        val requested = requestedFreshAuth
+        if (requested != null && authTask.id == requested.id &&
+            authTask.authAttempt == requested.authAttempt + 1 && authTask.phase == ImportTaskPhase.Waiting) {
+            requestedFreshAuth = null
+            copyHookUrl()
         }
     }
 
@@ -920,6 +950,11 @@ private fun FluentMaiApp(
                     isImporting = isImporting,
                     isUploading = isUploading,
                     isPreparingHookLink = isPreparingHookLink,
+                    authAttemptNumber = authTask.authAttempt,
+                    maxAuthAttempts = authTask.maxAuthAttempts,
+                    authRetryAvailable = authTask.phase == ImportTaskPhase.AuthRetryAvailable,
+                    isAuthorizing = authTask.phase == ImportTaskPhase.Waiting,
+                    onRetryAuthorization = ::startHookCapture,
                     wahlapCookieInput = wahlapCookieInput,
                     onStartHookCapture = ::startHookCapture,
                     onStopHookCapture = ::stopHookCapture,

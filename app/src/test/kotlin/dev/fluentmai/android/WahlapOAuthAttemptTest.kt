@@ -9,6 +9,8 @@ import io.ktor.http.Url
 import java.io.File
 import java.io.IOException
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.async
+import kotlinx.coroutines.Dispatchers
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -149,5 +151,90 @@ class WahlapOAuthAttemptTest {
             assertFalse(cookies.contains("shared=fixture-authorize"))
             assertTrue(cookies.contains("authorizeOnly=fixture-retained"))
         }
+    }
+
+    @Test fun freshRetryGeneratesDistinctAuthorizeAndDoesNotCarryRejectedBrowserContext() = runBlocking {
+        var generation = 0
+        val attempts = mutableListOf<WahlapOAuthAttempt>()
+        val handoff = WahlapAuthCaptureHandoff {
+            WahlapOAuthAttempt(WahlapImportHttpClient(isAuthCallback = { it.contains("/callback/") })).also(attempts::add)
+        }
+        WahlapLoopbackServer { request ->
+            when (request.path) {
+                "/authorize" -> {
+                    generation++
+                    WahlapLoopbackServer.Response(302, headers = mapOf("Location" to "/entry-$generation",
+                        "Set-Cookie" to "authorizeOnly=fixture-$generation; Path=/"))
+                }
+                "/callback/maimai-dx" -> WahlapLoopbackServer.Response(404)
+                "/maimai-mobile/home/" -> WahlapLoopbackServer.Response(body = "<html>登录失败</html>")
+                else -> WahlapLoopbackServer.Response()
+            }
+        }.use { server ->
+            val auth = WahlapWechatAuthUrlClient(PrivacyRedactor(), handoff, server.url("/authorize"), { true })
+            for (number in 1..2) {
+                assertEquals(server.url("/entry-$number"), auth.maimaiDxAuthUrl())
+                assertEquals(server.url("/entry-$number"), auth.maimaiDxAuthUrl()) // double click uses same authorize entry
+                val callback = server.url("/callback/maimai-dx?code=fixture-$number")
+                handoff.captureCallback(callback, "GET / HTTP/1.1\r\nCookie: browser=fixture-$number\r\nUser-Agent: Fixture-UA-$number\r\n")
+                val attempt = handoff.consumeAttempt(callback)
+                WahlapHttpScorePageClient(PrivacyRedactor(), attempt = attempt,
+                    mapRequestUrl = { server.url(Url(it).encodedPath) }).use { client ->
+                    try { client.login(callback); fail("expected fresh-auth rejection") }
+                    catch (error: IOException) {
+                        assertEquals(ImportFailureCategory.AUTHORIZATION_RETRY_REQUIRED, importFailureCategory(error, false))
+                    }
+                    // Even an accidental second login cannot replay this code.
+                    try { client.login(callback); fail("callback must be single-use") } catch (_: IOException) { }
+                }
+                assertTrue(attempt.isClosed)
+                assertTrue(server.requestsAt("/authorize")[number - 1].headers["cookie"].isNullOrBlank())
+                val sent = server.requestsAt("/callback/maimai-dx")[number - 1]
+                assertEquals("Fixture-UA-$number", sent.headers["user-agent"])
+                assertTrue(sent.headers["cookie"].orEmpty().contains("browser=fixture-$number"))
+                assertFalse(sent.headers["cookie"].orEmpty().contains("browser=fixture-${3 - number}"))
+            }
+            assertNotSame(attempts[0].httpClient, attempts[1].httpClient)
+            assertEquals(2, generation); assertEquals(2, server.requestsAt("/callback/maimai-dx").size)
+        }
+    }
+
+    @Test fun cancellingAuthorizeWhileIoRunsDoesNotBlockCleanupOrResurrectAttempt() = runBlocking {
+        val handoff = handoff()
+        val started = java.util.concurrent.CountDownLatch(1)
+        val release = java.util.concurrent.CountDownLatch(1)
+        val work = async(Dispatchers.IO) {
+            runCatching { handoff.authorize { started.countDown(); release.await(); "http://fixture/entry" } }
+        }
+        try {
+            assertTrue(started.await(2, java.util.concurrent.TimeUnit.SECONDS))
+            assertNull("No callback may be captured before authorize identity is registered",
+                handoff.captureCallback("http://fixture/stale", ""))
+            handoff.discardPendingAttempt()
+            assertNull(handoff.captureCallback("http://fixture/stale", ""))
+        } finally { release.countDown() }
+        assertTrue(work.await().isFailure)
+        assertNull(handoff.captureCallback("http://fixture/stale", ""))
+    }
+
+    @Test fun simultaneousAuthorizeRequestsCreateOnlyOneAttemptAndOneEntry() = runBlocking {
+        val attempts = java.util.Collections.synchronizedList(mutableListOf<WahlapOAuthAttempt>())
+        val handoff = WahlapAuthCaptureHandoff { WahlapOAuthAttempt().also(attempts::add) }
+        val generated = java.util.concurrent.atomic.AtomicInteger()
+        val entered = java.util.concurrent.CountDownLatch(1)
+        val release = java.util.concurrent.CountDownLatch(1)
+        val generate: (WahlapOAuthAttempt) -> String = {
+            generated.incrementAndGet(); entered.countDown(); release.await(); "http://fixture/entry"
+        }
+        val first = async(Dispatchers.IO) { handoff.authorize(generate = generate) }
+        assertTrue(entered.await(2, java.util.concurrent.TimeUnit.SECONDS))
+        val second = async(Dispatchers.IO) { handoff.authorize(generate = generate) }
+        try {
+            assertNull(handoff.captureCallback("http://fixture/stale", ""))
+        } finally { release.countDown() }
+        assertEquals("http://fixture/entry", first.await())
+        assertEquals("http://fixture/entry", second.await())
+        assertEquals(1, generated.get()); assertEquals(1, attempts.size)
+        handoff.discardPendingAttempt(); assertTrue(attempts.single().isClosed)
     }
 }

@@ -6,10 +6,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import java.net.URI
 import java.util.concurrent.atomic.AtomicBoolean
 
+internal data class CaptureFailure(val executionId: Long, val category: ImportFailureCategory)
+
 object WahlapHookBridge {
     val capturedAuthUrls = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val status = MutableStateFlow("Capture not started")
     val vpnRunning = MutableStateFlow(false)
+    internal val captureFailures = MutableSharedFlow<CaptureFailure>(extraBufferCapacity = 4)
+    internal fun captureFailed(category: ImportFailureCategory, executionId: Long = ImportTaskStore.state.value.executionId) {
+        captureFailures.tryEmit(CaptureFailure(executionId, category))
+    }
 
     private val importRunning = AtomicBoolean(false)
 
@@ -19,6 +25,7 @@ object WahlapHookBridge {
     }
 
     @JvmStatic
+    @Synchronized
     fun onAuthRequestCaptured(rawUrl: String, rawRequestHeaders: String) {
         val capturedUri = runCatching { URI(rawUrl.trim()) }.getOrNull()
         val host = capturedUri?.host.orEmpty()
@@ -65,6 +72,9 @@ object WahlapHookBridge {
 
     @JvmStatic
     fun setVpnRunning(running: Boolean) {
+        if (!running && vpnRunning.value && ImportTaskStore.state.value.phase == ImportTaskPhase.Waiting) {
+            captureFailed(ImportFailureCategory.CAPTURE_VPN)
+        }
         vpnRunning.value = running
         status.value = if (running) {
             "Capture started. Open the hook link in WeChat."

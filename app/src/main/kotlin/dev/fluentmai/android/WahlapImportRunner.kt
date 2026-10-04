@@ -23,6 +23,7 @@ internal class WahlapImportRunner(context: Context) : AutoCloseable {
         authUrl: String,
         afterLoginAttempt: () -> Unit = {},
         onProgress: (ImportProgress) -> Unit = {},
+        onAuthenticatedHome: () -> Unit = {},
     ): RealWahlapImportResult = withImportDiagnostics("微信捕获") { diagnostics ->
         diagnostics.record(importBackgroundDiagnostic(context))
         val efficientPc = themePreferences.efficientPc
@@ -37,6 +38,7 @@ internal class WahlapImportRunner(context: Context) : AutoCloseable {
         try {
             try {
                 client.login(authUrl)
+                onAuthenticatedHome()
             } finally {
                 afterLoginAttempt()
             }

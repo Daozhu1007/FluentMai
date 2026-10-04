@@ -1,15 +1,28 @@
 # AUTH-NET device investigation history
 
-Curated 2026-10-04. All windows below use Asia/Shanghai (UTC+08:00).
+Curated 2026-10-04; engineering transition added 2026-10-05.
+All windows below use Asia/Shanghai (UTC+08:00).
 **DRAFT / WIP / NOT ACCEPTED / NOT FOR RELEASE. PR #7 remains Draft.**
 
-This is a historical evidence curation, based on fetched `origin/auth-net-1-v030`
-at `663cca0ac658877d09e1976289052b59056794c3`. No new device access, ADB,
-OAuth request, server probe, production experiment or CTO relay was performed.
+The original historical curation was based on fetched `origin/auth-net-1-v030`
+at `663cca0ac658877d09e1976289052b59056794c3` and performed no new device access,
+ADB, OAuth request, server probe, production experiment or CTO relay.
+The later [3A engineering report](AUTH-NET-3A.md) separately records implementation
+and three tablet-only product-flow transactions from the fetched `8abfaa95` baseline.
 The original local reports and artifacts were retained. Missing observations
 remain `UNOBSERVED`; synthetic checks and Owner reports are identified separately.
 
 ## Current reading
+
+**ROOT-CAUSE FORENSICS CLOSED → PRODUCT MITIGATION IMPLEMENTED.**
+[AUTH-NET-3A](AUTH-NET-3A.md) adds user-mediated fresh authorization retry with a
+three-transaction budget and no old callback replay. Its tablet run reached bounded
+FAILED after three callback-404/unauthenticated-Home decisions:
+`BOUNDED_FRESH_AUTH_RETRY_FLOW_VALIDATED`;
+`AUTHENTICATED_IMPORT_ACCEPTANCE_STILL_BLOCKED`.
+It mitigates intermittent authentication failure without repairing or explaining
+Wahlap server behavior. The final pre-identity-registration capture gate was added
+after that run and has deterministic coverage; no fourth OAuth was spent on it.
 
 The strongest measured differential is [2K](AUTH-NET-2K.md): immediately adjacent
 phone FAIL/SUCCESS attempts changed the callback **first hop from 404 to 302**.
@@ -23,16 +36,21 @@ budget on four fresh transactions that all failed first-hop 404, and measured th
 fields 2K could not: intra-transaction `r/t/state/code` integrity passed in **4/4**
 attempts; first-hop request header **values** were identical across all four; every
 first hop was EO-Cache-Status MISS on the same `nginx/1.29.5` banner with the FAIL
-body byte-identical to 2K's. Client-observable request construction is now measured
-equivalent across historical FAIL and SUCCESS outcomes; the residual explanation
-space is server-side per-transaction/per-window state.
+body byte-identical to 2K's. These header values are equal within the four FAILs;
+2L had no SUCCESS. 2K retains the first-hop FAIL→SUCCESS pair but did not measure
+every value-level field added by 2L. Equality across outcomes is not established.
+No explanatory client-side defect has been identified; server-side
+per-transaction/per-window state is the leading residual explanation space,
+not a proven cause.
 **`STOP_CLIENT_SIDE_ROOT_CAUSE_FORENSICS` is recommended**; the next engineering
-direction is `BOUNDED_FRESH_OAUTH_TRANSACTION_RETRY`.
+direction, now implemented by 3A, is `BOUNDED_FRESH_OAUTH_TRANSACTION_RETRY`.
 
 The leading historical investigation area — server-side transaction state, OAuth
 parameter integrity, backend affinity, and remaining unmeasured metadata — has been
-narrowed accordingly: parameter integrity and metadata are no longer candidates
-(2L-R2 measured them clean); timing was never established. A first-hop 302 followed
+narrowed by the additional integrity-perfect failures, without disproving every
+parameter-integrity or metadata candidate across FAIL and SUCCESS. Further broad
+client-side forensics have low expected value; timing was never established.
+A first-hop 302 followed
 by authenticated Home proves that the callback endpoint can serve a successful
 transaction. It supersedes the global route-unavailable interpretation of 2H/2I,
 without erasing their observed 404s.
@@ -67,7 +85,8 @@ reports are not pooled into a controlled experiment.
 | AUTH-NET-2J-PRECHECK | Oct 4, 16:21–16:27 | 23116PN5BC phone; 0.3.0-beta / 14 | 19/20 DEX match 919ea16 reference; auth-class disassemblies match | PHONE_BUILD_IDENTIFIED_PROBABLY | Early AUTH-NET lineage likely; stock/global-client assumption excluded; exact SHA unknown | STILL_VALID | [Forensics](AUTH-NET-2J-PRECHECK.md) |
 | AUTH-NET-2J-R2 | Oct 4, 16:47–16:58 | Same phone APK; #3/#4 same replacement process | FAIL→SUCCESS; final callback 404→200; first hop unobserved | INCONCLUSIVE_CALLBACK_METADATA_INCOMPLETE | Differential exists; fuller 2K metadata is new evidence, not recovered R2 data | PARTIALLY_SUPERSEDED | [R2](AUTH-NET-2J-R2.md) |
 | AUTH-NET-2K | Oct 4, 18:36–18:37 starts | Same phone APK; same live process/attachment | First hop 404→302; compared Cookie values SAME, normalized UA same, pre-replay jars empty | FIRST_HOP_AUTH_DIFFERENTIAL_CONFIRMED; SERVER_SIDE_STATE_OR_TIMING_DIFFERENTIAL_SUPPORTED | Measured differential; server state/parameter integrity/affinity/unmeasured metadata remain candidates | STILL_VALID | [2K](AUTH-NET-2K.md) |
-| AUTH-NET-2L-R2 | Oct 4, 23:40–00:05 | Same phone APK; PID 1167 across both attachments | 4 fresh transactions all first-hop 404; r/t/state/code integrity 4/4 MATCH; first-hop header values identical; every hop EO-Cache-Status MISS | NO_COMPLETE_DIFFERENTIAL (CASE E); STOP_CLIENT_SIDE_ROOT_CAUSE_FORENSICS recommended | Client-side request construction measured equivalent across outcomes; residual is server-side per-transaction/per-window state | STILL_VALID | [2L-R2](AUTH-NET-2L-R2.md) |
+| AUTH-NET-2L-R2 | Oct 4, 23:40–00:05 | Same phone APK; PID 1167 across both attachments | 4 fresh transactions all first-hop 404; r/t/state/code integrity 4/4 MATCH; first-hop header values identical; every hop EO-Cache-Status MISS | NO_COMPLETE_DIFFERENTIAL (CASE E); STOP_CLIENT_SIDE_ROOT_CAUSE_FORENSICS recommended | Header values equal within four FAILs; no SUCCESS or complete value-level comparison across outcomes; server-side per-transaction/per-window state leads residual explanations, not proven | STILL_VALID | [2L-R2](AUTH-NET-2L-R2.md) |
+| AUTH-NET-3A | Oct 5, 00:57–01:07 | 24018RPACC tablet; separate validation 0.3.0-beta / 14 | Three fresh callback requests, each once; callback 404 followed by unauthenticated Home; retry UI 1/3 → 2/3 → bounded FAILED 3/3 | BOUNDED_FRESH_AUTH_RETRY_FLOW_VALIDATED; AUTHENTICATED_IMPORT_ACCEPTANCE_STILL_BLOCKED | Product mitigation observed; final generation-window gate tested separately; score/import hardware acceptance remains blocked | STILL_VALID | [3A implementation/device report](AUTH-NET-3A.md) |
 
 ## Failure categories and acceptance boundary
 
