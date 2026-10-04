@@ -3,6 +3,15 @@
 Date: 2026-10-03 (evening, Asia/Shanghai). DRAFT / WIP / NOT ACCEPTED / NOT FOR RELEASE.
 Base: reviewed implementation `07eb6eea` (branch `auth-net-1-v030` @ `b0e92e86`). No production behavior modified; the experimental replay strategy stayed local and is not committed.
 
+**Historical interpretation update (2026-10-04):** 2G's shared-current-failure
+observation remains valid. The global callback-route-unavailable interpretation
+of 2H is **PARTIALLY_SUPERSEDED**: later phone transactions reached authenticated
+Home, and [2K](research/auth-net/device-history/AUTH-NET-2K.md) directly observed
+the same callback endpoint produce first-hop 302. The old route-outage hypothesis
+and the bounded 404 observations are preserved below; they must not be read as
+current proof of global unavailability or parameter non-evaluation. See the
+[history index](research/auth-net/device-history/INDEX.md) for the chronology.
+
 ## AUTH-NET-2G — interleaved same-tablet A/B (agent-driven, both sides)
 
 Setup: Xiaomi 24018RPACC tablet, Android 16, WeChat 8.0.72 primary instance, validated 5 GHz Wi-Fi, no proxy/Private DNS/VPN. A = installed control `dev.fluentmai.android` 0.2.9-beta vc13 (installed APK sha256 `d5804344…`, unchanged, data untouched). B = rebuilt from `07eb6ee` with temporary build-only `applicationId = dev.fluentmai.android.validation` (restored after build; worktree clean). appId-change audit: only the FileProvider authority derives from `applicationId`; no auth/network/VPN package conditionals; shared local ports 8284/9457 used strictly interleaved.
@@ -25,15 +34,19 @@ R1 run 1 (fresh transaction, authorize→callback **7.6 s**, under the 10 s targ
 - Same-session R0 (candidate raw replay) also 404 as in all prior evidence.
 
 Route-level probes (no valid OAuth values used):
-- Callback with garbage / empty / partial params, over HTTPS and HTTP:80 — **all identical bare nginx 404 (555 bytes)**. Parameters are never evaluated.
-- `GET /wc_auth/oauth/authorize/maimai-dx` — **alive**: fresh `302` → `open.weixin.qq.com/connect/oauth2/authorize?appid=wx1fcecfcbd16803b1&redirect_uri=https%3A%2F%2Ftgk-wcaime.wahlap.com%2Fwc_auth%2Foauth%2Fcallback%2Fmaimai-dx%3Fr%3D…%26t%3D…&response_type=code&scope=snsapi_base&state=…` (server-minted `r`/`t` bound inside the redirect_uri; observed 20:27 +08:00).
+- Callback with garbage / empty / partial params, over HTTPS and HTTP:80 — **all identical bare nginx 404 (555 bytes)**. At the time this was interpreted as "Parameters are never evaluated"; parameter non-evaluation was not established by these responses.
+- `GET /wc_auth/oauth/authorize/maimai-dx` — **alive**: fresh `302` to host `open.weixin.qq.com`, authorization path class; redirect target was the Wahlap HTTPS callback path, with server-minted `r`/`t` bound inside `redirect_uri` and `state` present (observed 20:27 +08:00). URL/query values are omitted.
 
-R1 run 2 skipped as uninformative: the callback route 404s at the nginx level before any parameter or code evaluation, so a second fresh transaction cannot yield a different first hop; R2/R3 isolation is moot for the same reason.
+R1 run 2 was skipped as uninformative under the historical hypothesis that the
+callback 404 occurred before any parameter/code evaluation and a second fresh
+transaction could not yield a different first hop; R2/R3 isolation was considered
+moot. This records the decision at the time. Later success supersedes its
+universal premise; this round contains only one tested fresh R1 transaction.
 
-## Interpretation (bounded)
+## Interpretation at the time (historical hypothesis; partially superseded)
 
-- The OAuth **authorize** side still works and still mints `r`/`t`; the **callback** route is dead at the route level for every client shape, including the byte-faithful public reference shape.
-- Therefore today's shared failure is **server-side and shape-independent**; no FluentMai (v0.2.9 or v0.3.0) auth regression is measurable against it.
-- maimai.py shows no public 404 reports yet; the window overlaps the National Day holiday, so a temporary maintenance state vs permanent route removal cannot be distinguished from here.
+- The observed OAuth **authorize** side still worked and minted `r`/`t`. The report inferred that the **callback** route was "dead at the route level for every client shape", including the public reference shape. That global route interpretation is superseded; the measured R1/R0 and dummy 404s remain valid for their window.
+- The report therefore inferred **server-side and shape-independent** failure. Server-side causality and universal shape independence were unproven. Separately, 2G's same-condition A/B supplied no evidence of a v0.3.0-specific auth regression.
+- At the time, the public-signal check found no maimai.py 404 report; the report considered temporary maintenance versus permanent route removal unresolved. Neither possibility was established, and this is not a current public-signal claim.
 
-Fingerprint metadata per CTO spec (status, location-present, content-type, body length, body hash, query-key set, timings) was recorded locally per attempt; no response bodies or OAuth values are published. Private evidence: `C:\Users\Daozh\.codex\diagnostics\AUTH-NET-2G-20261003` (attempt logs A1–A6/B1–B6, attempt matrix, R1 run artifacts, screenshots).
+Fingerprint metadata per CTO spec (status, location-present, content-type, body length, body hash, query-key set, timings) was recorded locally per attempt; no response bodies or OAuth values are published. Private evidence directory name: `AUTH-NET-2G-20261003` (attempt logs A1–A6/B1–B6, attempt matrix, R1 run artifacts, screenshots). These raw artifacts are not imported into the history.
