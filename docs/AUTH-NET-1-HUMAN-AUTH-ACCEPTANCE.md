@@ -2,6 +2,10 @@
 
 Date: 2026-10-03, Asia/Shanghai (+08:00).
 
+Historical 2F report; measured outcome remains valid. Later investigations and
+corrected interpretations are indexed in [device history](research/auth-net/device-history/INDEX.md).
+This report does not establish acceptance of the subsequently reviewed candidate.
+
 **FINAL VERDICT: OWNER_DRIVEN_AUTH_STILL_BLOCKED**
 
 **WIP / DEVICE VALIDATION BLOCKED / NOT ACCEPTED / NOT FOR RELEASE**
@@ -16,7 +20,7 @@ The baseline is an ancestor of the implementation. The implementation was pushed
 
 ## Source and package controls
 
-The requested feature worktree contains pre-existing, uncommitted OAuth experiments and diagnostic reports. Those files were retained and excluded from the push and APK build. The independent, initially clean detached worktree `D:\Code\FluentMai-authnet-device-919ea16` was used to build the exact implementation. Its sole temporary change was `applicationId = "dev.fluentmai.android.validation"`; the build configuration was restored immediately after APK creation and the tracked worktree was verified clean.
+The requested feature worktree contains pre-existing, uncommitted OAuth experiments and diagnostic reports. Those files were retained and excluded from the push and APK build. The independent, initially clean detached worktree `FluentMai-authnet-device-919ea16` was used to build the exact implementation. Its sole temporary change was `applicationId = "dev.fluentmai.android.validation"`; the build configuration was restored immediately after APK creation and the tracked worktree was verified clean.
 
 Candidate metadata: `0.3.0-beta`, versionCode **14**. Candidate APK SHA-256: `98dd3d7e386d3b6802748dd31d94c0eda87cbccb896f3d15f86b169e4bf943f5`. A data-preserving side-by-side installation and installed APK readback verified that hash. No auth, retry, timeout, persistence or network code was modified.
 
@@ -142,7 +146,7 @@ Both produce `SQLiteCantOpenDatabaseException` / `SQLITE_CANTOPEN`. Both were re
 - Candidate build worktree: exact `919ea16`, clean after applicationId restoration.
 - Cleanup at **17:02:39 +08:00**: no active VPN/TUN network agent, Hook listeners or capture/import services; original and candidate packages retained. Only owned host collectors/logcat subprocesses were stopped, with the ADB server retained.
 
-Private local safe evidence is stored under `C:\Users\Daozh\.codex\diagnostics\AUTH-NET-2F-20261003`. Raw OAuth values, Cookie values, account identifiers, private serials and sensitive URLs are excluded from this report and publication.
+Private local safe evidence directory name: `AUTH-NET-2F-20261003`. Raw OAuth values, Cookie values, account identifiers, private serials and sensitive URLs are excluded from this report and publication.
 
 Primary evidence: `preflight.json`, `build-result.json`, `candidate-identity.json`, `original-before/after.json`, `logcat-safe.jsonl`, `attempt1-5-prepared/capture/events.json`, four fresh `attemptN-diagnostic.txt` / `attemptN-task-observation.json` pairs (N=1/3/4/5), five `attemptN-after-data.json` checks, `test-summary.json`, and `baseline-migration-summary.json`. Retrospective query-key extraction did not recover attempts 1-4; this missing optional metadata did not trigger extra authorization attempts. Pre-existing experimental source/test bytes were compared to their prior preserved snapshot and matched. No original or candidate raw database was retained by the in-memory database count collector.
 
