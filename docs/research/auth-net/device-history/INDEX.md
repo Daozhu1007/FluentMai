@@ -1,7 +1,7 @@
 # AUTH-NET device investigation history
 
 Curated 2026-10-04; engineering transition, final-APK session and replacement
-bounded-retry acceptance added 2026-10-05.
+bounded-retry acceptance added 2026-10-05; manual timing crossover added 2026-10-06.
 All windows below use Asia/Shanghai (UTC+08:00).
 **DRAFT / WIP / NOT ACCEPTED / NOT FOR RELEASE. PR #7 remains Draft.**
 
@@ -16,6 +16,23 @@ remain `UNOBSERVED`; synthetic checks and Owner reports are identified separatel
 ## Current reading
 
 **ROOT-CAUSE FORENSICS CLOSED → PRODUCT MITIGATION IMPLEMENTED.**
+
+The separately authorized [AUTH-NET-TIMING-1 manual crossover](AUTH-NET-TIMING-1.md)
+reopened only transaction-age association. On the unchanged exact final APK
+`cebb50dd…` / production `9dd6b2c`, actual order was FAST → DELAY-20 → FAST →
+DELAY-20 → FAST, then the task-defined early stop at 5/6. FAST authenticated 2/3
+(successful latencies 8,443 and 7,632 ms; one 9,467 ms FAST failure); DELAY-20
+authenticated 0/2 (38,333 and 32,771 ms, each with a 20,000 ms host wait).
+**`LATENCY_HYPOTHESIS_STRONGLY_SUPPORTED`** applies to that small-sample rule,
+not causal proof or an exact TTL. The Owner waived the original start-time gate;
+all observations were before, rather than inside, the 04:00–07:00 maintenance window.
+Both authenticated imports completed naturally, with Owner-confirmed COMPLETE
+terminal UI, logged required-page requests and two independently measured batch
+additions: **`AUTH_NET_COMPLETE_IMPORT_VALIDATED`**, under those observation limits.
+Authenticated full import is now witnessed on this exact APK; score retry recovery
+and PARTIAL persistence remain unvalidated. No production change was made; broader
+Cookie/header/backend/JDI/ART forensics remain closed. PR #7 remains Draft.
+
 [AUTH-NET-3A](AUTH-NET-3A.md) adds user-mediated fresh authorization retry with a
 three-transaction budget and no old callback replay. Its tablet run reached bounded
 FAILED after three callback-404/unauthenticated-Home decisions:
@@ -45,10 +62,10 @@ rows and control APK/install metadata were preserved. Awarded:
 `FINAL_BINARY_BOUNDED_FRESH_AUTH_RETRY_VALIDATED`;
 `AUTHENTICATED_IMPORT_ACCEPTANCE_STILL_BLOCKED`.
 **The exact-final-binary bounded retry gate is closed.** `READY_FOR_NEXT_PRODUCT_PHASE`
-applies to that gate under the Owner's three-rejection rule; authenticated full
-import, score retry recovery and PARTIAL persistence remain unvalidated.
+applies to that gate under the Owner's three-rejection rule; that historical run
+did not validate authenticated full import, score retry recovery or PARTIAL persistence.
 PR #7 remains Draft / WIP / NOT ACCEPTED / NOT FOR RELEASE. No further OAuth session
-was run or authorized in this task.
+was run or authorized in that 3B-R2 task; TIMING-1 has separate Owner authorization.
 
 The strongest measured differential is [2K](AUTH-NET-2K.md): immediately adjacent
 phone FAIL/SUCCESS attempts changed the callback **first hop from 404 to 302**.
@@ -75,7 +92,8 @@ The leading historical investigation area — server-side transaction state, OAu
 parameter integrity, backend affinity, and remaining unmeasured metadata — has been
 narrowed by the additional integrity-perfect failures, without disproving every
 parameter-integrity or metadata candidate across FAIL and SUCCESS. Further broad
-client-side forensics have low expected value; timing was never established.
+client-side forensics have low expected value; those historical windows did not
+establish timing. TIMING-1 later adds a bounded association, without proving a cause.
 A first-hop 302 followed
 by authenticated Home proves that the callback endpoint can serve a successful
 transaction. It supersedes the global route-unavailable interpretation of 2H/2I,
@@ -115,6 +133,7 @@ reports are not pooled into a controlled experiment.
 | AUTH-NET-3A | Oct 5, 00:57–01:07 | 24018RPACC tablet; separate validation 0.3.0-beta / 14 | Three fresh callback requests, each once; callback 404 followed by unauthenticated Home; retry UI 1/3 → 2/3 → bounded FAILED 3/3 | BOUNDED_FRESH_AUTH_RETRY_FLOW_VALIDATED; AUTHENTICATED_IMPORT_ACCEPTANCE_STILL_BLOCKED | Product mitigation observed; final generation-window gate tested separately; score/import hardware acceptance remains blocked | STILL_VALID | [3A implementation/device report](AUTH-NET-3A.md) |
 | AUTH-NET-3B | Oct 5, 01:46–02:09 | 24018RPACC tablet; exact final source 9dd6b2c / installed APK cebb50dd… | Attempt 1: callback replay once, 404, unauthenticated Home, retry at 1/3; attempt 2: fresh authorize at 2/3, execution delay, capture timeout, zero callback replay; no third transaction | Acceptance incomplete; AUTHENTICATED_IMPORT_ACCEPTANCE_STILL_BLOCKED retained | The interrupted sequence does not close the exact-final-binary 3/3 gap or establish a production defect; no final retry/full import/recovery/PARTIAL hardware marker | INCONCLUSIVE | [3B exact-final-APK session](AUTH-NET-3A.md#auth-net-3b-exact-final-apk-session--acceptance-incomplete) |
 | AUTH-NET-3B-R2 | Oct 5, 02:41–02:46 | 24018RPACC tablet; fetched HEAD 1d389a0, implementation 9dd6b2c / unchanged exact installed APK cebb50dd… | One replacement logical import, 3 fresh transactions, 1 callback replay each, all callback 404 → unauthenticated Home; 1/3 retry → 2/3 retry → 3/3 FAILED; natural cleanup and no new import batch | FINAL_BINARY_BOUNDED_FRESH_AUTH_RETRY_VALIDATED; AUTHENTICATED_IMPORT_ACCEPTANCE_STILL_BLOCKED | Exact-final-binary bounded retry gate closed; READY_FOR_NEXT_PRODUCT_PHASE is scoped to this gate, not authenticated import or release acceptance | STILL_VALID | [3B-R2 replacement acceptance](AUTH-NET-3A.md#auth-net-3b-r2-replacement-exact-final-binary-acceptance) |
+| AUTH-NET-TIMING-1 | Oct 6, 03:12–03:22; Owner waived original start-time gate | Same 24018RPACC tablet; fetched HEAD 902b553, production 9dd6b2c / unchanged exact APK cebb50dd… | Manual FAST / DELAY-20 / FAST / DELAY-20 / FAST; FAST 2/3 Home success at 8,443 and 7,632 ms, one FAST failure at 9,467 ms; DELAY 0/2 at 38,333 and 32,771 ms; two Owner-confirmed COMPLETE imports, two batch additions; natural cleanup | LATENCY_HYPOTHESIS_STRONGLY_SUPPORTED; AUTH_NET_COMPLETE_IMPORT_VALIDATED | Task-defined early-stop criterion met at 5/6; short latency is associated with acceptance in this window, with a retained fast failure; no exact TTL, causal server expiry, score-retry or PARTIAL proof | STILL_VALID | [Manual timing crossover](AUTH-NET-TIMING-1.md) |
 
 ## Failure categories and acceptance boundary
 
@@ -127,8 +146,9 @@ reports are not pooled into a controlled experiment.
 An Owner-reported score import is preserved as a report, not promoted into
 independently measured candidate acceptance. 2K's `complete` attempt flag means
 its auth observations are complete; it is not a COMPLETE score import. Reviewed
-candidate retry recovery, PARTIAL persistence and successful background full import
-remain unvalidated by this history.
+candidate score retry recovery and PARTIAL persistence remain unvalidated.
+The later TIMING-1 run adds Owner-mediated successful full-import evidence on the
+exact final APK, with its terminal-observation and stage-timing limits stated above.
 
 ## Local inventory and import decisions
 
@@ -164,7 +184,8 @@ Existing implementation/port/baseline-rescue reports are linked rather than dupl
 
 ## CTO review map
 
-**MUST READ:** this index, [2K](AUTH-NET-2K.md), [2L-R2](AUTH-NET-2L-R2.md),
+**MUST READ:** this index, [Manual timing crossover](AUTH-NET-TIMING-1.md),
+[2K](AUTH-NET-2K.md), [2L-R2](AUTH-NET-2L-R2.md),
 [Phone forensics](AUTH-NET-2J-PRECHECK.md), [R2](AUTH-NET-2J-R2.md),
 and [Recovery interpretation corrections](AUTH-NET-RECOVERY-WINDOW-20261004.md).
 
