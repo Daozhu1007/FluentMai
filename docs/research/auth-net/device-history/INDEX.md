@@ -15,6 +15,14 @@ remain `UNOBSERVED`; synthetic checks and Owner reports are identified separatel
 
 ## Current reading
 
+[AUTH-NET-4A](AUTH-NET-4A.md) adds a capture-ready-first quick authorization action,
+immediate sensitive clipboard write and ordinary WeChat launcher dispatch, with
+the existing manual fallback and three-attempt ownership preserved. The new
+binary has deterministic coverage and tablet no-OAuth smoke only;
+**READY_FOR_OWNER_QUICK_HANDOFF_VALIDATION_AFTER_0705**. Real quick handoff latency
+and authenticated import on this build remain **UNOBSERVED**; no OAuth was spent
+during this engineering task. PR #7 remains Draft / WIP / NOT ACCEPTED / NOT FOR RELEASE.
+
 **ROOT-CAUSE FORENSICS CLOSED → PRODUCT MITIGATION IMPLEMENTED.**
 
 The separately authorized [AUTH-NET-TIMING-1 manual crossover](AUTH-NET-TIMING-1.md)

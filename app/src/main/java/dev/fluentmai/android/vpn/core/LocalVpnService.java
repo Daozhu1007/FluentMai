@@ -53,6 +53,7 @@ public class LocalVpnService extends VpnService implements Runnable {
     private static final ConcurrentHashMap<onStatusChangedListener, Object> m_OnStatusChangedListeners = new ConcurrentHashMap<onStatusChangedListener, Object>();
 
     private volatile Thread m_VPNThread;
+    private long captureExecutionId;
     private ParcelFileDescriptor m_VPNInterface;
     private TcpProxyServer m_TcpProxyServer;
     private DnsProxy m_DnsProxy;
@@ -100,8 +101,8 @@ public class LocalVpnService extends VpnService implements Runnable {
 
         promoteToForeground();
         if (m_VPNThread != null) return START_NOT_STICKY;
+        captureExecutionId = intent.getLongExtra("capture_execution_id", 0);
         IsRunning = true;
-        WahlapHookBridge.setVpnRunning(true);
         try {
             m_TcpProxyServer = new TcpProxyServer(0);
             m_TcpProxyServer.start();
@@ -239,6 +240,11 @@ public class LocalVpnService extends VpnService implements Runnable {
         ParcelFileDescriptor descriptor = establishVPN();
         if (descriptor == null) return;
         try (FileInputStream in = new FileInputStream(descriptor.getFileDescriptor())) {
+            // The tunnel, input/output streams and bound proxies exist before readiness.
+            synchronized (this) {
+                if (!IsRunning || m_VPNThread != Thread.currentThread() || m_DnsProxy.Stopped || m_TcpProxyServer.Stopped) return;
+                WahlapHookBridge.setVpnRunning(true, captureExecutionId);
+            }
             while (IsRunning && m_VPNThread == Thread.currentThread()) {
                 boolean idle = true;
                 int size = in.read(m_Packet);
@@ -406,7 +412,7 @@ public class LocalVpnService extends VpnService implements Runnable {
         onStatusChanged(ProxyConfig.Instance.getSessionName() + " " + getString(R.string.vpn_disconnected_status), false);
 
         IsRunning = false;
-        WahlapHookBridge.setVpnRunning(false);
+        WahlapHookBridge.setVpnRunning(false, captureExecutionId);
 
         try {
             if (m_VPNInterface != null) {

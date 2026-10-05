@@ -19,6 +19,8 @@ internal data class ImportTaskState(
     val error: String? = null,
     val diagnostics: String? = null,
     val executionId: Long = 0,
+    val handoffRequestId: Long = 0,
+    val quickAuth: Boolean = false,
     val authAttempt: Int = 0,
     val maxAuthAttempts: Int = MAX_FRESH_AUTH_ATTEMPTS,
     val authenticated: Boolean = false,

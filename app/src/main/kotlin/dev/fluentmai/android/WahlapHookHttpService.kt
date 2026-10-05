@@ -27,6 +27,7 @@ class WahlapHookHttpService : Service() {
     private var hookServer: SimpleHttpServer? = null
     private var redirectServer: SimpleHttpServer? = null
     private val redactor = PrivacyRedactor()
+    private var executionId = 0L
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -38,6 +39,13 @@ class WahlapHookHttpService : Service() {
             return START_NOT_STICKY
         }
 
+        val requestedExecution = intent.getLongExtra(ImportForegroundService.CAPTURE_EXECUTION, 0)
+        if (executionId != 0L && executionId != requestedExecution) stopServers()
+        executionId = requestedExecution
+        if (executionId != ImportTaskStore.state.value.executionId || ImportTaskStore.state.value.phase != ImportTaskPhase.Waiting) {
+            stopSelf(startId)
+            return START_NOT_STICKY
+        }
         promoteToForeground()
         startServers()
         return START_NOT_STICKY
@@ -51,21 +59,25 @@ class WahlapHookHttpService : Service() {
     }
 
     private fun startServers() {
-        var hookStarted = true
-        var redirectStarted = true
+        val ownerExecution = executionId
+        val failed = {
+            WahlapHookBridge.setHttpReady(ownerExecution, false)
+            WahlapHookBridge.captureFailed(ImportFailureCategory.CAPTURE_VPN, ownerExecution)
+        }
         if (hookServer == null) {
-            hookServer = SimpleHttpServer(PORT) { path -> serveHook(path) }
-            hookStarted = hookServer?.start() == true
+            hookServer = SimpleHttpServer(PORT, failed) { path -> serveHook(path) }
+            hookServer?.start()
         }
         if (redirectServer == null) {
-            redirectServer = SimpleHttpServer(REDIRECT_PORT) { serveCapturedPage() }
-            redirectStarted = redirectServer?.start() == true
+            redirectServer = SimpleHttpServer(REDIRECT_PORT, failed) { serveCapturedPage() }
+            redirectServer?.start()
         }
-        if (hookStarted && redirectStarted) {
+        if (hookServer?.isReady() == true && redirectServer?.isReady() == true) {
+            WahlapHookBridge.setHttpReady(executionId, true)
             WahlapHookBridge.setStatus("本地 Hook 服务已启动，请复制链接到微信打开。")
         } else {
             WahlapHookBridge.setStatus("本地 Hook 服务启动失败：端口未能监听。")
-            WahlapHookBridge.captureFailed(ImportFailureCategory.CAPTURE_VPN)
+            WahlapHookBridge.captureFailed(ImportFailureCategory.CAPTURE_VPN, executionId)
         }
     }
 
@@ -76,6 +88,7 @@ class WahlapHookHttpService : Service() {
         redirectServer?.stop()
         hookServer = null
         redirectServer = null
+        WahlapHookBridge.setHttpReady(executionId, false)
     }
 
     private fun promoteToForeground() {
@@ -121,9 +134,13 @@ class WahlapHookHttpService : Service() {
         }
 
     private fun serveMaimaiAuthRedirect(): HookHttpResponse {
-        val expectedExecution = ImportTaskStore.state.value.executionId
-        if (WahlapHookBridge.isImporting() || ImportTaskStore.state.value.phase != ImportTaskPhase.Waiting) {
+        val expectedExecution = executionId
+        if (WahlapHookBridge.isImporting() || ImportTaskStore.state.value.executionId != expectedExecution ||
+            ImportTaskStore.state.value.phase != ImportTaskPhase.Waiting) {
             return HookHttpResponse.html(202, "查分进程已经开始，请切回 FluentMai 等待导入完成。")
+        }
+        if (ImportTaskStore.state.value.quickAuth || !WahlapHookBridge.captureReadiness.value.readyFor(expectedExecution)) {
+            return HookHttpResponse.html(202, "请切回 FluentMai，等待捕获准备完成后复制授权链接。")
         }
         return runCatching {
             WahlapHookBridge.setStatus("微信已打开 Hook 链接，正在生成舞萌授权跳转。")
@@ -151,8 +168,8 @@ class WahlapHookHttpService : Service() {
         private const val ACTION_STOP = "dev.fluentmai.android.action.STOP_HOOK_HTTP"
         private const val TAG = "WahlapHookHttp"
 
-        fun start(context: Context) {
-            val intent = Intent(context, WahlapHookHttpService::class.java)
+        fun start(context: Context, executionId: Long = ImportTaskStore.state.value.executionId) {
+            val intent = Intent(context, WahlapHookHttpService::class.java).putExtra(ImportForegroundService.CAPTURE_EXECUTION, executionId)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
             } else {
@@ -209,6 +226,7 @@ private data class HookHttpResponse(
 
 private class SimpleHttpServer(
     private val port: Int,
+    private val failed: () -> Unit,
     private val handler: (String) -> HookHttpResponse,
 ) {
     @Volatile
@@ -218,6 +236,7 @@ private class SimpleHttpServer(
     private val readyLatch = CountDownLatch(1)
     private var serverSocket: ServerSocket? = null
     private var serverThread: Thread? = null
+    fun isReady(): Boolean = ready && !stopped
 
     fun start(): Boolean {
         if (serverThread != null) return ready
@@ -234,6 +253,7 @@ private class SimpleHttpServer(
 
     fun stop() {
         stopped = true
+        ready = false
         runCatching { serverSocket?.close() }
         serverSocket = null
         serverThread = null
@@ -263,6 +283,7 @@ private class SimpleHttpServer(
             readyLatch.countDown()
             ready = false
             if (!stopped) {
+                failed()
                 Log.e("FluentMaiHookHttp", "HTTP server failed on port=$port", error)
                 WahlapHookBridge.setStatus("本地 Hook 服务启动失败：${error::class.java.simpleName}")
             }

@@ -84,8 +84,13 @@ fun ImportScreen(
     authRetryAvailable: Boolean = false,
     isAuthorizing: Boolean = false,
     onRetryAuthorization: () -> Unit = {},
+    quickAuthActive: Boolean = false,
+    capturePreparing: Boolean = false,
+    captureReady: Boolean = false,
+    onQuickAuthorization: () -> Unit = {},
 ) {
-    val isBusy = isImporting || isUploading
+    val isBusy = isImporting || isUploading || quickAuthActive || capturePreparing
+    val otherActionsBlocked = isBusy || isAuthorizing || isPreparingHookLink
     var showRebuildConfirmation by remember { mutableStateOf(false) }
     var rebuildConfirmationInput by remember { mutableStateOf("") }
     val scrollState = rememberScrollState()
@@ -172,16 +177,22 @@ fun ImportScreen(
                 if (authRetryAvailable) {
                     Text(text = "华立登录未成功", style = MaterialTheme.typography.titleMedium)
                     Text(text = "本次授权已失效，请重新授权")
-                    Button(onClick = onRetryAuthorization, enabled = !isBusy && !isPreparingHookLink,
-                        modifier = Modifier.fillMaxWidth()) { Text(text = "重新授权") }
                 }
+                Button(onClick = onQuickAuthorization,
+                    enabled = !isBusy && !isPreparingHookLink && !isAuthorizing,
+                    modifier = Modifier.fillMaxWidth()) {
+                    Text(text = if (authRetryAvailable) "重新授权并打开微信" else "立即微信授权")
+                }
+                Text(text = "授权链接可能随时间变旧，建议生成后立即在微信中打开。", style = MaterialTheme.typography.bodySmall)
+                if (authRetryAvailable) OutlinedButton(onClick = onRetryAuthorization,
+                    enabled = !isBusy && !isPreparingHookLink, modifier = Modifier.fillMaxWidth()) { Text(text = "手动重新启动捕获") }
                 Text(text = hookStatus)
                 Text(text = hookUrl, style = MaterialTheme.typography.bodySmall)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Button(
+                    OutlinedButton(
                         onClick = onStartHookCapture,
                         enabled = !isBusy && !isHookRunning && !authRetryAvailable && !isAuthorizing,
                         modifier = Modifier.weight(1f),
@@ -192,7 +203,7 @@ fun ImportScreen(
                     }
                     OutlinedButton(
                         onClick = onCopyHookUrl,
-                        enabled = !isBusy && !isPreparingHookLink && isAuthorizing,
+                        enabled = !isBusy && !isPreparingHookLink && isAuthorizing && captureReady,
                         modifier = Modifier.weight(1f),
                     ) {
                         Icon(imageVector = Icons.Filled.ContentCopy, contentDescription = null)
@@ -202,7 +213,7 @@ fun ImportScreen(
                 }
                 OutlinedButton(
                     onClick = onStopHookCapture,
-                    enabled = isHookRunning,
+                    enabled = (isHookRunning || isAuthorizing || capturePreparing) && !isImporting,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Icon(imageVector = Icons.Filled.Stop, contentDescription = null)
@@ -226,7 +237,7 @@ fun ImportScreen(
                 OutlinedTextField(
                     value = wahlapCookieInput,
                     onValueChange = onWahlapCookieInputChanged,
-                    enabled = !isBusy,
+                    enabled = !otherActionsBlocked,
                     label = { Text(text = "Cookie / Reqable 请求头") },
                     visualTransformation = PasswordVisualTransformation(),
                     minLines = 3,
@@ -235,7 +246,7 @@ fun ImportScreen(
                 )
                 Button(
                     onClick = onImportWahlapCookie,
-                    enabled = !isBusy && wahlapCookieInput.isNotBlank(),
+                    enabled = !otherActionsBlocked && wahlapCookieInput.isNotBlank(),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Icon(imageVector = Icons.Filled.PlayArrow, contentDescription = null)
@@ -276,7 +287,7 @@ fun ImportScreen(
         OutlinedTextField(
             value = divingFishToken,
             onValueChange = onDivingFishTokenChanged,
-            enabled = !isBusy,
+            enabled = !otherActionsBlocked,
             label = { Text(text = "水鱼 Import Token") },
             visualTransformation = PasswordVisualTransformation(),
             singleLine = true,
@@ -284,7 +295,7 @@ fun ImportScreen(
         )
         Button(
             onClick = onUploadDivingFish,
-            enabled = !isBusy && scoreCount > 0 && divingFishToken.isNotBlank(),
+            enabled = !otherActionsBlocked && scoreCount > 0 && divingFishToken.isNotBlank(),
             modifier = Modifier.fillMaxWidth(),
         ) {
             Icon(imageVector = Icons.Filled.CloudUpload, contentDescription = null)
@@ -296,7 +307,7 @@ fun ImportScreen(
                 rebuildConfirmationInput = ""
                 showRebuildConfirmation = true
             },
-            enabled = !isBusy && scoreCount > 0 && divingFishToken.isNotBlank(),
+            enabled = !otherActionsBlocked && scoreCount > 0 && divingFishToken.isNotBlank(),
             modifier = Modifier.fillMaxWidth(),
         ) {
             Icon(imageVector = Icons.Filled.CloudUpload, contentDescription = null)
@@ -306,7 +317,7 @@ fun ImportScreen(
         OutlinedTextField(
             value = lxnsToken,
             onValueChange = onLxnsTokenChanged,
-            enabled = !isBusy,
+            enabled = !otherActionsBlocked,
             label = { Text(text = "落雪 LXNS User Token") },
             visualTransformation = PasswordVisualTransformation(),
             singleLine = true,
@@ -314,7 +325,7 @@ fun ImportScreen(
         )
         Button(
             onClick = onUploadLxns,
-            enabled = !isBusy && scoreCount > 0 && lxnsToken.isNotBlank(),
+            enabled = !otherActionsBlocked && scoreCount > 0 && lxnsToken.isNotBlank(),
             modifier = Modifier.fillMaxWidth(),
         ) {
             Icon(imageVector = Icons.Filled.CloudUpload, contentDescription = null)
