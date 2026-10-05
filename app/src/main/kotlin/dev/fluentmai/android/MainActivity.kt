@@ -14,7 +14,6 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.padding
@@ -112,6 +111,40 @@ private const val TAG = "FluentMaiImport"
 internal const val APP_VERSION = "0.3.0-beta"
 
 class MainActivity : ComponentActivity() {
+    private val quickAuth by lazy { QuickAuthRuntime.get(this) }
+    private var vpnPermissionRequestId = 0L
+    private val vpnPermissionLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val requestId = vpnPermissionRequestId
+        vpnPermissionRequestId = 0
+        quickAuth.permissionResult(requestId, result.resultCode == Activity.RESULT_OK)
+    }
+    private fun requestAuthorization(quick: Boolean) {
+        if (vpnPermissionRequestId != 0L) return
+        val permission = try { VpnService.prepare(this) } catch (_: Exception) {
+            WahlapHookBridge.setStatus("无法请求 VPN 权限，请重新开始")
+            return
+        }
+        val requestId = quickAuth.request(quick, permission != null) ?: return
+        if (permission != null) {
+            vpnPermissionRequestId = requestId
+            try { vpnPermissionLauncher.launch(permission) } catch (_: Exception) {
+                vpnPermissionRequestId = 0
+                quickAuth.permissionResult(requestId, false)
+            }
+        }
+    }
+    override fun onResume() {
+        super.onResume()
+        quickAuth.attachHost(this) { WechatLauncher.launch(this) }
+    }
+    override fun onPause() {
+        quickAuth.detachHost(this)
+        super.onPause()
+    }
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putLong("vpn_permission_request_id", vpnPermissionRequestId)
+        super.onSaveInstanceState(outState)
+    }
     private var openImportRequest by mutableStateOf(0L)
     private val database by lazy { FluentMaiDatabase.create(this) }
     private val repository by lazy { FluentMaiRepository(database) }
@@ -138,6 +171,7 @@ class MainActivity : ComponentActivity() {
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        vpnPermissionRequestId = savedInstanceState?.getLong("vpn_permission_request_id") ?: 0
         if (intent.getBooleanExtra(ImportForegroundService.OPEN_IMPORT, false)) openImportRequest++
         setContent {
             var themeMode by remember { mutableStateOf(themePreferences.mode) }
@@ -147,6 +181,8 @@ class MainActivity : ComponentActivity() {
             FluentMaiTheme(themeMode) {
                 ProvideComponentSettings {
                 FluentMaiApp(
+                    quickAuth = quickAuth,
+                    requestAuthorization = ::requestAuthorization,
                     openImportRequest = openImportRequest,
                     onResetSettings = {
                         themePreferences.reset()
@@ -249,6 +285,8 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun FluentMaiApp(
+    quickAuth: QuickAuthCoordinator,
+    requestAuthorization: (Boolean) -> Unit,
     openImportRequest: Long,
     onResetSettings: () -> Unit,
     themeMode: ThemeMode,
@@ -371,7 +409,8 @@ private fun FluentMaiApp(
     var wahlapCookieInput by remember { mutableStateOf("") }
     var isPreparingHookLink by remember { mutableStateOf(false) }
     val authTask by ImportTaskStore.state.collectAsState()
-    var requestedFreshAuth by remember { mutableStateOf<ImportTaskState?>(null) }
+    val quickAuthState by quickAuth.state.collectAsState()
+    val captureReadiness by WahlapHookBridge.captureReadiness.collectAsState()
     var isImporting by remember { mutableStateOf(false) }
     var isUploading by remember { mutableStateOf(false) }
     var isSettingsOpen by rememberSaveable { mutableStateOf(false) }
@@ -382,24 +421,6 @@ private fun FluentMaiApp(
     val screenStateHolder = key(settingsResetRevision) { rememberSaveableStateHolder() }
     val requestNotifications = rememberRequestImportNotifications()
     val requestImportNotifications = rememberRequestImportBackgroundAccess(requestNotifications)
-
-    val vpnPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult(),
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            try {
-                requestedFreshAuth?.let { ImportForegroundService.retryAuthorization(context, it) }
-                    ?: ImportForegroundService.start(context)
-                requestImportNotifications()
-            }
-            catch (error: Exception) { WahlapHookBridge.setStatus("无法启动后台导入：${redactMessage(error.message.orEmpty())}") }
-        } else {
-            requestedFreshAuth = null
-            ImportTaskStore.state.value = ImportTaskState(id = System.nanoTime(), phase = ImportTaskPhase.Finished,
-                failureCategory = ImportFailureCategory.CAPTURE_VPN, error = "没有获得 VPN 权限，无法捕获微信授权请求")
-            WahlapHookBridge.setStatus("没有获得 VPN 权限，无法从微信捕获授权请求。")
-        }
-    }
 
     suspend fun refreshState() {
         val startedAt = SystemClock.elapsedRealtime()
@@ -513,6 +534,7 @@ private fun FluentMaiApp(
     }
 
     fun startDivingFishUpload() {
+        if (quickAuth.state.value.active) return
         val capturedToken = divingFishToken.trim()
         if (capturedToken.isBlank()) {
             uploadStatus = UploadRunStatus.Failed
@@ -555,6 +577,7 @@ private fun FluentMaiApp(
     }
 
     fun startDivingFishRebuild() {
+        if (quickAuth.state.value.active) return
         val capturedToken = divingFishToken.trim()
         if (capturedToken.isBlank()) {
             uploadStatus = UploadRunStatus.Failed
@@ -597,6 +620,7 @@ private fun FluentMaiApp(
     }
 
     fun startLxnsUpload() {
+        if (quickAuth.state.value.active) return
         val capturedToken = lxnsToken.trim()
         if (capturedToken.isBlank()) {
             uploadStatus = UploadRunStatus.Failed
@@ -639,6 +663,7 @@ private fun FluentMaiApp(
     }
 
     fun startManualCookieImport() {
+        if (quickAuth.state.value.active || ImportTaskStore.state.value.busy) return
         if (ImportTaskStore.state.value.busy) {
             Toast.makeText(context, "已有捕获或导入任务，请先结束当前任务", Toast.LENGTH_SHORT).show()
             return
@@ -682,35 +707,30 @@ private fun FluentMaiApp(
     }
 
     fun startHookCapture() {
-        if (ImportTaskStore.state.value.busy) return
-        requestedFreshAuth = ImportTaskStore.state.value.takeIf { it.phase == ImportTaskPhase.AuthRetryAvailable }
-        val vpnPrepareIntent = VpnService.prepare(context)
-        if (vpnPrepareIntent != null) {
-            vpnPermissionLauncher.launch(vpnPrepareIntent)
-        } else {
-            try {
-                requestedFreshAuth?.let { ImportForegroundService.retryAuthorization(context, it) }
-                    ?: ImportForegroundService.start(context)
-                requestImportNotifications()
-            } catch (error: Exception) { WahlapHookBridge.setStatus("无法启动后台导入：${redactMessage(error.message.orEmpty())}") }
-        }
+        if (isPreparingHookLink) return
+        requestImportNotifications()
+        requestAuthorization(false)
     }
 
     fun stopHookCapture() {
+        quickAuth.cancel()
         ImportForegroundService.cancelWaiting(context)
         stopVpnService(context)
         WahlapHookHttpService.stop(context)
     }
 
     fun copyHookUrl() {
-        if (isPreparingHookLink || ImportTaskStore.state.value.phase != ImportTaskPhase.Waiting) return
+        if (isPreparingHookLink || ImportTaskStore.state.value.phase != ImportTaskPhase.Waiting ||
+            !WahlapHookBridge.captureReadiness.value.readyFor(ImportTaskStore.state.value.executionId) ||
+            quickAuth.state.value.let { it.quick && it.active && it.phase != QuickAuthPhase.ManualWaiting }) return
         val expectedExecution = ImportTaskStore.state.value.executionId
         isPreparingHookLink = true
         scope.launch {
             try {
                 val authUrl = withContext(Dispatchers.IO) {
                     WahlapWechatAuthUrlClient(authUrlRedactor, canAuthorize = {
-                        ImportTaskStore.state.value.let { it.executionId == expectedExecution && it.phase == ImportTaskPhase.Waiting }
+                        ImportTaskStore.state.value.let { it.executionId == expectedExecution && it.phase == ImportTaskPhase.Waiting } &&
+                            WahlapHookBridge.captureReadiness.value.readyFor(expectedExecution)
                     }).maimaiDxAuthUrl()
                 }
                 if (ImportTaskStore.state.value.executionId != expectedExecution ||
@@ -733,12 +753,6 @@ private fun FluentMaiApp(
 
     LaunchedEffect(authTask.executionId, authTask.phase) {
         if (authTask.phase != ImportTaskPhase.Waiting) hookLink = WahlapHookHttpService.HOOK_URL
-        val requested = requestedFreshAuth
-        if (requested != null && authTask.id == requested.id &&
-            authTask.authAttempt == requested.authAttempt + 1 && authTask.phase == ImportTaskPhase.Waiting) {
-            requestedFreshAuth = null
-            copyHookUrl()
-        }
     }
 
     LaunchedEffect(Unit) {
@@ -937,7 +951,7 @@ private fun FluentMaiApp(
                         }
                     },
                     hookUrl = hookLink,
-                    hookStatus = hookStatus,
+                    hookStatus = quickAuthState.message ?: hookStatus,
                     isHookRunning = isHookRunning,
                     divingFishToken = divingFishToken,
                     lxnsToken = lxnsToken,
@@ -954,6 +968,10 @@ private fun FluentMaiApp(
                     maxAuthAttempts = authTask.maxAuthAttempts,
                     authRetryAvailable = authTask.phase == ImportTaskPhase.AuthRetryAvailable,
                     isAuthorizing = authTask.phase == ImportTaskPhase.Waiting,
+                    quickAuthActive = quickAuthState.quick && quickAuthState.active && quickAuthState.phase != QuickAuthPhase.ManualWaiting,
+                    capturePreparing = quickAuthState.phase in setOf(QuickAuthPhase.RequestingVpnPermission, QuickAuthPhase.StartingCapture, QuickAuthPhase.WaitingCaptureReady),
+                    captureReady = captureReadiness.readyFor(authTask.executionId),
+                    onQuickAuthorization = { if (!isPreparingHookLink) requestAuthorization(true) },
                     onRetryAuthorization = ::startHookCapture,
                     wahlapCookieInput = wahlapCookieInput,
                     onStartHookCapture = ::startHookCapture,

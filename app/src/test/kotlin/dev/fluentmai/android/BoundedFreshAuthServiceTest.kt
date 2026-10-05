@@ -37,6 +37,7 @@ class BoundedFreshAuthServiceTest {
     private val attempts = mutableListOf<WahlapOAuthAttempt>()
     private var rejectedAttempts = 1
     private var scoreFailures = 0
+    private var quickScope: CoroutineScope? = null
 
     @Before fun setup() {
         ImportTaskStore.state.value = ImportTaskState()
@@ -68,6 +69,8 @@ class BoundedFreshAuthServiceTest {
     }
 
     @After fun cleanup() {
+        QuickAuthRuntime.coordinator = null
+        quickScope?.cancel()
         controller.destroy()
         shadowOf(Looper.getMainLooper()).idle()
         WahlapHookBridge.finishImport()
@@ -115,6 +118,86 @@ class BoundedFreshAuthServiceTest {
         database.openHelper.readableDatabase.query("SELECT COUNT(*) FROM import_batches").use {
             it.moveToFirst(); it.getInt(0)
         }
+    }
+
+    private var copiedQuickCallback: String? = null
+    private var quickLaunches = 0
+    private fun quickCoordinator(): QuickAuthCoordinator {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+        quickScope = scope
+        val ports = object : QuickAuthPorts {
+            override fun currentTask() = ImportTaskStore.state.value
+            override fun readiness() = WahlapHookBridge.captureReadiness.value
+            override fun startCapture(requestId: Long, retry: ImportTaskState?, quick: Boolean) =
+                ImportForegroundService.startHandoff(context, requestId, retry, quick)
+            override fun cancelCapture(executionId: Long) = ImportForegroundService.cancelWaiting(context)
+            override suspend fun generateAuthorize(executionId: Long) = authorize(currentTask().authAttempt)
+            override fun copyToClipboard(url: String) { copiedQuickCallback = url }
+            override fun captureFailed(executionId: Long, category: ImportFailureCategory) = WahlapHookBridge.captureFailed(category, executionId)
+        }
+        return QuickAuthCoordinator(scope, ports, { 0L }, {}).also {
+            QuickAuthRuntime.coordinator = it
+            it.attachHost { quickLaunches++; true }
+        }
+    }
+    private fun deliverQuickStart(owner: QuickAuthCoordinator, startId: Int) {
+        var intent: Intent? = shadowOf(context as android.app.Application).nextStartedService
+        while (intent != null && intent.component?.className != ImportForegroundService::class.java.name) {
+            intent = shadowOf(context as android.app.Application).nextStartedService
+        }
+        assertNotNull(intent)
+        controller.get().onStartCommand(intent, 0, startId)
+        val task = ImportTaskStore.state.value
+        assertTrue(task.quickAuth)
+        assertEquals(owner.state.value.requestId, task.handoffRequestId)
+        owner.taskChanged(task)
+        assertNull(copiedQuickCallback)
+        WahlapHookBridge.setHttpReady(task.executionId, true)
+        WahlapHookBridge.setVpnRunning(true, task.executionId)
+        owner.taskChanged(task)
+        shadowOf(Looper.getMainLooper()).idle()
+        assertNotNull(copiedQuickCallback)
+    }
+
+    @Test fun quickHandoffUsesRealServiceOwnershipAndAuthenticatedImportCompletesExactlyOnce() {
+        rejectedAttempts = 0
+        val owner = quickCoordinator()
+        owner.request(true, false)
+        assertNull(owner.request(true, false))
+        deliverQuickStart(owner, 1)
+        val callback = copiedQuickCallback!!
+        WahlapHookBridge.onAuthUrlCaptured(callback)
+        WahlapHookBridge.onAuthUrlCaptured(callback)
+        await { ImportTaskStore.state.value.phase == ImportTaskPhase.Finished }
+        owner.taskChanged(ImportTaskStore.state.value)
+        assertEquals(ImportFlowState.COMPLETE, ImportTaskStore.state.value.flowState)
+        assertTrue(ImportTaskStore.state.value.authenticated)
+        assertEquals(1, quickLaunches); assertEquals(1, attempts.size)
+        assertEquals(1, callbacks.get()); assertEquals(1, FreshAuthFixtureService.imports); assertEquals(1, batchCount())
+        assertEquals(QuickAuthPhase.Terminal, owner.state.value.phase)
+    }
+
+    @Test fun quickRejectionsKeepRetryAndThreeAttemptBudgetThroughActualService() {
+        rejectedAttempts = 3
+        val owner = quickCoordinator()
+        for (number in 1..3) {
+            copiedQuickCallback = null
+            owner.request(true, false)
+            deliverQuickStart(owner, number)
+            WahlapHookBridge.onAuthUrlCaptured(copiedQuickCallback!!)
+            await { !ImportTaskStore.state.value.busy }
+            val state = ImportTaskStore.state.value
+            owner.taskChanged(state)
+            assertEquals(number, state.authAttempt)
+            assertEquals(if (number < 3) ImportTaskPhase.AuthRetryAvailable else ImportTaskPhase.Finished, state.phase)
+            assertTrue(attempts.last().isClosed)
+            if (number < 3) {
+                controller.destroy()
+                controller = Robolectric.buildService(FreshAuthFixtureService::class.java).create()
+            }
+        }
+        assertEquals(3, attempts.size); assertEquals(3, callbacks.get()); assertEquals(3, quickLaunches)
+        assertEquals(0, batchCount()); assertEquals(0, FreshAuthFixtureService.imports)
     }
 
     @Test fun rejectionDisposesAttemptThenUserRetryImportsAndPersistsExactlyOnce() {

@@ -12,6 +12,17 @@ object WahlapHookBridge {
     val capturedAuthUrls = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val status = MutableStateFlow("Capture not started")
     val vpnRunning = MutableStateFlow(false)
+    internal val captureReadiness = MutableStateFlow(CaptureReadiness())
+    @Synchronized
+    internal fun prepareCapture(executionId: Long) {
+        captureReadiness.value = CaptureReadiness(executionId)
+        vpnRunning.value = false
+    }
+    @Synchronized
+    internal fun setHttpReady(executionId: Long, ready: Boolean) {
+        if (captureReadiness.value.executionId != executionId) return
+        captureReadiness.value = captureReadiness.value.copy(http = ready)
+    }
     internal val captureFailures = MutableSharedFlow<CaptureFailure>(extraBufferCapacity = 4)
     internal fun captureFailed(category: ImportFailureCategory, executionId: Long = ImportTaskStore.state.value.executionId) {
         captureFailures.tryEmit(CaptureFailure(executionId, category))
@@ -71,10 +82,15 @@ object WahlapHookBridge {
     }
 
     @JvmStatic
-    fun setVpnRunning(running: Boolean) {
-        if (!running && vpnRunning.value && ImportTaskStore.state.value.phase == ImportTaskPhase.Waiting) {
-            captureFailed(ImportFailureCategory.CAPTURE_VPN)
+    @JvmOverloads
+    @Synchronized
+    fun setVpnRunning(running: Boolean, executionId: Long = ImportTaskStore.state.value.executionId) {
+        if (captureReadiness.value.executionId != executionId) return
+        if (!running && ImportTaskStore.state.value.executionId == executionId &&
+            ImportTaskStore.state.value.phase == ImportTaskPhase.Waiting) {
+            captureFailed(ImportFailureCategory.CAPTURE_VPN, executionId)
         }
+        captureReadiness.value = captureReadiness.value.copy(vpn = running)
         vpnRunning.value = running
         status.value = if (running) {
             "Capture started. Open the hook link in WeChat."
