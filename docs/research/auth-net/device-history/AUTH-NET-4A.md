@@ -1,11 +1,17 @@
 # AUTH-NET-4A — low-latency WeChat handoff
 
-2026-10-06, Asia/Shanghai (UTC+08:00).
+Engineering: 2026-10-06. Owner acceptance: 2026-10-08.
+Asia/Shanghai (UTC+08:00).
 **DRAFT / WIP / NOT ACCEPTED / NOT FOR RELEASE. PR #7 remains Draft.**
 
-Disposition: **READY_FOR_OWNER_QUICK_HANDOFF_VALIDATION_AFTER_0705**.
-No real OAuth transaction was generated in this task. No device handoff or
-authenticated-import acceptance marker is awarded to the new binary.
+Current disposition: **LOW_LATENCY_HANDOFF_VALIDATED**;
+**AUTH_NET_COMPLETE_IMPORT_VALIDATED**, scoped to the exact installed 4A binary
+and the one Owner-operated real transaction recorded below.
+
+The original October 6 engineering disposition was
+**READY_FOR_OWNER_QUICK_HANDOFF_VALIDATION_AFTER_0705**. That engineering task
+generated zero real OAuth transactions and awarded no device acceptance marker.
+Its pre-07:05 smoke remains separate from the October 8 acceptance.
 
 ## Canonical source and scope
 
@@ -194,22 +200,202 @@ Production: `app/src/main/AndroidManifest.xml`; `app/src/main/java/dev/fluentmai
 Tests: `app/src/test/kotlin/dev/fluentmai/android/{QuickAuthCoordinatorTest,QuickAuthAndroidTest,BoundedFreshAuthServiceTest}.kt`.
 Documentation: `docs/research/auth-net/device-history/{AUTH-NET-4A,INDEX}.md`.
 
-## Real OAuth acceptance
+## Original engineering deferral — October 6
 
 **NOT RUN / DEFERRED BEFORE 07:05.** Engineering/smoke ran before 07:05,
 overlapping the 04:00–07:00 maintenance window. This task spent **zero** real
 OAuth transactions. Owner-assisted acceptance requires a separate explicit
 continuation after 07:05; the agent does not wait idle until that time.
 
-The new binary's app-side authorize-to-launch and authorize-to-callback latencies,
-real Home authentication and complete import remain **UNOBSERVED**. Historical
+At October 6 engineering closure, this binary's app-side authorize-to-launch and
+authorize-to-callback latencies, real Home authentication and complete import
+remained **UNOBSERVED**. Historical
 TIMING-1 complete-import evidence belongs to its previous exact APK and is not
 promoted into confirmation of this build. Deterministic tests and ordinary launcher
 smoke do not award **LOW_LATENCY_HANDOFF_VALIDATED**.
 
-For later acceptance, the Owner taps the primary action and performs all WeChat
+The deferred acceptance plan was: the Owner taps the primary action and performs all WeChat
 paste/send/open steps. Maximum **three fresh transactions**, no deliberate delay
 experiment. Measure the two authorize-to-launch/callback metrics and actual Home
 YES/NO; allow any authenticated import to finish naturally. Server rejection alone
 does not fail a correctly measured handoff. No acceptance claim should imply
 automatic navigation to File Transfer Assistant: that capability is unproven.
+
+## AUTH-NET-4A-ACCEPT — real Owner quick handoff, October 8
+
+**LOW_LATENCY_HANDOFF_VALIDATED. AUTH_NET_COMPLETE_IMPORT_VALIDATED.**
+One fresh transaction was used; the successful handoff and COMPLETE import met
+the task's early-stop rule. Attempts 2 and 3 were not generated. No product defect
+was observed, and no production source was changed.
+
+### Exact-binary preflight and authorization
+
+- `git fetch origin` verified `origin/auth-net-1-v030` at
+  `50084517247df3fcc778fb564588ba3ff7f6d85f`; the clean 4A worktree was at that
+  same source HEAD. The original workspace and its untracked diagnostics remained
+  untouched. PR #7 was OPEN and Draft before validation.
+- ADB read operations selected only the tablet and verified model **24018RPACC**,
+  API **36**, using the existing tablet serial binding. The Owner phone was not
+  accessed.
+- Installed `dev.fluentmai.android.validation`, **0.3.0-beta / 14**, matched the
+  required SHA-256 before and after:
+  `e8757de42f41fbb10934f12d00f52313302b18b29b52148136ff01c6f761f0bb`.
+  No rebuild, reinstall, uninstall or data clear was performed.
+- Control `dev.fluentmai.android`, **0.2.9-beta / 13**, retained SHA-256
+  `d58043448620ab470d2fb2e8c01ff3e874fe7339f112fbc147741cadf7e1ff17`.
+  Its first-install and last-update metadata remained **2026-09-22 11:46:51**,
+  matching both this run's preflight and the October 6 control baseline.
+  Validation first-install **2026-10-03 11:15:16** and last-update
+  **2026-10-06 04:09:21** likewise remained unchanged.
+- The Owner confirmed WeChat was logged in and prepared in a public-account
+  conversation, classified **OTHER_CHAT**, rather than File Transfer Assistant.
+  The preparation prompt preceded any generation. The Owner later explicitly
+  permitted testing before **04:00** or after **07:05**; the original >=07:05
+  restriction was therefore relaxed for this pre-04:00 run. The **04:00–07:00**
+  maintenance exclusion was retained. The real transaction ran at
+  **02:21:16–02:22:08**, outside maintenance. The earlier time waiver in TIMING-1
+  was not used as authorization for this session.
+- A validation-UID-scoped, privacy-filtered logcat observer was active before the
+  Owner was instructed to tap **立即微信授权**. Only fixed QUICK_AUTH events,
+  numeric durations, fixed request labels, status/outcome primitives and a broad
+  foreground-package classification were retained. No URL, OAuth value, Cookie
+  value, clipboard content, chat text, screenshot or UI hierarchy was recorded.
+  Synthetic parser checks confirmed unrecognized/secret-bearing timing fields
+  were dropped; these checks generated no OAuth transaction.
+
+### Attempt and actual event ordering
+
+| Attempt | Requested, UTC+08 | Fresh generations / clipboard-ready / launch-dispatched | Callback final status | Home authenticated | WeChat foreground / destination | Final import |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 02:21:16.466 | 1 / 1 / 1 | 200 | YES | ADB: WECHAT; Owner: OTHER_CHAT, prepared public-account conversation | COMPLETE, Owner-confirmed result page |
+
+| Event | Monotonic elapsed ms from quick-auth request | Device log timestamp, UTC+08 | Count |
+| --- | ---: | --- | ---: |
+| quick_auth_requested | 0 | 02:21:16.466 | 1 |
+| capture_ready | 279 | 02:21:16.745 | 1 |
+| authorize_generated | 966 | 02:21:17.432 | 1 |
+| clipboard_ready | 970 | 02:21:17.435 | 1 |
+| wechat_launch_dispatched | 983 | 02:21:17.448 | 1 |
+| callback_captured | 8,107 | 02:21:24.573 | 1 |
+| authenticated_home | 15,923 | 02:21:32.388 | 1 |
+
+Core assertion passed at the telemetry's millisecond resolution:
+**279 < 966 < 970 < 983**. The independent existing fresh-generation log witness
+occurred once at **02:21:17.430**, also after capture readiness. The existing
+callback bridge and replay-start witnesses each occurred once. No duplicate
+generation, clipboard-ready or launch-dispatched event was observed, and no
+automatic additional transaction appeared through cleanup.
+
+`capture_ready` is the coordinator's source-linked matching-execution gate:
+Waiting execution ownership, ready VPN tunnel and both ready HTTP listeners must
+precede generation. Those readiness internals were not independently instrumented
+on-device. Log ordinal 1 groups the sequential request stream; execution/request
+identifiers are not exposed by this telemetry. One matched callback acceptance,
+one replay and one resulting batch corroborate success-path ownership. No auth
+rejection occurred, so a fresh retry was neither needed nor exercised in this run.
+Existing retry/three-attempt code and its deterministic coverage remain unchanged;
+this observation does not award a new hardware retry marker.
+
+### App-side timing
+
+| Required metric | ms |
+| --- | ---: |
+| request_to_capture_ready_ms | 279 |
+| capture_ready_to_authorize_generated_ms | 687 |
+| authorize_generated_to_clipboard_ms | 4 |
+| clipboard_to_wechat_launch_dispatch_ms | 13 |
+| authorize_generated_to_wechat_launch_dispatch_ms | **17** |
+| authorize_generated_to_callback_ms | **7,141** |
+
+These are the product's monotonic duration fields. Device log timestamps are
+separate wall-clock samples and can differ by a millisecond from their differences.
+Launch latency ends at successful intent dispatch, not WeChat's first rendered
+frame. Callback latency ends at foreground-service acceptance of the matched
+capture, before callback HTTP response/Home authentication. No hard millisecond
+threshold, OAuth TTL, server-expiry cause or population success rate is inferred.
+
+### Actual WeChat destination and manual work
+
+The passive post-dispatch package sample found **com.tencent.mm** in the resumed
+foreground activity. The Owner independently reported that WeChat automatically
+came forward and landed directly in the prepared public-account conversation:
+**OTHER_CHAT**. This establishes that no manual app-switch/search was needed to
+bring WeChat forward or find that already-prepared destination in this attempt.
+
+Pasting, sending and opening the authorization link remained Owner work, following
+the displayed instructions. The agent made no tablet UI input, operated no chat,
+and used no UIAutomator, debugger, race injection or deliberate transaction delay.
+The launcher resumed a prepared conversation in this one observation. It proves
+neither reliable repeated landing behavior nor a public direct-conversation/File
+Transfer Assistant navigation API. Launch-unavailable fallback was not exercised.
+
+### Authenticated import and completion
+
+Callback replay completed once with final HTTP **200** at **02:21:27.537**.
+The Home request completed HTTP **200** at **02:21:28.498**; the coordinator's
+separate **authenticated_home** marker subsequently confirmed actual authenticated
+Home. All listed stage requests succeeded on their first request attempt:
+
+| Stage | Request completion, UTC+08 | Result / evidence basis |
+| --- | --- | --- |
+| recent | 02:21:37.118 | HTTP 200 / success; play-records label before difficulties |
+| BASIC | 02:21:37.555 | HTTP 200 / success; explicit difficulty label |
+| ADVANCED | 02:21:38.205 | HTTP 200 / success; explicit difficulty label |
+| EXPERT | 02:21:56.120 | HTTP 200 / success; explicit difficulty label |
+| MASTER | 02:22:03.701 | HTTP 200 / success; explicit difficulty label |
+| RE_MASTER | 02:22:06.359 | HTTP 200 / success; explicit difficulty label |
+| supplemental / rating target | 02:22:06.803 | HTTP 200 / success; rating-target-music label |
+| PC, five page requests | 02:22:07.518–02:22:08.691 | All HTTP 200 / success; source-order inference from five subsequent play-records requests |
+| final outcome | COMPLETE | Owner explicitly confirmed **导入完成**, without a partial-data warning; batch addition and natural shutdown independently corroborated |
+
+As in TIMING-1, efficient PC requests share the play-records label. Their placement
+after supplemental processing and `runRealImport`/`captureEfficientPc` ordering
+support the PC assignment; no independent PC-start transition was logged. Listed
+times are request completions, not stage starts, parser finishes or persistence
+timestamps. The existing logs do not directly expose the terminal result enum.
+The COMPLETE determination therefore includes explicitly identified Owner UI
+evidence. No score failure was injected; score retry recovery and PARTIAL
+persistence remain unvalidated.
+
+### Preservation and cleanup
+
+Read-only validation DB/WAL snapshots were taken with no validation service active.
+Only aggregate counts and import-batch digests were retained; temporary database
+copies were removed. No control private data was read.
+
+| Aggregate | Before, 02:15:00 | After, 02:26:02 | Change |
+| --- | ---: | ---: | ---: |
+| Score records | 1,731 | 1,734 | +3 |
+| Import batches | 3 | 4 | **+1** |
+| Quarantine records | 6 | 8 | +2 |
+| Recent play records | 50 | 89 | +39 |
+| Chart play-count rows | 5,498 | 5,498 | 0 |
+
+The previous three complete import-batch rows retain their exact aggregate digest.
+Exactly one new batch was created, with **1,821 parsed**, **3 inserted**,
+**1,729 updated**, **87 duplicate skips**, **2 quarantined**, **0 rejected**.
+This is expected import persistence, not whole-database byte identity or independent
+per-record semantic validation. There were zero rejected OAuth attempts in this
+session; rejection/no-batch behavior is therefore **NOT EXERCISED**, not newly proved.
+
+After natural completion, read-only checks found **0 validation ServiceRecord
+entries**, **0 LISTEN entries on 8284/9457** in `/proc/net/tcp` and `tcp6`, and
+**0 tun-number interfaces** in `/sys/class/net`. The `ss`/`ip link` netlink
+queries lacked permission; the readable proc/sys checks above supplied the socket
+and tunnel observations. No device force-stop or service-disconnect command was
+issued. VPN authorization still lists the validation package; that retained
+permission is distinct from an active capture tunnel.
+
+The host-only observer was stopped after evidence collection, and both its Python
+and task-owned ADB logcat PIDs were verified absent. No debugger or ADB forward
+was created. Installed validation/control APK hashes and installation metadata
+were rechecked after the import and matched preflight. No uninstall/data clear,
+phone access, ChatGPT opening or CTO relay occurred.
+
+Private evidence:
+`C:/Users/Daozh/.codex/diagnostics/AUTH-NET-4A-ACCEPT-20261008`.
+Only this sanitized report and `INDEX.md` are committed. Source/build/test results
+from engineering are not rerun or elevated into independent hardware evidence.
+PR #7 remains **Draft / WIP / NOT ACCEPTED / NOT FOR RELEASE**. The two awarded
+markers close this bounded exact-binary handoff/full-import observation, not
+general release acceptance or root-cause forensics. Owner report delivery is manual.

@@ -1,7 +1,8 @@
 # AUTH-NET device investigation history
 
 Curated 2026-10-04; engineering transition, final-APK session and replacement
-bounded-retry acceptance added 2026-10-05; manual timing crossover added 2026-10-06.
+bounded-retry acceptance added 2026-10-05; manual timing crossover added 2026-10-06;
+real 4A quick-handoff acceptance added 2026-10-08.
 All windows below use Asia/Shanghai (UTC+08:00).
 **DRAFT / WIP / NOT ACCEPTED / NOT FOR RELEASE. PR #7 remains Draft.**
 
@@ -18,10 +19,28 @@ remain `UNOBSERVED`; synthetic checks and Owner reports are identified separatel
 [AUTH-NET-4A](AUTH-NET-4A.md) adds a capture-ready-first quick authorization action,
 immediate sensitive clipboard write and ordinary WeChat launcher dispatch, with
 the existing manual fallback and three-attempt ownership preserved. The new
-binary has deterministic coverage and tablet no-OAuth smoke only;
-**READY_FOR_OWNER_QUICK_HANDOFF_VALIDATION_AFTER_0705**. Real quick handoff latency
-and authenticated import on this build remain **UNOBSERVED**; no OAuth was spent
-during this engineering task. PR #7 remains Draft / WIP / NOT ACCEPTED / NOT FOR RELEASE.
+binary's October 6 engineering task had deterministic coverage and tablet
+no-OAuth smoke only: **READY_FOR_OWNER_QUICK_HANDOFF_VALIDATION_AFTER_0705**.
+The separately authorized October 8 real acceptance used fetched source
+`5008451` and unchanged exact installed APK `e8757de4…`, without rebuilding or
+reinstalling. One Owner-operated quick-auth request demonstrated capture ready
+before generation, one generation/clipboard/launch each, **17 ms** from authorize
+generation to WeChat dispatch and **7,141 ms** to matched callback acceptance.
+ADB observed WeChat foreground; the Owner reported direct landing in the prepared
+public-account conversation (**OTHER_CHAT**). Callback final HTTP 200 and the
+authenticated-Home event preceded successful required-page requests. The Owner
+explicitly confirmed **导入完成**, with no partial-data warning, and the validation
+DB gained exactly one batch while preserving the three pre-existing batch rows.
+Awarded **LOW_LATENCY_HANDOFF_VALIDATED** and **AUTH_NET_COMPLETE_IMPORT_VALIDATED**
+on this exact binary; task-defined early stop at **1/3**. The Owner explicitly
+allowed pre-04:00 testing, and the real run was outside maintenance. No deliberate
+delay, tablet UI input, phone access or production edit occurred. Natural service,
+capture-listener and tunnel cleanup was checked. This single resumed-chat landing
+does not establish a navigation API or repeated-launch guarantee; PC stage
+assignment uses source order and final COMPLETE includes Owner UI evidence.
+Fresh auth retry, launch fallback, score retry recovery and PARTIAL persistence
+were not exercised in this acceptance. PR #7 remains Draft / WIP / NOT ACCEPTED /
+NOT FOR RELEASE.
 
 **ROOT-CAUSE FORENSICS CLOSED → PRODUCT MITIGATION IMPLEMENTED.**
 
@@ -142,6 +161,8 @@ reports are not pooled into a controlled experiment.
 | AUTH-NET-3B | Oct 5, 01:46–02:09 | 24018RPACC tablet; exact final source 9dd6b2c / installed APK cebb50dd… | Attempt 1: callback replay once, 404, unauthenticated Home, retry at 1/3; attempt 2: fresh authorize at 2/3, execution delay, capture timeout, zero callback replay; no third transaction | Acceptance incomplete; AUTHENTICATED_IMPORT_ACCEPTANCE_STILL_BLOCKED retained | The interrupted sequence does not close the exact-final-binary 3/3 gap or establish a production defect; no final retry/full import/recovery/PARTIAL hardware marker | INCONCLUSIVE | [3B exact-final-APK session](AUTH-NET-3A.md#auth-net-3b-exact-final-apk-session--acceptance-incomplete) |
 | AUTH-NET-3B-R2 | Oct 5, 02:41–02:46 | 24018RPACC tablet; fetched HEAD 1d389a0, implementation 9dd6b2c / unchanged exact installed APK cebb50dd… | One replacement logical import, 3 fresh transactions, 1 callback replay each, all callback 404 → unauthenticated Home; 1/3 retry → 2/3 retry → 3/3 FAILED; natural cleanup and no new import batch | FINAL_BINARY_BOUNDED_FRESH_AUTH_RETRY_VALIDATED; AUTHENTICATED_IMPORT_ACCEPTANCE_STILL_BLOCKED | Exact-final-binary bounded retry gate closed; READY_FOR_NEXT_PRODUCT_PHASE is scoped to this gate, not authenticated import or release acceptance | STILL_VALID | [3B-R2 replacement acceptance](AUTH-NET-3A.md#auth-net-3b-r2-replacement-exact-final-binary-acceptance) |
 | AUTH-NET-TIMING-1 | Oct 6, 03:12–03:22; Owner waived original start-time gate | Same 24018RPACC tablet; fetched HEAD 902b553, production 9dd6b2c / unchanged exact APK cebb50dd… | Manual FAST / DELAY-20 / FAST / DELAY-20 / FAST; FAST 2/3 Home success at 8,443 and 7,632 ms, one FAST failure at 9,467 ms; DELAY 0/2 at 38,333 and 32,771 ms; two Owner-confirmed COMPLETE imports, two batch additions; natural cleanup | LATENCY_HYPOTHESIS_STRONGLY_SUPPORTED; AUTH_NET_COMPLETE_IMPORT_VALIDATED | Task-defined early-stop criterion met at 5/6; short latency is associated with acceptance in this window, with a retained fast failure; no exact TTL, causal server expiry, score-retry or PARTIAL proof | STILL_VALID | [Manual timing crossover](AUTH-NET-TIMING-1.md) |
+| AUTH-NET-4A engineering / smoke | Oct 6, before 07:05; validation installation 04:09 | 24018RPACC tablet; exact installed validation APK e8757de4…; source 5008451 at acceptance preflight | Capture-ready-first coordinator, immediate clipboard/public launcher, deterministic checks; zero real OAuth transactions | READY_FOR_OWNER_QUICK_HANDOFF_VALIDATION_AFTER_0705 | Engineering and ordinary-launch smoke alone awarded no handoff or full-import hardware marker | STILL_VALID | [4A engineering](AUTH-NET-4A.md) |
+| AUTH-NET-4A-ACCEPT | Oct 8, 02:21:16–02:22:08; Owner explicitly allowed pre-04:00 testing | Same tablet; fetched source 5008451 / unchanged exact validation APK e8757de4… | One real quick-auth request: capture ready → one generation → one clipboard → one dispatch; 17 ms generation-to-dispatch, 7,141 ms generation-to-callback; WeChat foreground, OTHER_CHAT; callback 200, Home YES, Owner-confirmed COMPLETE, exactly one new batch; natural cleanup | LOW_LATENCY_HANDOFF_VALIDATED; AUTH_NET_COMPLETE_IMPORT_VALIDATED | Early stop at 1/3; success-path ownership witnessed; no new hardware retry/fallback/score-recovery/PARTIAL proof, direct-chat API, TTL or root-cause claim | STILL_VALID | [4A real acceptance](AUTH-NET-4A.md#auth-net-4a-accept--real-owner-quick-handoff-october-8) |
 
 ## Failure categories and acceptance boundary
 
