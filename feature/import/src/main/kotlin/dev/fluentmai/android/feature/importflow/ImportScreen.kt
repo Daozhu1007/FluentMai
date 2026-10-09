@@ -88,6 +88,11 @@ fun ImportScreen(
     capturePreparing: Boolean = false,
     captureReady: Boolean = false,
     onQuickAuthorization: () -> Unit = {},
+    diagnosticReport: dev.fluentmai.android.core.model.ImportDiagnosticReport? = null,
+    diagnosticCurrentProgress: String? = null,
+    diagnosticStorageFailed: Boolean = false,
+    onExportDiagnostic: () -> Unit = {},
+    onCopyDiagnosticSummary: () -> Unit = {},
 ) {
     val isBusy = isImporting || isUploading || quickAuthActive || capturePreparing
     val otherActionsBlocked = isBusy || isAuthorizing || isPreparingHookLink
@@ -282,6 +287,9 @@ fun ImportScreen(
                 errorMessage?.let { Text(text = it, color = MaterialTheme.colorScheme.error) }
             }
         }
+
+        ImportDiagnosticPanel(diagnosticReport, diagnosticCurrentProgress, diagnosticStorageFailed,
+            onExportDiagnostic, onCopyDiagnosticSummary)
 
         Text(text = "上传", style = MaterialTheme.typography.titleMedium)
         OutlinedTextField(

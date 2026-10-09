@@ -13,6 +13,7 @@ import android.os.SystemClock
 import dev.fluentmai.android.core.model.ImportPageState
 import dev.fluentmai.android.core.model.ImportProgress
 import dev.fluentmai.android.core.model.ImportStage
+import dev.fluentmai.android.core.model.DiagnosticImportMode
 import dev.fluentmai.android.vpn.core.LocalVpnService
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.update
@@ -26,6 +27,8 @@ open class ImportForegroundService : Service() {
     private var taskId = 0L
     private var executionId = 0L
     private var serviceStartId = 0
+    private var diagnosticCollector: ImportDiagnosticCollector? = null
+    private val diagnosticStore by lazy { ImportDiagnosticRuntime.get(applicationContext) }
     private fun ownsTask() = ImportTaskStore.state.value.executionId == executionId && executionId != 0L
     private val notifications get() = getSystemService(NotificationManager::class.java)
 
@@ -79,6 +82,9 @@ open class ImportForegroundService : Service() {
         if (!retry && !cookie && previous.phase == ImportTaskPhase.AuthRetryAvailable) return START_NOT_STICKY
         taskId = if (retry) previous.id else System.nanoTime()
         executionId = System.nanoTime()
+        val diagnosticMode = if (cookie) DiagnosticImportMode.MANUAL_COOKIE else DiagnosticImportMode.WECHAT_OAUTH
+        diagnosticCollector = ImportDiagnosticCollector(diagnosticMode)
+        diagnosticStore.begin(executionId, diagnosticMode)
         ImportTaskStore.state.value = ImportTaskState(id = taskId, phase = ImportTaskPhase.Waiting,
             executionId = executionId, handoffRequestId = handoffRequestId, quickAuth = intent?.getBooleanExtra(QUICK_AUTH, false) == true,
             authAttempt = if (cookie) 0 else if (retry) previous.authAttempt + 1 else 1,
@@ -113,6 +119,7 @@ open class ImportForegroundService : Service() {
 
     private fun beginImport(input: String, cookie: Boolean) {
         if (importJob?.isActive == true) return
+        diagnosticCollector?.beginImport()
         waitTimeout?.cancel()
         if (!cookie) QuickAuthRuntime.coordinator?.callbackCaptured(executionId)
         ImportTaskStore.state.update { it.copy(phase = ImportTaskPhase.Running,
@@ -145,6 +152,7 @@ open class ImportForegroundService : Service() {
                         diagnostics = result.diagnosticDetails.takeIf { !completed.complete },
                     )
                 }
+                diagnosticCollector?.result(result)
             } catch (cancelled: CancellationException) {
                 fail("导入服务已停止；已保存的数据保留，请重新导入补齐", category = ImportFailureCategory.CANCELLED)
                 throw cancelled
@@ -176,7 +184,7 @@ open class ImportForegroundService : Service() {
     }
 
     protected open suspend fun executeImport(input: String, cookie: Boolean, progress: (ImportProgress) -> Unit): dev.fluentmai.android.core.importer.RealWahlapImportResult =
-        WahlapImportRunner(applicationContext).use { runner ->
+        WahlapImportRunner(applicationContext, diagnosticCollector).use { runner ->
             if (cookie) {
                 stopCapture()
                 runner.runCookieImport(input, progress)
@@ -206,6 +214,7 @@ open class ImportForegroundService : Service() {
 
     private fun finishService(showResult: Boolean = true) {
         if (!ownsTask()) return
+        finishDiagnostics()
         waitTimeout?.cancel()
         stopCapture()
         WahlapHookBridge.finishImport()
@@ -263,9 +272,19 @@ open class ImportForegroundService : Service() {
             fail("导入服务已停止；已保存的数据保留，请重新导入补齐", category = ImportFailureCategory.CANCELLED)
             stopCapture()
             WahlapHookBridge.finishImport()
+            finishDiagnostics()
         }
         scope.cancel()
         super.onDestroy()
+    }
+
+    private fun finishDiagnostics() {
+        val collector = diagnosticCollector ?: return
+        val state = ImportTaskStore.state.value
+        if (state.executionId != executionId || state.busy) return
+        val milestones = QuickAuthRuntime.coordinator?.diagnosticMilestones(executionId).orEmpty()
+        diagnosticStore.finish(executionId, collector.finish(state, milestones))
+        diagnosticCollector = null
     }
 
     companion object {

@@ -20,7 +20,7 @@ internal fun pcRankingSnapshot(difficulty: Difficulty, ranked: List<ChartPlayCou
 internal suspend fun captureEfficientPc(catalog: MaimaiSongCatalog, targets: List<WahlapMusicDetailTarget>,
     fetch: suspend (String) -> String, save: suspend (List<ChartPlayCount>) -> Unit,
     onProgress: (String) -> Unit, onDiagnostic: (String) -> Unit,
-    onPageProgress: (ImportProgress) -> Unit = {}): PlayCountCaptureResult {
+    onPageProgress: (ImportProgress) -> Unit = {}, observer: ImportTimingObserver = ImportTimingObserver.None): PlayCountCaptureResult {
     var exactCount = 0
     val warnings = mutableListOf<String>()
     val charts = catalog.charts()
@@ -31,9 +31,9 @@ internal suspend fun captureEfficientPc(catalog: MaimaiSongCatalog, targets: Lis
         onPageProgress(started)
         var state = ImportPageState.Loading
         try {
-            val html = retryActivityFetch { fetch(WahlapActivityParser.playCountUrl(difficulty)) }
+            val html = retryActivityFetch(onRetryFailure = { observer.recoveryRetry(DiagnosticStage.PC_CAPTURE) }) { fetch(WahlapActivityParser.playCountUrl(difficulty)) }
             onPageProgress(started.copy(pageState = ImportPageState.Parsing, detail = "正在解析并保存本页 PC"))
-            val ranked = WahlapActivityParser.playCounts(html, difficulty, catalog)
+            val ranked = observer.measure(DiagnosticStage.PARSING) { WahlapActivityParser.playCounts(html, difficulty, catalog) }
             check(WahlapActivityParser.isPlayCountPage(html, ranked)) { "返回内容不是 PC 榜单" }
             if (ranked.isEmpty()) {
                 if (targets.any { difficulty in it.difficulties })

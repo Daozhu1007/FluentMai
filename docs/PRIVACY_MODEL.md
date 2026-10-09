@@ -14,3 +14,13 @@ Wahlap auth URLs and Cookie import values remain only in current UI/app state. D
 Logs and user-visible diagnostic text must be redacted before display or printing. Redaction covers credential fields, authentication URLs, HTML blocks/tags, input values, and token-like API response text.
 
 Upload responses from Diving Fish and LXNS are treated as untrusted diagnostic text and are sanitized before being shown in the app.
+
+Import diagnostic JSON is an explicitly user-initiated, local document export.
+Its allowlist contains fixed stage/category/failure identifiers, app/schema
+version, report timestamp, bounded timings, HTTP status/count aggregates, and
+parser/persistence counts. It never exports URLs, credentials, headers, bodies,
+HTML, raw logs, exception messages, personal score records, account/device
+identifiers, or private paths. The latest typed report and minimal interruption
+marker are stored as bounded atomic snapshots in app-private no-backup storage;
+an export snapshot is pinned only for the system document-save flow. There is no
+telemetry or automatic upload. See [IMPORT-OBS-1](research/auth-net/device-history/IMPORT-OBS-1.md).

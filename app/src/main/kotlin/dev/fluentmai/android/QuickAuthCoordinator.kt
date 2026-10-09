@@ -5,6 +5,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
+import dev.fluentmai.android.core.model.DiagnosticAuthEvent
+import dev.fluentmai.android.core.model.DiagnosticAuthMilestone
 
 internal enum class QuickAuthPhase {
     Idle, RequestingVpnPermission, StartingCapture, WaitingCaptureReady,
@@ -35,6 +37,18 @@ internal enum class QuickAuthEvent(val label: String) {
 /** Accepts only fixed events and numeric durations, never credential-bearing text. */
 internal class QuickAuthTiming(private val now: () -> Long, private val log: (String) -> Unit) {
     private val times = mutableMapOf<QuickAuthEvent, Long>()
+    fun snapshot(): List<DiagnosticAuthMilestone> = times[QuickAuthEvent.Requested]?.let { requested ->
+        times.map { (event, at) -> DiagnosticAuthMilestone(when (event) {
+            QuickAuthEvent.Requested -> DiagnosticAuthEvent.REQUESTED
+            QuickAuthEvent.CaptureReady -> DiagnosticAuthEvent.CAPTURE_READY
+            QuickAuthEvent.AuthorizeGenerated -> DiagnosticAuthEvent.AUTHORIZE_GENERATED
+            QuickAuthEvent.ClipboardReady -> DiagnosticAuthEvent.CLIPBOARD_READY
+            QuickAuthEvent.LaunchDispatched -> DiagnosticAuthEvent.WECHAT_LAUNCH_DISPATCHED
+            QuickAuthEvent.CallbackCaptured -> DiagnosticAuthEvent.CALLBACK_CAPTURED
+            QuickAuthEvent.AuthenticatedHome -> DiagnosticAuthEvent.AUTHENTICATED_HOME
+            QuickAuthEvent.AuthRejected -> DiagnosticAuthEvent.AUTH_REJECTED
+        }, (at - requested).coerceAtLeast(0)) }
+    } ?: emptyList()
     fun mark(event: QuickAuthEvent) {
         if (event in times) return
         val at = now()
@@ -84,6 +98,8 @@ internal class QuickAuthCoordinator(
     private var timing: QuickAuthTiming? = null
     private var host: (() -> Boolean)? = null
     private var hostOwner: Any? = null
+    fun diagnosticMilestones(executionId: Long): List<DiagnosticAuthMilestone> =
+        if (state.value.executionId == executionId) timing?.snapshot().orEmpty() else emptyList()
 
     fun attachHost(owner: Any = this, launch: () -> Boolean) {
         hostOwner = owner

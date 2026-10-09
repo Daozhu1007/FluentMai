@@ -10,6 +10,9 @@ import dev.fluentmai.android.core.model.ImportStage
 import dev.fluentmai.android.core.model.ImportPageState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import dev.fluentmai.android.core.importer.ImportTimingObserver
+import dev.fluentmai.android.core.importer.measure
+import dev.fluentmai.android.core.model.DiagnosticStage
 
 internal data class PlayCountCaptureResult(val chartCount: Int, val warnings: List<String>)
 
@@ -25,6 +28,7 @@ internal suspend fun captureWahlapPlayCounts(
     onDiagnostic: (String) -> Unit = {},
     recoveryPause: suspend () -> Unit = { delay(1000) },
     onPageProgress: (ImportProgress) -> Unit = {},
+    observer: ImportTimingObserver = ImportTimingObserver.None,
 ): PlayCountCaptureResult {
     val saved = mutableSetOf<Triple<String, SongType, Difficulty>>()
     var completed = 0
@@ -43,18 +47,20 @@ internal suspend fun captureWahlapPlayCounts(
             suspend fun read(current: WahlapMusicDetailTarget): List<ChartPlayCount> {
                 val html = retryActivityFetch(retryOfficialError = false,
                     onRetryFailure = {
+                        observer.recoveryRetry(DiagnosticStage.PC_CAPTURE)
                         onDiagnostic("详情请求重试前异常：${diagnosticException(it)}")
                         onPageProgress(started.copy(detail = "当前页面读取异常，正在重试；进度不重复累计"))
                     }) { fetch(current) }
                 onPageProgress(started.copy(pageState = ImportPageState.Parsing, detail = "正在解析本页 PC"))
-                return WahlapPlayCountParser.counts(html, current).ifEmpty {
+                return observer.measure(DiagnosticStage.PARSING) { WahlapPlayCountParser.counts(html, current).ifEmpty {
                     throw WahlapActivityFetchException("单曲详情未返回可识别的 PC", canRefreshDetail = true)
-                }
+                } }
             }
             val counts = try { read(target) }
             catch (error: WahlapActivityFetchException) {
                 onDiagnostic("首次详情失败：${diagnosticException(error)}")
                 if (!error.canRefreshDetail || refreshTarget == null) throw error
+                observer.recoveryRetry(DiagnosticStage.PC_CAPTURE)
                 // A replay of the rejected idx is not recovery. Revisit the source
                 // list to renew both the session and the song's encrypted idx.
                 recoveryPause()
@@ -62,7 +68,10 @@ internal suspend fun captureWahlapPlayCounts(
                 var stage = "重新获取成绩列表与详情链接"
                 try {
                     onDiagnostic("开始恢复：$stage")
-                    val fresh = retryActivityFetch(onRetryFailure = { onDiagnostic("刷新列表重试前异常：${diagnosticException(it)}") }) { refreshTarget(target) }
+                    val fresh = retryActivityFetch(onRetryFailure = {
+                        observer.recoveryRetry(DiagnosticStage.PC_CAPTURE)
+                        onDiagnostic("刷新列表重试前异常：${diagnosticException(it)}")
+                    }) { refreshTarget(target) }
                         ?: throw WahlapActivityFetchException("刷新后的成绩列表没有对应详情链接")
                     stage = "读取更新后的详情"
                     onDiagnostic("$stage；链接是否更新=${fresh.url != target.url}")

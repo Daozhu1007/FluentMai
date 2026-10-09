@@ -149,6 +149,7 @@ class WahlapManualCookieScorePageClient(
     private val fetcher: WahlapResilientFetcher = WahlapResilientFetcher(),
     private val supplementalPages: List<WahlapSupplementalPages.Page> = WahlapSupplementalPages.pages,
     private val mapRequestUrl: (String) -> String = { it },
+    private val onRequestAttempt: (WahlapRequestCategory, dev.fluentmai.android.core.model.DiagnosticRequestLabel, dev.fluentmai.android.core.importer.WahlapAttemptLog) -> Unit = { _, _, _ -> },
 ) : Closeable {
     private val client = HttpClient(CIO) {
         install(HttpTimeout)
@@ -314,6 +315,7 @@ class WahlapManualCookieScorePageClient(
             fetcher.fetch(
                 category = category,
                 onAttempt = { attemptLog ->
+                    onRequestAttempt(category, diagnosticRequestLabel(label), attemptLog)
                     Log.i(TAG, "Wahlap manual request $label ${attemptLog.toSafeLogLine()}")
                     onDiagnostic("请求尝试 $label ${attemptLog.toSafeLogLine()}")
                 },
