@@ -409,6 +409,10 @@ private fun FluentMaiApp(
     var wahlapCookieInput by remember { mutableStateOf("") }
     var isPreparingHookLink by remember { mutableStateOf(false) }
     val authTask by ImportTaskStore.state.collectAsState()
+    val diagnosticStore = remember { ImportDiagnosticRuntime.get(context) }
+    val diagnosticReport by diagnosticStore.latest.collectAsState()
+    val diagnosticStorageFailed by diagnosticStore.storageFailed.collectAsState()
+    val exportDiagnostic = rememberExportImportDiagnostic(context, diagnosticStore)
     val quickAuthState by quickAuth.state.collectAsState()
     val captureReadiness by WahlapHookBridge.captureReadiness.collectAsState()
     var isImporting by remember { mutableStateOf(false) }
@@ -938,12 +942,25 @@ private fun FluentMaiApp(
                 )
 
                 AppTab.Import -> ImportScreen(
+                    diagnosticReport = diagnosticReport,
+                    diagnosticCurrentProgress = if (authTask.busy) authTask.progress?.stage?.label ?: "正在准备导入"
+                        else if (quickAuthState.active) "正在准备授权" else null,
+                    diagnosticStorageFailed = diagnosticStorageFailed,
+                    onExportDiagnostic = exportDiagnostic,
+                    onCopyDiagnosticSummary = {
+                        diagnosticReport?.let { report ->
+                            copyTextToClipboard(context, "FluentMai 导入诊断摘要",
+                                dev.fluentmai.android.feature.importflow.diagnosticSummary(report))
+                            Toast.makeText(context, "已复制诊断摘要", Toast.LENGTH_SHORT).show()
+                        }
+                    },
                     moduleBackgroundColor = chartCardContainerColor(),
-                    realImportSummary = if (isImporting) importProgress?.detail else lastRealResult?.summaryText(),
+                    realImportSummary = if (isImporting) importProgress?.detail
+                        else if (authTask.busy || quickAuthState.active) null else lastRealResult?.summaryText(),
                     importProgress = importProgress,
-                    importStatus = importStatus.label,
-                    errorMessage = lastImportError,
-                    onCopyImportError = importDiagnosticDetails?.takeIf { !isImporting && it.isNotBlank() }?.let { details ->
+                    importStatus = if (quickAuthState.active && !authTask.busy) "正在准备授权" else importStatus.label,
+                    errorMessage = if (quickAuthState.active && !authTask.busy) null else lastImportError,
+                    onCopyImportError = importDiagnosticDetails?.takeIf { !authTask.busy && !quickAuthState.active && it.isNotBlank() }?.let { details ->
                         {
                             copyTextToClipboard(context, "FluentMai 导入详细报错", sanitizeImportDiagnostic(details))
                             Toast.makeText(context, "已复制详细报错（已移除敏感信息）", Toast.LENGTH_SHORT).show()

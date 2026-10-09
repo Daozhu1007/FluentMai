@@ -180,6 +180,13 @@ reports are not pooled into a controlled experiment.
 
 ## Failure categories and acceptance boundary
 
+IMPORT-OBS-1 adds user-accessible structured timing and sanitized JSON export on
+the existing feature branch. Its synthetic/deterministic verification and
+hardware acceptance boundary are recorded in [IMPORT-OBS-1](IMPORT-OBS-1.md).
+Hardware UI/save-provider acceptance is pending; existing 4A and UX-BG-1 device
+markers remain scoped to their historical exact APKs. PR #7 remains Draft / WIP /
+NOT ACCEPTED / NOT FOR RELEASE.
+
 | Category | Evidence needed / historical example | What it does not establish |
 | --- | --- | --- |
 | Capture/VPN/browser transport | Proxy-connect failures with no captured callback | No callback response or server-auth rejection was measured in those runs |

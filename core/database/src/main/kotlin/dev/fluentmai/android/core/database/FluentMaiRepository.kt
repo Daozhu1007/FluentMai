@@ -8,9 +8,13 @@ import dev.fluentmai.android.core.model.RatingHistorySource
 import dev.fluentmai.android.core.model.ScoreRecord
 import dev.fluentmai.android.core.model.SongType
 import java.util.UUID
+import dev.fluentmai.android.core.importer.ImportTimingObserver
+import dev.fluentmai.android.core.importer.measure
+import dev.fluentmai.android.core.model.DiagnosticStage
 
 class FluentMaiRepository(
     private val database: FluentMaiDatabase,
+    private val importObserver: ImportTimingObserver = ImportTimingObserver.None,
 ) {
     suspend fun scoreCount(): Int =
         database.scoreRecordDao().count()
@@ -31,9 +35,13 @@ class FluentMaiRepository(
             dev.fluentmai.android.core.model.Difficulty.valueOf(it.difficulty), it.count, it.isUpperBound)
     }
     suspend fun savePlayRecords(records: List<dev.fluentmai.android.core.model.PlayRecord>) =
-        database.playActivityDao().add(records.map { PlayRecordEntity(it.id, it.songId, it.title, it.songType.name, it.difficulty.name, it.playedAt, it.achievement, it.dxScore, it.fc, it.fs) })
+        importObserver.measure(DiagnosticStage.DATABASE_PERSISTENCE) {
+            database.playActivityDao().add(records.map { PlayRecordEntity(it.id, it.songId, it.title, it.songType.name, it.difficulty.name, it.playedAt, it.achievement, it.dxScore, it.fc, it.fs) })
+        }
     suspend fun savePlayCounts(counts: List<dev.fluentmai.android.core.model.ChartPlayCount>) =
-        database.playActivityDao().saveCounts(counts.map { ChartPlayCountEntity(it.title, it.songType.name, it.difficulty.name, it.count, it.isUpperBound) })
+        importObserver.measure(DiagnosticStage.DATABASE_PERSISTENCE) {
+            database.playActivityDao().saveCounts(counts.map { ChartPlayCountEntity(it.title, it.songType.name, it.difficulty.name, it.count, it.isUpperBound) })
+        }
 
     suspend fun quarantineCount(): Int =
         database.quarantineRecordDao().count()

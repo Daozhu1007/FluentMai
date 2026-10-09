@@ -1,6 +1,8 @@
 package dev.fluentmai.android
 
 import android.util.Log
+import dev.fluentmai.android.core.importer.measure
+import dev.fluentmai.android.core.model.DiagnosticStage
 import dev.fluentmai.android.core.importer.WahlapAttemptLog
 import dev.fluentmai.android.core.importer.WahlapAuthFailurePageException
 import dev.fluentmai.android.core.importer.WahlapHttpStatusException
@@ -37,6 +39,8 @@ class WahlapHttpScorePageClient(
     private val supplementalPages: List<WahlapSupplementalPages.Page> = WahlapSupplementalPages.pages,
     private val mapRequestUrl: (String) -> String = { it },
     private val fetcher: WahlapResilientFetcher = WahlapResilientFetcher(),
+    private val onRequestAttempt: (WahlapRequestCategory, dev.fluentmai.android.core.model.DiagnosticRequestLabel, WahlapAttemptLog) -> Unit = { _, _, _ -> },
+    private val observer: dev.fluentmai.android.core.importer.ImportTimingObserver = dev.fluentmai.android.core.importer.ImportTimingObserver.None,
 ) : AutoCloseable {
     private fun httpClient(): WahlapImportHttpClient = attempt.httpClient
 
@@ -48,11 +52,11 @@ class WahlapHttpScorePageClient(
                 "cookiesBefore=${cookieSummary()}",
         )
 
-        val auth = request(
+        val auth = observer.measure(DiagnosticStage.CALLBACK_PROCESSING) { request(
             label = "auth",
             category = WahlapRequestCategory.AUTH_CALLBACK,
             rawUrl = normalizedAuthUrl,
-        )
+        ) }
         Log.i(
             TAG,
             "Wahlap auth response status=${auth.statusCode} " +
@@ -232,7 +236,10 @@ class WahlapHttpScorePageClient(
         try {
             fetcher.fetch(
                 category = category,
-                onAttempt = { attemptLog -> logAttempt(label, attemptLog) },
+                onAttempt = { attemptLog ->
+                    onRequestAttempt(category, diagnosticRequestLabel(label), attemptLog)
+                    logAttempt(label, attemptLog)
+                },
             ) { profile, meta ->
                 val response = httpClient().fetchPage(mapRequestUrl(rawUrl), category, profile, detailReferer)
                 meta.httpStatus = response.statusCode

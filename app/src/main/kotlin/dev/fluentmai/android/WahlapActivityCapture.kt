@@ -8,6 +8,9 @@ import dev.fluentmai.android.core.model.ImportStage
 import dev.fluentmai.android.core.model.ImportPageState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import dev.fluentmai.android.core.importer.ImportTimingObserver
+import dev.fluentmai.android.core.importer.measure
+import dev.fluentmai.android.core.model.DiagnosticStage
 
 internal data class ActivityCaptureResult(val recordCount: Int, val failedPages: Int, val warnings: List<String>)
 
@@ -15,6 +18,7 @@ internal data class ActivityCaptureResult(val recordCount: Int, val failedPages:
 internal suspend fun captureWahlapActivity(catalog: MaimaiSongCatalog, repository: FluentMaiRepository,
     onDiagnostic: (String) -> Unit = {},
     onPageProgress: (ImportProgress) -> Unit = {},
+    observer: ImportTimingObserver = ImportTimingObserver.None,
     fetch: suspend (String) -> String): ActivityCaptureResult {
     val queue = ArrayDeque<String>().apply { add(WahlapActivityParser.RECENT_URL) }
     val visited = mutableSetOf<String>()
@@ -30,11 +34,14 @@ internal suspend fun captureWahlapActivity(catalog: MaimaiSongCatalog, repositor
         var pageState = ImportPageState.Complete
         var stage = "获取"
         try {
-            val html = retryActivityFetch(onRetryFailure = { onDiagnostic("最近记录首次请求异常：${diagnosticException(it)}") }) { fetch(url) }
+            val html = retryActivityFetch(onRetryFailure = {
+                observer.recoveryRetry(DiagnosticStage.RECENT_RECORDS)
+                onDiagnostic("最近记录首次请求异常：${diagnosticException(it)}")
+            }) { fetch(url) }
             stage = "解析"
             onPageProgress(started.copy(pageState = ImportPageState.Parsing, detail = "正在解析并保存本页游玩记录"))
             if (!WahlapActivityParser.isRecordPage(html)) throw WahlapActivityFetchException("返回内容不是游戏记录页")
-            val records = WahlapActivityParser.records(html, catalog)
+            val records = observer.measure(DiagnosticStage.PARSING) { WahlapActivityParser.records(html, catalog) }
             if (records.isEmpty() && html.contains("playlog_top_container"))
                 throw WahlapActivityFetchException("已取得游戏记录页面，但记录格式未能解析")
             stage = "保存"

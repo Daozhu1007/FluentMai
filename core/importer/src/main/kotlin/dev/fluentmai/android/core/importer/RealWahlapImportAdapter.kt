@@ -2,6 +2,7 @@ package dev.fluentmai.android.core.importer
 
 import dev.fluentmai.android.core.model.Difficulty
 import dev.fluentmai.android.core.model.ImportResult
+import dev.fluentmai.android.core.model.DiagnosticStage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ensureActive
 import kotlin.coroutines.coroutineContext
@@ -75,6 +76,7 @@ class RealWahlapImportAdapter(
     private val pipeline: FakeImportPipeline = FakeImportPipeline(),
     private val difficulties: List<Difficulty> = Difficulty.entries,
     private val sanitizeFailure: (String) -> String = { it },
+    private val observer: ImportTimingObserver = ImportTimingObserver.None,
 ) {
     suspend fun importFetchedPages(
         source: String,
@@ -101,7 +103,7 @@ class RealWahlapImportAdapter(
 
             fetchedDifficultyCount += 1
             val parsed = runCatching {
-                parser.parse(html, difficulty)
+                observer.measure(DiagnosticStage.PARSING) { parser.parse(html, difficulty) }
             }.getOrElse { error ->
                 if (error is CancellationException) throw error
                 failures += difficultyFailure(difficulty, error)
@@ -125,7 +127,7 @@ class RealWahlapImportAdapter(
             fetchedSupplementalPageCount = supplemental.pages.size
             supplemental.pages.forEach { page ->
                 val parsed = runCatching {
-                    parser.parseMixedDifficultyPage(page.html)
+                    observer.measure(DiagnosticStage.PARSING) { parser.parseMixedDifficultyPage(page.html) }
                 }.getOrElse { error ->
                     if (error is CancellationException) throw error
                     supplementalFailures += WahlapSupplementalFailure(
