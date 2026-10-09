@@ -1,6 +1,8 @@
 package dev.fluentmai.android
 
 import android.os.PowerManager
+import android.app.ActivityManager
+import android.net.ConnectivityManager
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -26,13 +28,28 @@ class ImportBackgroundAccessTest {
         assertFalse(needsImportNotificationPermission(RuntimeEnvironment.getApplication()))
     }
 
-    @Test fun asksForExemptionOnlyUntilSystemGrantsIt() {
+    @Test fun backgroundDiagnosticsRemainReadOnlyWithAndWithoutBatteryExemption() {
         val context = RuntimeEnvironment.getApplication()
         val power = context.getSystemService(PowerManager::class.java)
-        shadowOf(power).setIgnoringBatteryOptimizations(context.packageName, false)
-        assertTrue(needsImportBatteryExemption(context))
-        shadowOf(power).setIgnoringBatteryOptimizations(context.packageName, true)
-        assertFalse(needsImportBatteryExemption(context))
-        assertTrue(importBackgroundDiagnostic(context).contains("省电豁免=true"))
+        val activity = context.getSystemService(ActivityManager::class.java)
+        val network = context.getSystemService(ConnectivityManager::class.java)
+        shadowOf(power).setIsPowerSaveMode(true)
+        shadowOf(activity).setBackgroundRestricted(true)
+        for (exempt in listOf(false, true, false)) {
+            shadowOf(power).setIgnoringBatteryOptimizations(context.packageName, exempt)
+            val backgroundStatus = network.restrictBackgroundStatus
+            repeat(3) {
+                val diagnostic = importBackgroundDiagnostic(context)
+                assertTrue(diagnostic.contains("省电豁免=$exempt"))
+                assertTrue(diagnostic.contains("省电模式=true"))
+                assertTrue(diagnostic.contains("后台受限=true"))
+                assertEquals(exempt, power.isIgnoringBatteryOptimizations(context.packageName))
+                assertTrue(power.isPowerSaveMode)
+                assertTrue(activity.isBackgroundRestricted)
+                assertEquals(backgroundStatus, network.restrictBackgroundStatus)
+                assertNull(shadowOf(context).nextStartedActivity)
+                assertNull(shadowOf(context).nextStartedService)
+            }
+        }
     }
 }

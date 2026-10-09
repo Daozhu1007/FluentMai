@@ -419,8 +419,7 @@ private fun FluentMaiApp(
     val scope = rememberCoroutineScope()
     var settingsResetRevision by rememberSaveable { mutableStateOf(0) }
     val screenStateHolder = key(settingsResetRevision) { rememberSaveableStateHolder() }
-    val requestNotifications = rememberRequestImportNotifications()
-    val requestImportNotifications = rememberRequestImportBackgroundAccess(requestNotifications)
+    val requestImportNotifications = rememberRequestImportNotifications()
 
     suspend fun refreshState() {
         val startedAt = SystemClock.elapsedRealtime()
