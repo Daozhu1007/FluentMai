@@ -2,7 +2,8 @@
 
 Curated 2026-10-04; engineering transition, final-APK session and replacement
 bounded-retry acceptance added 2026-10-05; manual timing crossover added 2026-10-06;
-real 4A quick-handoff acceptance added 2026-10-08.
+real 4A quick-handoff acceptance added 2026-10-08; UX-BG-1 phone battery-gate
+repair added 2026-10-09.
 All windows below use Asia/Shanghai (UTC+08:00).
 **DRAFT / WIP / NOT ACCEPTED / NOT FOR RELEASE. PR #7 remains Draft.**
 
@@ -15,6 +16,18 @@ The original local reports and artifacts were retained. Missing observations
 remain `UNOBSERVED`; synthetic checks and Owner reports are identified separately.
 
 ## Current reading
+
+[UX-BG-1](UX-BG-1.md) removes automatic battery-settings requests from ordinary
+import/capture startup while preserving VPN, notifications and read-only background
+diagnostics. The original phone's redirected **电量详情** state was observed on
+historical APK `39854f19…`; implementation `a3940b5` has **80/80 targeted passes**
+and **701 passed / 1 skipped / 0 failed** full-suite results. The separate phone
+package `dev.fluentmai.android.uxbgvalidation`, exact APK `05773282…`, is installed;
+both Owner-operated no-OAuth capture attempts started normally without battery
+settings, while exemption stayed absent. **UX_BATTERY_GATE_FIXED** is scoped to
+this battery UX. Both stops ended VPN/HTTP and foreground capture resources, but
+left an inactive import-service record; full service destruction is not validated.
+Existing OAuth hardware markers below retain their historical exact-binary scope.
 
 [AUTH-NET-4A](AUTH-NET-4A.md) adds a capture-ready-first quick authorization action,
 immediate sensitive clipboard write and ordinary WeChat launcher dispatch, with
@@ -163,6 +176,7 @@ reports are not pooled into a controlled experiment.
 | AUTH-NET-TIMING-1 | Oct 6, 03:12–03:22; Owner waived original start-time gate | Same 24018RPACC tablet; fetched HEAD 902b553, production 9dd6b2c / unchanged exact APK cebb50dd… | Manual FAST / DELAY-20 / FAST / DELAY-20 / FAST; FAST 2/3 Home success at 8,443 and 7,632 ms, one FAST failure at 9,467 ms; DELAY 0/2 at 38,333 and 32,771 ms; two Owner-confirmed COMPLETE imports, two batch additions; natural cleanup | LATENCY_HYPOTHESIS_STRONGLY_SUPPORTED; AUTH_NET_COMPLETE_IMPORT_VALIDATED | Task-defined early-stop criterion met at 5/6; short latency is associated with acceptance in this window, with a retained fast failure; no exact TTL, causal server expiry, score-retry or PARTIAL proof | STILL_VALID | [Manual timing crossover](AUTH-NET-TIMING-1.md) |
 | AUTH-NET-4A engineering / smoke | Oct 6, before 07:05; validation installation 04:09 | 24018RPACC tablet; exact installed validation APK e8757de4…; source 5008451 at acceptance preflight | Capture-ready-first coordinator, immediate clipboard/public launcher, deterministic checks; zero real OAuth transactions | READY_FOR_OWNER_QUICK_HANDOFF_VALIDATION_AFTER_0705 | Engineering and ordinary-launch smoke alone awarded no handoff or full-import hardware marker | STILL_VALID | [4A engineering](AUTH-NET-4A.md) |
 | AUTH-NET-4A-ACCEPT | Oct 8, 02:21:16–02:22:08; Owner explicitly allowed pre-04:00 testing | Same tablet; fetched source 5008451 / unchanged exact validation APK e8757de4… | One real quick-auth request: capture ready → one generation → one clipboard → one dispatch; 17 ms generation-to-dispatch, 7,141 ms generation-to-callback; WeChat foreground, OTHER_CHAT; callback 200, Home YES, Owner-confirmed COMPLETE, exactly one new batch; natural cleanup | LOW_LATENCY_HANDOFF_VALIDATED; AUTH_NET_COMPLETE_IMPORT_VALIDATED | Early stop at 1/3; success-path ownership witnessed; no new hardware retry/fallback/score-recovery/PARTIAL proof, direct-chat API, TTL or root-cause claim | STILL_VALID | [4A real acceptance](AUTH-NET-4A.md#auth-net-4a-accept--real-owner-quick-handoff-october-8) |
+| UX-BG-1 | Oct 9, 13:22 baseline; 13:43–13:49 acceptance | 23116PN5BC phone; original APK 39854f19…; implementation a3940b5 / separate installed APK 05773282… | Original battery-details state observed; two Owner manual capture starts without battery settings or exemption; normal permission prompts, no OAuth; original APK/DB hashes preserved | UX_BATTERY_GATE_FIXED | Battery UX only; both stops released capture resources but retained a non-foreground import-service record; direct socket enumeration denied; no new OAuth/retry/PARTIAL hardware marker | STILL_VALID | [UX-BG-1](UX-BG-1.md) |
 
 ## Failure categories and acceptance boundary
 
