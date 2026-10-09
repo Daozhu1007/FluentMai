@@ -13,6 +13,7 @@ import android.os.SystemClock
 import dev.fluentmai.android.core.model.ImportPageState
 import dev.fluentmai.android.core.model.ImportProgress
 import dev.fluentmai.android.core.model.ImportStage
+import dev.fluentmai.android.core.model.DiagnosticImportMode
 import dev.fluentmai.android.vpn.core.LocalVpnService
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.update
@@ -24,6 +25,11 @@ open class ImportForegroundService : Service() {
     private var waitTimeout: Job? = null
     private var lastNotificationAt = 0L
     private var taskId = 0L
+    private var executionId = 0L
+    private var serviceStartId = 0
+    private var diagnosticCollector: ImportDiagnosticCollector? = null
+    private val diagnosticStore by lazy { ImportDiagnosticRuntime.get(applicationContext) }
+    private fun ownsTask() = ImportTaskStore.state.value.executionId == executionId && executionId != 0L
     private val notifications get() = getSystemService(NotificationManager::class.java)
 
     override fun onCreate() {
@@ -31,7 +37,18 @@ open class ImportForegroundService : Service() {
         notifications.createNotificationChannel(NotificationChannel(CHANNEL, "成绩导入", NotificationManager.IMPORTANCE_LOW))
         scope.launch(start = CoroutineStart.UNDISPATCHED) {
             WahlapHookBridge.capturedAuthUrls.collect { url ->
-                if (ImportTaskStore.state.value.phase == ImportTaskPhase.Waiting) beginImport(url, cookie = false)
+                if (ownsTask() && ImportTaskStore.state.value.phase == ImportTaskPhase.Waiting &&
+                    WahlapAuthCaptureStore.isCapturedCallback(url)) beginImport(url, cookie = false)
+            }
+        }
+        scope.launch(start = CoroutineStart.UNDISPATCHED) {
+            WahlapHookBridge.captureFailures.collect { failure ->
+                val category = failure.category
+                if (ownsTask() && failure.executionId == executionId && ImportTaskStore.state.value.phase == ImportTaskPhase.Waiting) {
+                    fail(if (category == ImportFailureCategory.AUTHORIZE_GENERATION) "生成微信授权地址失败，请重新开始导入" else "授权捕获失败，请检查 VPN 后重新开始导入",
+                        category = category)
+                    finishService()
+                }
             }
         }
     }
@@ -39,20 +56,38 @@ open class ImportForegroundService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        serviceStartId = startId
         if (intent?.action == CANCEL_WAIT) {
             if (ImportTaskStore.state.value.phase == ImportTaskPhase.Waiting) {
-                stopCapture()
-                ImportTaskStore.state.value = ImportTaskState()
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                stopSelf()
+                fail("已取消微信授权", category = ImportFailureCategory.CANCELLED)
+                finishService(showResult = false)
             }
             return START_NOT_STICKY
         }
         if (ImportTaskStore.state.value.busy) return START_NOT_STICKY
+        val retry = intent?.action == RETRY_AUTH
         val cookie = intent?.action == COOKIE
-        if (intent?.action != WAIT && !cookie) { stopSelf(); return START_NOT_STICKY }
-        taskId = System.nanoTime()
+        val previous = ImportTaskStore.state.value
+        val handoffRequestId = intent?.getLongExtra(HANDOFF_REQUEST, 0) ?: 0
+        if (handoffRequestId != 0L && QuickAuthRuntime.coordinator?.isStartRequested(handoffRequestId) != true) {
+            stopSelf(startId); return START_NOT_STICKY
+        }
+        if (handoffRequestId == 0L && QuickAuthRuntime.coordinator?.state?.value?.active == true) return START_NOT_STICKY
+        if (retry && (previous.phase != ImportTaskPhase.AuthRetryAvailable ||
+                previous.id != intent.getLongExtra(TASK_ID, -1) ||
+                previous.authAttempt != intent.getIntExtra(ATTEMPT_NUMBER, -1) ||
+                previous.authAttempt >= previous.maxAuthAttempts)) { stopSelf(startId); return START_NOT_STICKY }
+        if (intent?.action != WAIT && !cookie && !retry) { stopSelf(startId); return START_NOT_STICKY }
+        // Starting a new session is explicit; an available fresh retry cannot be bypassed by WAIT.
+        if (!retry && !cookie && previous.phase == ImportTaskPhase.AuthRetryAvailable) return START_NOT_STICKY
+        taskId = if (retry) previous.id else System.nanoTime()
+        executionId = System.nanoTime()
+        val diagnosticMode = if (cookie) DiagnosticImportMode.MANUAL_COOKIE else DiagnosticImportMode.WECHAT_OAUTH
+        diagnosticCollector = ImportDiagnosticCollector(diagnosticMode)
+        diagnosticStore.begin(executionId, diagnosticMode)
         ImportTaskStore.state.value = ImportTaskState(id = taskId, phase = ImportTaskPhase.Waiting,
+            executionId = executionId, handoffRequestId = handoffRequestId, quickAuth = intent?.getBooleanExtra(QUICK_AUTH, false) == true,
+            authAttempt = if (cookie) 0 else if (retry) previous.authAttempt + 1 else 1,
             progress = ImportProgress(ImportStage.Preparing, if (cookie) "准备导入" else "等待微信授权，请在微信打开授权链接"))
         try {
             startForeground(NOTIFICATION_ID, notification(ImportTaskStore.state.value))
@@ -63,18 +98,19 @@ open class ImportForegroundService : Service() {
                 beginImport(input, cookie = true)
             } else {
                 WahlapHookBridge.finishImport()
-                WahlapHookHttpService.start(this)
-                startForegroundService(Intent(this, LocalVpnService::class.java))
+                WahlapHookBridge.prepareCapture(executionId)
+                WahlapHookHttpService.start(this, executionId)
+                startForegroundService(Intent(this, LocalVpnService::class.java).putExtra(CAPTURE_EXECUTION, executionId))
                 waitTimeout = scope.launch {
                     delay(10 * 60 * 1000L)
                     if (ImportTaskStore.state.value.phase == ImportTaskPhase.Waiting) {
-                        fail("等待微信授权超时，请重新启动捕获")
+                        fail("等待微信授权超时，请重新启动捕获", category = ImportFailureCategory.CAPTURE_VPN)
                         finishService()
                     }
                 }
             }
         } catch (error: Exception) {
-            fail(sanitizeImportDiagnostic(error.message ?: "无法启动后台导入"))
+            fail(sanitizeImportDiagnostic(error.message ?: "无法启动后台导入"), category = ImportFailureCategory.CAPTURE_VPN)
             finishService()
         }
         // Never replay an expiring authorization or Cookie after a process restart.
@@ -83,7 +119,9 @@ open class ImportForegroundService : Service() {
 
     private fun beginImport(input: String, cookie: Boolean) {
         if (importJob?.isActive == true) return
+        diagnosticCollector?.beginImport()
         waitTimeout?.cancel()
+        if (!cookie) QuickAuthRuntime.coordinator?.callbackCaptured(executionId)
         ImportTaskStore.state.update { it.copy(phase = ImportTaskPhase.Running,
             progress = ImportProgress(ImportStage.Preparing, "正在登录并准备同步")) }
         postProgress(force = true)
@@ -96,7 +134,7 @@ open class ImportForegroundService : Service() {
                 val result = withContext(Dispatchers.IO) {
                     val progress: (ImportProgress) -> Unit = { value ->
                         ImportTaskStore.state.update {
-                            if (it.id == taskId && it.phase == ImportTaskPhase.Running)
+                            if (it.executionId == executionId && it.phase == ImportTaskPhase.Running)
                                 it.copy(progress = value, pageFailed = it.pageFailed || value.failedPages > 0)
                             else it
                         }
@@ -105,7 +143,7 @@ open class ImportForegroundService : Service() {
                     executeImport(input, cookie, progress)
                 }
                 ImportTaskStore.state.update { state ->
-                    if (state.id != taskId) return@update state
+                    if (state.executionId != executionId) return@update state
                     val completed = state.copy(phase = ImportTaskPhase.Finished, result = result,
                         error = result.failures.takeIf { it.isNotEmpty() }?.joinToString("; ") { "${it.difficulty}: ${it.message}" })
                     completed.copy(
@@ -114,12 +152,30 @@ open class ImportForegroundService : Service() {
                         diagnostics = result.diagnosticDetails.takeIf { !completed.complete },
                     )
                 }
+                diagnosticCollector?.result(result)
             } catch (cancelled: CancellationException) {
-                fail("导入服务已停止；已保存的数据保留，请重新导入补齐")
+                fail("导入服务已停止；已保存的数据保留，请重新导入补齐", category = ImportFailureCategory.CANCELLED)
                 throw cancelled
             } catch (error: Exception) {
-                fail(sanitizeImportDiagnostic(error.message ?: "导入失败"),
-                    (error as? ImportDiagnosticException)?.details ?: diagnosticException(error))
+                val state = ImportTaskStore.state.value
+                val category = importFailureCategory(error, state.authenticated)
+                if (!cookie && category == ImportFailureCategory.AUTHORIZATION_RETRY_REQUIRED) {
+                    QuickAuthRuntime.coordinator?.authRejected(executionId)
+                    // executeImport has already closed its consumed OAuth client in finally.
+                    // Shut down capture before publishing a clickable retry state.
+                    stopCapture()
+                    WahlapHookBridge.finishImport()
+                    ImportTaskStore.state.update {
+                        if (it.executionId != executionId) it else it.copy(
+                            phase = if (it.authAttempt < it.maxAuthAttempts) ImportTaskPhase.AuthRetryAvailable else ImportTaskPhase.Finished,
+                            failureCategory = category,
+                            error = if (it.authAttempt < it.maxAuthAttempts) "本次授权已失效，请重新授权" else "已尝试 ${it.maxAuthAttempts} 次授权，仍未登录成功。请稍后重新开始导入。",
+                            diagnostics = (error as? ImportDiagnosticException)?.details ?: diagnosticException(error),
+                            progress = null,
+                        )
+                    }
+                } else fail(sanitizeImportDiagnostic(error.message ?: "导入失败"),
+                    (error as? ImportDiagnosticException)?.details ?: diagnosticException(error), category)
             } finally {
                 if (wakeLock.isHeld) wakeLock.release()
                 finishService()
@@ -128,37 +184,48 @@ open class ImportForegroundService : Service() {
     }
 
     protected open suspend fun executeImport(input: String, cookie: Boolean, progress: (ImportProgress) -> Unit): dev.fluentmai.android.core.importer.RealWahlapImportResult =
-        WahlapImportRunner(applicationContext).use { runner ->
+        WahlapImportRunner(applicationContext, diagnosticCollector).use { runner ->
             if (cookie) {
                 stopCapture()
                 runner.runCookieImport(input, progress)
-            } else runner.runRealImport(input, ::stopCapture, progress)
+            } else runner.runRealImport(input, ::stopCapture, progress, onAuthenticatedHome = ::authenticatedHomeEstablished)
         }
 
-    private fun fail(message: String, details: String? = null) {
+    protected fun authenticatedHomeEstablished() {
+        scope.launch { QuickAuthRuntime.coordinator?.authenticatedHome(executionId) }
         ImportTaskStore.state.update {
-            if (it.id != taskId) it else it.copy(phase = ImportTaskPhase.Finished, error = message,
+            if (it.executionId != executionId) it else it.copy(authenticated = true, failureCategory = null, error = null)
+        }
+    }
+
+    private fun fail(message: String, details: String? = null, category: ImportFailureCategory = ImportFailureCategory.IMPORT) {
+        ImportTaskStore.state.update {
+            if (it.executionId != executionId) it else it.copy(phase = ImportTaskPhase.Finished, error = message, failureCategory = category,
                 diagnostics = details ?: message, progress = it.progress?.copy(detail = message, pageState = ImportPageState.Failed))
         }
     }
 
     private fun stopCapture() {
+        WahlapAuthCaptureStore.discardPendingAttempt()
         // A VPN can remain system-bound after stopService; explicitly close its tunnel.
         startService(Intent(this, LocalVpnService::class.java).setAction(LocalVpnService.DISCONNECT_INTENT))
         WahlapHookHttpService.stop(this)
     }
 
-    private fun finishService() {
-        if (ImportTaskStore.state.value.id != taskId) return
+    private fun finishService(showResult: Boolean = true) {
+        if (!ownsTask()) return
+        finishDiagnostics()
+        waitTimeout?.cancel()
         stopCapture()
         WahlapHookBridge.finishImport()
         stopForeground(STOP_FOREGROUND_REMOVE)
-        runCatching { notifications.notify(NOTIFICATION_ID, notification(ImportTaskStore.state.value)) }
-        stopSelf()
+        if (showResult) runCatching { notifications.notify(NOTIFICATION_ID, notification(ImportTaskStore.state.value)) }
+        else notifications.cancel(NOTIFICATION_ID)
+        stopSelf(serviceStartId)
     }
 
     private fun postProgress(force: Boolean = false) {
-        if (ImportTaskStore.state.value.id != taskId) return
+        if (!ownsTask()) return
         val now = SystemClock.elapsedRealtime()
         if (!force && now - lastNotificationAt < 500) return
         lastNotificationAt = now
@@ -179,6 +246,7 @@ open class ImportForegroundService : Service() {
         val detail = if (state.phase == ImportTaskPhase.Running) {
             listOfNotNull(progress?.pageName, progress?.countLabel, progress?.percentageLabel).joinToString(" · ")
         } else if (state.phase == ImportTaskPhase.Waiting) "在微信打开授权链接，随后会自动继续导入"
+        else if (state.phase == ImportTaskPhase.AuthRetryAvailable) "本次授权已失效 · 授权尝试 ${state.authAttempt} / ${state.maxAuthAttempts} · 点击重新授权"
         else "点击查看导入结果"
         return Notification.Builder(this, CHANNEL)
             .setSmallIcon(android.R.drawable.stat_sys_download)
@@ -200,13 +268,23 @@ open class ImportForegroundService : Service() {
 
     override fun onDestroy() {
         waitTimeout?.cancel()
-        if (ImportTaskStore.state.value.id == taskId && ImportTaskStore.state.value.busy) {
-            fail("导入服务已停止；已保存的数据保留，请重新导入补齐")
+        if (ownsTask() && ImportTaskStore.state.value.busy) {
+            fail("导入服务已停止；已保存的数据保留，请重新导入补齐", category = ImportFailureCategory.CANCELLED)
             stopCapture()
             WahlapHookBridge.finishImport()
+            finishDiagnostics()
         }
         scope.cancel()
         super.onDestroy()
+    }
+
+    private fun finishDiagnostics() {
+        val collector = diagnosticCollector ?: return
+        val state = ImportTaskStore.state.value
+        if (state.executionId != executionId || state.busy) return
+        val milestones = QuickAuthRuntime.coordinator?.diagnosticMilestones(executionId).orEmpty()
+        diagnosticStore.finish(executionId, collector.finish(state, milestones))
+        diagnosticCollector = null
     }
 
     companion object {
@@ -217,6 +295,19 @@ open class ImportForegroundService : Service() {
         private const val COOKIE = "import_cookie"
         private const val CANCEL_WAIT = "cancel_import_wait"
         private const val INPUT = "input"
+        private const val RETRY_AUTH = "retry_fresh_authorization"
+        private const val TASK_ID = "logical_import_id"
+        private const val ATTEMPT_NUMBER = "auth_attempt_number"
+        internal const val CAPTURE_EXECUTION = "capture_execution_id"
+        private const val HANDOFF_REQUEST = "handoff_request_id"
+        private const val QUICK_AUTH = "quick_auth"
+        internal fun startHandoff(context: Context, requestId: Long, retry: ImportTaskState?, quick: Boolean) {
+            context.startForegroundService(Intent(context, ImportForegroundService::class.java)
+                .setAction(if (retry == null) WAIT else RETRY_AUTH)
+                .putExtra(HANDOFF_REQUEST, requestId).putExtra(QUICK_AUTH, quick).apply {
+                    if (retry != null) { putExtra(TASK_ID, retry.id); putExtra(ATTEMPT_NUMBER, retry.authAttempt) }
+                })
+        }
         fun start(context: Context, cookie: String? = null) {
             context.startForegroundService(Intent(context, ImportForegroundService::class.java)
                 .setAction(if (cookie == null) WAIT else COOKIE).apply { if (cookie != null) putExtra(INPUT, cookie) })
@@ -224,6 +315,11 @@ open class ImportForegroundService : Service() {
         fun cancelWaiting(context: Context) {
             if (ImportTaskStore.state.value.phase == ImportTaskPhase.Waiting)
                 context.startService(Intent(context, ImportForegroundService::class.java).setAction(CANCEL_WAIT))
+        }
+        internal fun retryAuthorization(context: Context, state: ImportTaskState) {
+            if (state.phase != ImportTaskPhase.AuthRetryAvailable || state.authAttempt >= state.maxAuthAttempts) return
+            context.startForegroundService(Intent(context, ImportForegroundService::class.java)
+                .setAction(RETRY_AUTH).putExtra(TASK_ID, state.id).putExtra(ATTEMPT_NUMBER, state.authAttempt))
         }
     }
 }
