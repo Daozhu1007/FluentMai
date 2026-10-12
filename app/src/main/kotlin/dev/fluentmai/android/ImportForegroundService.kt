@@ -104,7 +104,7 @@ open class ImportForegroundService : Service() {
                 waitTimeout = scope.launch {
                     delay(10 * 60 * 1000L)
                     if (ImportTaskStore.state.value.phase == ImportTaskPhase.Waiting) {
-                        fail("等待微信授权超时，请重新启动捕获", category = ImportFailureCategory.CAPTURE_VPN)
+                        fail("等待微信授权超时，请重新点击“立即微信授权”", category = ImportFailureCategory.CAPTURE_VPN)
                         finishService()
                     }
                 }

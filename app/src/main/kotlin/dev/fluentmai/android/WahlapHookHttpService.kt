@@ -74,7 +74,7 @@ class WahlapHookHttpService : Service() {
         }
         if (hookServer?.isReady() == true && redirectServer?.isReady() == true) {
             WahlapHookBridge.setHttpReady(executionId, true)
-            WahlapHookBridge.setStatus("本地 Hook 服务已启动，请复制链接到微信打开。")
+            WahlapHookBridge.setStatus("本地授权捕获已启动。")
         } else {
             WahlapHookBridge.setStatus("本地 Hook 服务启动失败：端口未能监听。")
             WahlapHookBridge.captureFailed(ImportFailureCategory.CAPTURE_VPN, executionId)
@@ -140,7 +140,7 @@ class WahlapHookHttpService : Service() {
             return HookHttpResponse.html(202, "查分进程已经开始，请切回 FluentMai 等待导入完成。")
         }
         if (ImportTaskStore.state.value.quickAuth || !WahlapHookBridge.captureReadiness.value.readyFor(expectedExecution)) {
-            return HookHttpResponse.html(202, "请切回 FluentMai，等待捕获准备完成后复制授权链接。")
+            return HookHttpResponse.html(202, "请切回 FluentMai，等待微信授权准备完成后按提示操作。")
         }
         return runCatching {
             WahlapHookBridge.setStatus("微信已打开 Hook 链接，正在生成舞萌授权跳转。")

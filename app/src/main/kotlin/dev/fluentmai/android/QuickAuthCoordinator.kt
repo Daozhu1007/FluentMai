@@ -192,7 +192,7 @@ internal class QuickAuthCoordinator(
             state.value = state.value.copy(phase = QuickAuthPhase.CopyingClipboard, message = "授权链接已生成，正在复制…")
             try { ports.copyToClipboard(url) }
             catch (_: Exception) {
-                state.value = state.value.copy(phase = QuickAuthPhase.ManualWaiting, message = "复制失败，请使用“复制授权”后立即打开微信。")
+                state.value = state.value.copy(phase = QuickAuthPhase.ManualWaiting, message = "授权链接复制失败，请停止捕获后重新点击“立即微信授权”。")
                 return@launch
             }
             timing?.mark(QuickAuthEvent.ClipboardReady)

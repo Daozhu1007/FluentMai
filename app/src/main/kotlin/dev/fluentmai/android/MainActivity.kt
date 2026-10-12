@@ -108,7 +108,7 @@ import java.text.Normalizer
 import kotlinx.coroutines.withContext
 
 private const val TAG = "FluentMaiImport"
-internal const val APP_VERSION = "0.3.0-beta"
+internal const val APP_VERSION = "0.3.1-beta"
 
 class MainActivity : ComponentActivity() {
     private val quickAuth by lazy { QuickAuthRuntime.get(this) }
@@ -314,7 +314,6 @@ private fun FluentMaiApp(
     val resetChartFilters = rememberResetChartFilters()
     AppUpdatePrompt(automaticUpdates)
     val startupStartedAtMs = remember { SystemClock.elapsedRealtime() }
-    val authUrlRedactor = remember { PrivacyRedactor() }
     val hookStatus by WahlapHookBridge.status.collectAsState()
     val isHookRunning by WahlapHookBridge.vpnRunning.collectAsState()
     var selectedTab by rememberSaveable { mutableStateOf(AppTab.Home) }
@@ -405,16 +404,13 @@ private fun FluentMaiApp(
     var lastUploadError by remember { mutableStateOf<String?>(null) }
     var uploadProgressText by remember { mutableStateOf<String?>(null) }
     var uploadProgressFraction by remember { mutableStateOf<Float?>(null) }
-    var hookLink by remember { mutableStateOf(WahlapHookHttpService.HOOK_URL) }
     var wahlapCookieInput by remember { mutableStateOf("") }
-    var isPreparingHookLink by remember { mutableStateOf(false) }
     val authTask by ImportTaskStore.state.collectAsState()
     val diagnosticStore = remember { ImportDiagnosticRuntime.get(context) }
     val diagnosticReport by diagnosticStore.latest.collectAsState()
     val diagnosticStorageFailed by diagnosticStore.storageFailed.collectAsState()
     val exportDiagnostic = rememberExportImportDiagnostic(context, diagnosticStore)
     val quickAuthState by quickAuth.state.collectAsState()
-    val captureReadiness by WahlapHookBridge.captureReadiness.collectAsState()
     var isImporting by remember { mutableStateOf(false) }
     var isUploading by remember { mutableStateOf(false) }
     var isSettingsOpen by rememberSaveable { mutableStateOf(false) }
@@ -425,6 +421,11 @@ private fun FluentMaiApp(
     val screenStateHolder = key(settingsResetRevision) { rememberSaveableStateHolder() }
     val requestNotifications = rememberRequestImportNotifications()
     val requestImportNotifications = rememberRequestImportBackgroundAccess(requestNotifications)
+    // Complete permission UI before generating an expiring WeChat authorization link.
+    val requestWechatAuthorization = rememberRequestImportBackgroundAccess {
+        requestNotifications()
+        requestAuthorization(true)
+    }
 
     suspend fun refreshState() {
         val startedAt = SystemClock.elapsedRealtime()
@@ -710,53 +711,11 @@ private fun FluentMaiApp(
         }
     }
 
-    fun startHookCapture() {
-        if (isPreparingHookLink) return
-        requestImportNotifications()
-        requestAuthorization(false)
-    }
-
     fun stopHookCapture() {
         quickAuth.cancel()
         ImportForegroundService.cancelWaiting(context)
         stopVpnService(context)
         WahlapHookHttpService.stop(context)
-    }
-
-    fun copyHookUrl() {
-        if (isPreparingHookLink || ImportTaskStore.state.value.phase != ImportTaskPhase.Waiting ||
-            !WahlapHookBridge.captureReadiness.value.readyFor(ImportTaskStore.state.value.executionId) ||
-            quickAuth.state.value.let { it.quick && it.active && it.phase != QuickAuthPhase.ManualWaiting }) return
-        val expectedExecution = ImportTaskStore.state.value.executionId
-        isPreparingHookLink = true
-        scope.launch {
-            try {
-                val authUrl = withContext(Dispatchers.IO) {
-                    WahlapWechatAuthUrlClient(authUrlRedactor, canAuthorize = {
-                        ImportTaskStore.state.value.let { it.executionId == expectedExecution && it.phase == ImportTaskPhase.Waiting } &&
-                            WahlapHookBridge.captureReadiness.value.readyFor(expectedExecution)
-                    }).maimaiDxAuthUrl()
-                }
-                if (ImportTaskStore.state.value.executionId != expectedExecution ||
-                    ImportTaskStore.state.value.phase != ImportTaskPhase.Waiting) return@launch
-                hookLink = authUrl
-                copyTextToClipboard(context, "FluentMai 微信授权链接", authUrl)
-                WahlapHookBridge.setStatus("微信授权链接已复制。请发到微信并点开，VPN 会捕获回跳授权。")
-            } catch (error: Exception) {
-                if (error is kotlinx.coroutines.CancellationException) throw error
-                if (ImportTaskStore.state.value.executionId != expectedExecution) return@launch
-                val safeMessage = redactMessage(error.message ?: error::class.java.simpleName)
-                hookLink = WahlapHookHttpService.HOOK_URL
-                WahlapHookBridge.setStatus("生成微信授权链接失败：$safeMessage")
-                WahlapHookBridge.captureFailed(ImportFailureCategory.AUTHORIZE_GENERATION, expectedExecution)
-            } finally {
-                isPreparingHookLink = false
-            }
-        }
-    }
-
-    LaunchedEffect(authTask.executionId, authTask.phase) {
-        if (authTask.phase != ImportTaskPhase.Waiting) hookLink = WahlapHookHttpService.HOOK_URL
     }
 
     LaunchedEffect(Unit) {
@@ -944,8 +903,6 @@ private fun FluentMaiApp(
 
                 AppTab.Import -> ImportScreen(
                     diagnosticReport = diagnosticReport,
-                    diagnosticCurrentProgress = if (authTask.busy) authTask.progress?.stage?.label ?: "正在准备导入"
-                        else if (quickAuthState.active) "正在准备授权" else null,
                     diagnosticStorageFailed = diagnosticStorageFailed,
                     onExportDiagnostic = exportDiagnostic,
                     onCopyDiagnosticSummary = {
@@ -967,7 +924,6 @@ private fun FluentMaiApp(
                             Toast.makeText(context, "已复制详细报错（已移除敏感信息）", Toast.LENGTH_SHORT).show()
                         }
                     },
-                    hookUrl = hookLink,
                     hookStatus = quickAuthState.message ?: hookStatus,
                     isHookRunning = isHookRunning,
                     divingFishToken = divingFishToken,
@@ -980,20 +936,15 @@ private fun FluentMaiApp(
                     scoreCount = scoreCount,
                     isImporting = isImporting,
                     isUploading = isUploading,
-                    isPreparingHookLink = isPreparingHookLink,
                     authAttemptNumber = authTask.authAttempt,
                     maxAuthAttempts = authTask.maxAuthAttempts,
                     authRetryAvailable = authTask.phase == ImportTaskPhase.AuthRetryAvailable,
                     isAuthorizing = authTask.phase == ImportTaskPhase.Waiting,
                     quickAuthActive = quickAuthState.quick && quickAuthState.active && quickAuthState.phase != QuickAuthPhase.ManualWaiting,
                     capturePreparing = quickAuthState.phase in setOf(QuickAuthPhase.RequestingVpnPermission, QuickAuthPhase.StartingCapture, QuickAuthPhase.WaitingCaptureReady),
-                    captureReady = captureReadiness.readyFor(authTask.executionId),
-                    onQuickAuthorization = { if (!isPreparingHookLink) requestAuthorization(true) },
-                    onRetryAuthorization = ::startHookCapture,
+                    onQuickAuthorization = requestWechatAuthorization,
                     wahlapCookieInput = wahlapCookieInput,
-                    onStartHookCapture = ::startHookCapture,
                     onStopHookCapture = ::stopHookCapture,
-                    onCopyHookUrl = ::copyHookUrl,
                     onWahlapCookieInputChanged = { value -> wahlapCookieInput = value },
                     onImportWahlapCookie = ::startManualCookieImport,
                     onDivingFishTokenChanged = { token ->

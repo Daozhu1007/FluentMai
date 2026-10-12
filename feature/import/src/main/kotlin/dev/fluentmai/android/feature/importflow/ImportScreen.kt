@@ -14,7 +14,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudUpload
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
@@ -49,7 +48,6 @@ fun ImportScreen(
     realImportSummary: String?,
     importStatus: String,
     errorMessage: String?,
-    hookUrl: String,
     hookStatus: String,
     isHookRunning: Boolean,
     divingFishToken: String,
@@ -62,11 +60,8 @@ fun ImportScreen(
     scoreCount: Int,
     isImporting: Boolean,
     isUploading: Boolean,
-    isPreparingHookLink: Boolean,
     wahlapCookieInput: String,
-    onStartHookCapture: () -> Unit,
     onStopHookCapture: () -> Unit,
-    onCopyHookUrl: () -> Unit,
     onWahlapCookieInputChanged: (String) -> Unit,
     onImportWahlapCookie: () -> Unit,
     onDivingFishTokenChanged: (String) -> Unit,
@@ -83,19 +78,16 @@ fun ImportScreen(
     maxAuthAttempts: Int = 3,
     authRetryAvailable: Boolean = false,
     isAuthorizing: Boolean = false,
-    onRetryAuthorization: () -> Unit = {},
     quickAuthActive: Boolean = false,
     capturePreparing: Boolean = false,
-    captureReady: Boolean = false,
     onQuickAuthorization: () -> Unit = {},
     diagnosticReport: dev.fluentmai.android.core.model.ImportDiagnosticReport? = null,
-    diagnosticCurrentProgress: String? = null,
     diagnosticStorageFailed: Boolean = false,
     onExportDiagnostic: () -> Unit = {},
     onCopyDiagnosticSummary: () -> Unit = {},
 ) {
     val isBusy = isImporting || isUploading || quickAuthActive || capturePreparing
-    val otherActionsBlocked = isBusy || isAuthorizing || isPreparingHookLink
+    val otherActionsBlocked = isBusy || isAuthorizing
     var showRebuildConfirmation by remember { mutableStateOf(false) }
     var rebuildConfirmationInput by remember { mutableStateOf("") }
     val scrollState = rememberScrollState()
@@ -183,39 +175,17 @@ fun ImportScreen(
                     Text(text = "华立登录未成功", style = MaterialTheme.typography.titleMedium)
                     Text(text = "本次授权已失效，请重新授权")
                 }
-                Button(onClick = onQuickAuthorization,
-                    enabled = !isBusy && !isPreparingHookLink && !isAuthorizing,
-                    modifier = Modifier.fillMaxWidth()) {
+                Text(text = hookStatus)
+                Button(
+                    onClick = onQuickAuthorization,
+                    enabled = !otherActionsBlocked,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(imageVector = Icons.Filled.PlayArrow, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(text = if (authRetryAvailable) "重新授权并打开微信" else "立即微信授权")
                 }
-                Text(text = "授权链接可能随时间变旧，建议生成后立即在微信中打开。", style = MaterialTheme.typography.bodySmall)
-                if (authRetryAvailable) OutlinedButton(onClick = onRetryAuthorization,
-                    enabled = !isBusy && !isPreparingHookLink, modifier = Modifier.fillMaxWidth()) { Text(text = "手动重新启动捕获") }
-                Text(text = hookStatus)
-                Text(text = hookUrl, style = MaterialTheme.typography.bodySmall)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    OutlinedButton(
-                        onClick = onStartHookCapture,
-                        enabled = !isBusy && !isHookRunning && !authRetryAvailable && !isAuthorizing,
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Icon(imageVector = Icons.Filled.PlayArrow, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = "启动捕获")
-                    }
-                    OutlinedButton(
-                        onClick = onCopyHookUrl,
-                        enabled = !isBusy && !isPreparingHookLink && isAuthorizing && captureReady,
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Icon(imageVector = Icons.Filled.ContentCopy, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = if (isPreparingHookLink) "生成中" else "复制授权")
-                    }
-                }
+                Text(text = "授权链接会自动复制并打开微信，请粘贴发送后立即点开。", style = MaterialTheme.typography.bodySmall)
                 OutlinedButton(
                     onClick = onStopHookCapture,
                     enabled = (isHookRunning || isAuthorizing || capturePreparing) && !isImporting,
@@ -283,12 +253,12 @@ fun ImportScreen(
                 }
                 Text(text = importStatus)
                 importProgress?.let { ImportProgressPanel(it, isImporting) }
-                if (!isImporting || importProgress == null) Text(text = realImportSummary ?: "启动捕获后，复制授权链接发到微信并点开。捕获到授权请求后会自动导入本地成绩。")
+                if (!isImporting || importProgress == null) Text(text = realImportSummary ?: "点击“立即微信授权”后，按提示在微信完成授权，成绩将自动导入。")
                 errorMessage?.let { Text(text = it, color = MaterialTheme.colorScheme.error) }
             }
         }
 
-        ImportDiagnosticPanel(diagnosticReport, diagnosticCurrentProgress, diagnosticStorageFailed,
+        ImportDiagnosticPanel(diagnosticReport, diagnosticStorageFailed,
             onExportDiagnostic, onCopyDiagnosticSummary)
 
         Text(text = "上传", style = MaterialTheme.typography.titleMedium)

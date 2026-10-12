@@ -1,9 +1,25 @@
 package dev.fluentmai.android.feature.importflow
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import dev.fluentmai.android.core.model.*
 
@@ -38,41 +54,66 @@ fun diagnosticSummary(report: ImportDiagnosticReport): String = buildString {
 }
 
 @Composable
-fun ImportDiagnosticPanel(report: ImportDiagnosticReport?, currentProgress: String?, storageFailed: Boolean,
+fun ImportDiagnosticPanel(report: ImportDiagnosticReport?, storageFailed: Boolean,
     onExport: () -> Unit, onCopy: () -> Unit, modifier: Modifier = Modifier) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    val arrowRotation by animateFloatAsState(if (expanded) 180f else 0f, tween(200), label = "diagnosticArrow")
     Surface(modifier = modifier.fillMaxWidth(), shape = MaterialTheme.shapes.small) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("最近一次导入诊断", style = MaterialTheme.typography.titleMedium)
-            currentProgress?.let { Text("当前进度：$it", color = MaterialTheme.colorScheme.primary) }
-            if (report == null) Text("暂无已结束的导入诊断。导入结束后可导出报告。")
-            else {
-                if (currentProgress != null) Text("以下为上一次已结束的诊断，与当前导入分开显示。", style = MaterialTheme.typography.bodySmall)
-                Text(diagnosticSummary(report))
-                Text("导入方式：${if (report.mode == DiagnosticImportMode.WECHAT_OAUTH) "微信授权" else "手动 Cookie"}")
-                Text("执行耗时：${duration(report.executionDurationMs)}")
-                if (report.mode == DiagnosticImportMode.WECHAT_OAUTH) Text("授权等待：${duration(report.authorizationWaitDurationMs)}（单独计时）")
-                Text("阶段耗时（含子操作，不可直接相加）", style = MaterialTheme.typography.labelMedium)
-                report.stages.filter { it.durationMs != null }.maxByOrNull { it.durationMs!! }?.let {
-                    Text("耗时最长：${diagnosticStageLabel(it.stage)} · ${duration(it.durationMs)}", style = MaterialTheme.typography.bodySmall)
-                }
-                Text(report.stages.joinToString("\n") { timing ->
-                    "${diagnosticStageLabel(timing.stage)}：${duration(timing.durationMs)}" + when (timing.observation) {
-                        DiagnosticObservation.FAILED -> " · 有失败"
-                        DiagnosticObservation.INCOMPLETE -> " · 未结束"
-                        else -> ""
-                    } + if (timing.recoveryRetries > 0) " · 恢复重试 ${timing.recoveryRetries}" else ""
-                }, style = MaterialTheme.typography.bodySmall)
-                Text("未归属开销：${duration(report.unattributedDurationMs)}", style = MaterialTheme.typography.bodySmall)
-                val affected = report.requests.filter { it.retries > 0 || it.failedRequests > 0 }
-                if (affected.isNotEmpty()) Text(affected.joinToString("\n") {
-                    "${diagnosticStageLabel(it.stage)} / ${it.label.name}：重试 ${it.retries} · 失败 ${it.failedRequests}"
-                }, style = MaterialTheme.typography.bodySmall)
-                if (report.failures.isNotEmpty()) Text("失败类别：${report.failures.joinToString { it.name }}", style = MaterialTheme.typography.bodySmall)
-                if (report.metricsBounded) Text("诊断统计达到上限，部分指标已截断。")
+        Column(Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                    .clickable(role = Role.Button, onClickLabel = if (expanded) "收起诊断" else "展开诊断") { expanded = !expanded }
+                    .semantics { stateDescription = if (expanded) "已展开" else "已折叠" },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("最近一次导入诊断", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                Icon(Icons.Filled.ExpandMore, contentDescription = null,
+                    modifier = Modifier.rotate(arrowRotation), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            if (storageFailed) Text("诊断本地保存失败；返回应用后的恢复可能不可用。", color = MaterialTheme.colorScheme.error)
-            Button(onClick = onExport, enabled = report != null, modifier = Modifier.fillMaxWidth()) { Text("导出诊断报告") }
-            TextButton(onClick = onCopy, enabled = report != null) { Text("复制诊断摘要") }
+            AnimatedVisibility(
+                visible = expanded,
+                enter = expandVertically(tween(200)) + fadeIn(tween(200)),
+                exit = shrinkVertically(tween(200)) + fadeOut(tween(200)),
+            ) {
+                Column(Modifier.fillMaxWidth().padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (report == null) Text("暂无已结束的导入诊断。导入结束后可导出报告。")
+                    else {
+                        Text(diagnosticSummary(report))
+                        Text("导入方式：${if (report.mode == DiagnosticImportMode.WECHAT_OAUTH) "微信授权" else "手动 Cookie"}")
+                        Text("执行耗时：${duration(report.executionDurationMs)}")
+                        if (report.mode == DiagnosticImportMode.WECHAT_OAUTH) Text("授权等待：${duration(report.authorizationWaitDurationMs)}（单独计时）")
+                        Text("阶段耗时（含子操作，不可直接相加）", style = MaterialTheme.typography.labelMedium)
+                        report.stages.filter { it.durationMs != null }.maxByOrNull { it.durationMs!! }?.let {
+                            Text("耗时最长：${diagnosticStageLabel(it.stage)} · ${duration(it.durationMs)}", style = MaterialTheme.typography.bodySmall)
+                        }
+                        Text(report.stages.joinToString("\n") { timing ->
+                            "${diagnosticStageLabel(timing.stage)}：${duration(timing.durationMs)}" + when (timing.observation) {
+                                DiagnosticObservation.FAILED -> " · 有失败"
+                                DiagnosticObservation.INCOMPLETE -> " · 未结束"
+                                else -> ""
+                            } + if (timing.recoveryRetries > 0) " · 恢复重试 ${timing.recoveryRetries}" else ""
+                        }, style = MaterialTheme.typography.bodySmall)
+                        Text("未归属开销：${duration(report.unattributedDurationMs)}", style = MaterialTheme.typography.bodySmall)
+                        val affected = report.requests.filter { it.retries > 0 || it.failedRequests > 0 }
+                        if (affected.isNotEmpty()) Text(affected.joinToString("\n") {
+                            "${diagnosticStageLabel(it.stage)} / ${it.label.name}：重试 ${it.retries} · 失败 ${it.failedRequests}"
+                        }, style = MaterialTheme.typography.bodySmall)
+                        if (report.failures.isNotEmpty()) Text("失败类别：${report.failures.joinToString { it.name }}", style = MaterialTheme.typography.bodySmall)
+                        if (report.metricsBounded) Text("诊断统计达到上限，部分指标已截断。")
+                    }
+                    if (storageFailed) Text("诊断本地保存失败；返回应用后的恢复可能不可用。", color = MaterialTheme.colorScheme.error)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        TextButton(onClick = onExport, enabled = report != null) {
+                            Text("导出诊断报告", style = MaterialTheme.typography.labelMedium,
+                                color = if (report != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = .38f))
+                        }
+                        TextButton(onClick = onCopy, enabled = report != null) {
+                            Text("复制诊断摘要", style = MaterialTheme.typography.labelMedium,
+                                color = if (report != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = .38f))
+                        }
+                    }
+                }
+            }
         }
     }
 }
