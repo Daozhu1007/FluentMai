@@ -27,7 +27,7 @@ import org.robolectric.annotation.Config
  * Authorize entries are synthetic, never sent to WeChat/Wahlap. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
-class BoundedFreshAuthServiceTest {
+class FreshAuthServiceTest {
     private val context: Context get() = RuntimeEnvironment.getApplication()
     private lateinit var controller: ServiceController<FreshAuthFixtureService>
     private lateinit var server: WahlapLoopbackServer
@@ -41,6 +41,7 @@ class BoundedFreshAuthServiceTest {
 
     @Before fun setup() {
         ImportTaskStore.state.value = ImportTaskState()
+        ImportDiagnosticRuntime.resetForTest()
         WahlapHookBridge.finishImport()
         context.deleteDatabase("fluentmai-phase0.db")
         database = FluentMaiDatabase.create(context)
@@ -111,7 +112,8 @@ class BoundedFreshAuthServiceTest {
     private fun retry(state: ImportTaskState, startId: Int = 2) {
         controller.get().onStartCommand(Intent(context, FreshAuthFixtureService::class.java)
             .setAction("retry_fresh_authorization").putExtra("logical_import_id", state.id)
-            .putExtra("auth_attempt_number", state.authAttempt), 0, startId)
+            .putExtra("auth_attempt_number", state.authAttempt)
+            .putExtra(ImportForegroundService.CAPTURE_EXECUTION, state.executionId), 0, startId)
     }
 
     private fun batchCount(): Int = runBlocking(Dispatchers.IO) {
@@ -148,6 +150,9 @@ class BoundedFreshAuthServiceTest {
         assertNotNull(intent)
         controller.get().onStartCommand(intent, 0, startId)
         val task = ImportTaskStore.state.value
+        // Duplicate service deliveries cannot create another execution, even before readiness.
+        controller.get().onStartCommand(intent, 0, startId + 100)
+        assertEquals(task, ImportTaskStore.state.value)
         assertTrue(task.quickAuth)
         assertEquals(owner.state.value.requestId, task.handoffRequestId)
         owner.taskChanged(task)
@@ -177,27 +182,63 @@ class BoundedFreshAuthServiceTest {
         assertEquals(QuickAuthPhase.Terminal, owner.state.value.phase)
     }
 
-    @Test fun quickRejectionsKeepRetryAndThreeAttemptBudgetThroughActualService() {
-        rejectedAttempts = 3
+    @Test fun fiveExplicitQuickRetriesCreateFreshTransactionsThenImportExactlyOnce() {
+        rejectedAttempts = 5
         val owner = quickCoordinator()
-        for (number in 1..3) {
+        val executions = mutableSetOf<Long>()
+        val links = mutableSetOf<String>()
+        val logicalIds = mutableSetOf<Long>()
+        for (number in 1..6) {
             copiedQuickCallback = null
-            owner.request(true, false)
+            assertNotNull(owner.request(true, false))
+            assertNull(owner.request(true, false))
             deliverQuickStart(owner, number)
+            val waiting = ImportTaskStore.state.value
+            executions += waiting.executionId
+            logicalIds += waiting.id
+            assertTrue(links.add(copiedQuickCallback!!))
+            if (number > 1) {
+                val previous = number - 1
+                WahlapHookBridge.onAuthUrlCaptured("http://tgk-wcaime.wahlap.com/wc_auth/oauth/callback/maimai-dx?r=fixture-r-$previous&t=fixture-t-$previous&state=fixture-state-$previous&code=fixture-code-$previous")
+                shadowOf(Looper.getMainLooper()).idle()
+                assertEquals(waiting, ImportTaskStore.state.value)
+                assertEquals(previous, callbacks.get())
+            }
+            WahlapHookBridge.onAuthUrlCaptured(copiedQuickCallback!!)
             WahlapHookBridge.onAuthUrlCaptured(copiedQuickCallback!!)
             await { !ImportTaskStore.state.value.busy }
             val state = ImportTaskStore.state.value
             owner.taskChanged(state)
             assertEquals(number, state.authAttempt)
-            assertEquals(if (number < 3) ImportTaskPhase.AuthRetryAvailable else ImportTaskPhase.Finished, state.phase)
+            assertEquals(if (number <= 5) ImportTaskPhase.AuthRetryAvailable else ImportTaskPhase.Finished, state.phase)
             assertTrue(attempts.last().isClosed)
-            if (number < 3) {
+            val report = ImportDiagnosticRuntime.get(context).latest.value!!
+            assertEquals(if (number <= 5) null
+                else dev.fluentmai.android.core.model.DiagnosticOutcome.COMPLETE, report.outcome)
+            assertEquals(if (number <= 5) dev.fluentmai.android.core.model.DiagnosticTermination.AUTH_REJECTED
+                else dev.fluentmai.android.core.model.DiagnosticTermination.FINISHED, report.termination)
+            assertEquals(APP_VERSION, report.appVersion)
+            if (number <= 5) {
+                assertTrue(dev.fluentmai.android.core.model.DiagnosticFailure.AUTHORIZATION_REJECTED in report.failures)
+                val notification = shadowOf(context.getSystemService(android.app.NotificationManager::class.java)).getNotification(8290)
+                val text = notification.extras.getString(android.app.Notification.EXTRA_TEXT)!!
+                assertTrue(text.contains("重新授权并打开微信"))
+                assertFalse(text.contains("授权尝试")); assertFalse(text.contains("/ 3"))
+                // Re-delivery and resuming the host do not authorize until the next explicit request.
+                repeat(3) { owner.taskChanged(state); owner.attachHost { quickLaunches++; true } }
+                shadowOf(Looper.getMainLooper()).idle()
+                assertEquals(number, attempts.size); assertEquals(number, quickLaunches)
+                assertEquals(0, batchCount()); assertEquals(0, FreshAuthFixtureService.imports)
                 controller.destroy()
                 controller = Robolectric.buildService(FreshAuthFixtureService::class.java).create()
             }
         }
-        assertEquals(3, attempts.size); assertEquals(3, callbacks.get()); assertEquals(3, quickLaunches)
-        assertEquals(0, batchCount()); assertEquals(0, FreshAuthFixtureService.imports)
+        assertEquals(6, attempts.size); assertEquals(6, callbacks.get()); assertEquals(6, quickLaunches)
+        assertEquals(6, executions.size); assertEquals(1, logicalIds.size)
+        assertEquals(6, attempts.map { it.httpClient }.toSet().size)
+        assertEquals(ImportFlowState.COMPLETE, ImportTaskStore.state.value.flowState)
+        assertEquals(1, batchCount()); assertEquals(1, FreshAuthFixtureService.imports)
+        assertTrue(attempts.all { it.isClosed })
     }
 
     @Test fun rejectionDisposesAttemptThenUserRetryImportsAndPersistsExactlyOnce() {
@@ -206,7 +247,7 @@ class BoundedFreshAuthServiceTest {
         val failed = ImportTaskStore.state.value
         assertEquals(ImportFlowState.AUTH_RETRY_AVAILABLE, failed.flowState)
         assertEquals(ImportFailureCategory.AUTHORIZATION_RETRY_REQUIRED, failed.failureCategory)
-        assertEquals(1, failed.authAttempt); assertEquals(3, failed.maxAuthAttempts)
+        assertEquals(1, failed.authAttempt)
         assertTrue(attempts.single().isClosed)
         assertEquals(0, batchCount()); assertEquals(0, FreshAuthFixtureService.imports)
         assertNull(WahlapAuthCaptureStore.captureCallback("http://fixture/stale", ""))
@@ -235,25 +276,32 @@ class BoundedFreshAuthServiceTest {
         assertTrue(WahlapAuthCaptureStore.consumeReplayState().isEmpty)
     }
 
-    @Test fun threeRejectionsAreBoundedAndRepeatedRetryRequestsCannotCreateFourth() {
-        rejectedAttempts = 3; start()
-        for (number in 1..3) {
+    @Test fun sixRejectionsStillOfferUserRetryAndRepeatedCommandsCannotStartConcurrentAttempts() {
+        rejectedAttempts = 6; start()
+        for (number in 1..6) {
             capture(number)
             await { !ImportTaskStore.state.value.busy }
             val state = ImportTaskStore.state.value
             assertEquals(number, state.authAttempt)
             assertTrue(attempts.last().isClosed)
-            if (number < 3) {
-                assertEquals(ImportTaskPhase.AuthRetryAvailable, state.phase)
+            assertEquals(ImportTaskPhase.AuthRetryAvailable, state.phase)
+            assertEquals(ImportFlowState.AUTH_RETRY_AVAILABLE, state.flowState)
+            assertEquals(number, callbacks.get()); assertEquals(number, attempts.size)
+            if (number < 6) {
                 retry(state, number + 1); retry(state, number + 2)
                 assertEquals(number + 1, ImportTaskStore.state.value.authAttempt)
-            } else {
-                assertEquals(ImportFlowState.FAILED, state.flowState)
-                retry(state, 7)
-                assertEquals(state, ImportTaskStore.state.value)
+                assertNotEquals(state.executionId, ImportTaskStore.state.value.executionId)
+                // A stale retry command still cannot be replayed after the new execution fails.
+                if (number > 1) {
+                    retry(state.copy(executionId = state.executionId - 1), 100 + number)
+                    assertEquals(number + 1, ImportTaskStore.state.value.authAttempt)
+                }
             }
         }
-        assertEquals(3, callbacks.get()); assertEquals(3, attempts.size)
+        val sixth = ImportTaskStore.state.value
+        retry(sixth.copy(executionId = sixth.executionId - 1), 20)
+        assertEquals(sixth, ImportTaskStore.state.value)
+        assertEquals(6, callbacks.get()); assertEquals(6, attempts.size)
         assertEquals(0, FreshAuthFixtureService.imports); assertEquals(0, batchCount())
         assertNull(WahlapAuthCaptureStore.captureCallback("http://fixture/stale", ""))
     }

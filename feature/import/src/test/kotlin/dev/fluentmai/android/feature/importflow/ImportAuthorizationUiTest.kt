@@ -79,9 +79,42 @@ class ImportAuthorizationUiTest {
     @Test fun rejectedAuthorizationRetriesThroughTheSameQuickEntry() {
         var retries = 0
         showScreen(retryAvailable = true, onAuthorize = { retries++ })
+        compose.onAllNodesWithText("授权尝试", substring = true).assertCountEquals(0)
         compose.onNodeWithText("立即微信授权").assertDoesNotExist()
         compose.onNodeWithText("手动重新启动捕获").assertDoesNotExist()
         compose.onNodeWithText("重新授权并打开微信").assertIsEnabled().performScrollTo().performClick()
         assertEquals(1, retries)
+    }
+
+    @Test fun fiveUserClicksAcrossFailuresKeepRetryEnabledWithoutAutomaticCommands() {
+        val retryAvailable = androidx.compose.runtime.mutableStateOf(true)
+        val active = androidx.compose.runtime.mutableStateOf(false)
+        var retries = 0
+        compose.setContent {
+            MaterialTheme {
+                ImportScreen(realImportSummary = null, importStatus = "等待导入", errorMessage = null,
+                    hookStatus = "本次授权已失效", isHookRunning = active.value,
+                    divingFishToken = "", lxnsToken = "", uploadStatus = "", uploadSummary = null,
+                    uploadErrorMessage = null, uploadProgressText = null, uploadProgressFraction = null,
+                    scoreCount = 0, isImporting = false, isUploading = false, wahlapCookieInput = "",
+                    onStopHookCapture = {}, onWahlapCookieInputChanged = {}, onImportWahlapCookie = {},
+                    onDivingFishTokenChanged = {}, onLxnsTokenChanged = {}, onUploadDivingFish = {},
+                    onRebuildDivingFish = {}, onUploadLxns = {}, isAuthorizing = active.value,
+                    quickAuthActive = active.value, authRetryAvailable = retryAvailable.value,
+                    onQuickAuthorization = { retries++; active.value = true })
+            }
+        }
+        for (number in 1..5) {
+            compose.waitForIdle()
+            assertEquals(number - 1, retries)
+            compose.onNodeWithText("重新授权并打开微信").assertIsEnabled().performScrollTo().performClick()
+            compose.waitForIdle()
+            assertEquals(number, retries)
+            compose.onNodeWithText("重新授权并打开微信").assertIsNotEnabled()
+            compose.runOnIdle { active.value = false }
+            compose.waitForIdle()
+            compose.onNodeWithText("重新授权并打开微信").assertIsEnabled()
+            compose.onAllNodesWithText("授权尝试", substring = true).assertCountEquals(0)
+        }
     }
 }

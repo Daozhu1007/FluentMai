@@ -108,7 +108,7 @@ import java.text.Normalizer
 import kotlinx.coroutines.withContext
 
 private const val TAG = "FluentMaiImport"
-internal const val APP_VERSION = "0.3.1-beta"
+internal const val APP_VERSION = "0.3.2-beta"
 
 class MainActivity : ComponentActivity() {
     private val quickAuth by lazy { QuickAuthRuntime.get(this) }
@@ -941,8 +941,6 @@ private fun FluentMaiApp(
                     scoreCount = scoreCount,
                     isImporting = isImporting,
                     isUploading = isUploading,
-                    authAttemptNumber = authTask.authAttempt,
-                    maxAuthAttempts = authTask.maxAuthAttempts,
                     authRetryAvailable = authTask.phase == ImportTaskPhase.AuthRetryAvailable,
                     isAuthorizing = authTask.phase == ImportTaskPhase.Waiting,
                     quickAuthActive = quickAuthState.quick && quickAuthState.active && quickAuthState.phase != QuickAuthPhase.ManualWaiting,

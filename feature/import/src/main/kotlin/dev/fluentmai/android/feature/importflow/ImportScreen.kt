@@ -74,8 +74,6 @@ fun ImportScreen(
     moduleBackgroundColor: Color = MaterialTheme.colorScheme.surface,
     onCopyImportError: (() -> Unit)? = null,
     importProgress: dev.fluentmai.android.core.model.ImportProgress? = null,
-    authAttemptNumber: Int = 0,
-    maxAuthAttempts: Int = 3,
     authRetryAvailable: Boolean = false,
     isAuthorizing: Boolean = false,
     quickAuthActive: Boolean = false,
@@ -170,7 +168,6 @@ fun ImportScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text(text = "微信 Hook 导入", style = MaterialTheme.typography.titleMedium)
-                if (authAttemptNumber > 0) Text(text = "授权尝试 $authAttemptNumber / $maxAuthAttempts")
                 if (authRetryAvailable) {
                     Text(text = "华立登录未成功", style = MaterialTheme.typography.titleMedium)
                     Text(text = "本次授权已失效，请重新授权")

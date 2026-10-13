@@ -7,7 +7,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 
 internal enum class ImportTaskPhase { Idle, Waiting, Running, AuthRetryAvailable, Finished }
 internal enum class ImportFlowState { AUTHORIZING, IMPORTING, AUTH_RETRY_AVAILABLE, COMPLETE, PARTIAL, FAILED }
-internal const val MAX_FRESH_AUTH_ATTEMPTS = 3
 
 /** Only progress/results, never login credentials. Survives Activity recreation, not process death. */
 internal data class ImportTaskState(
@@ -21,8 +20,8 @@ internal data class ImportTaskState(
     val executionId: Long = 0,
     val handoffRequestId: Long = 0,
     val quickAuth: Boolean = false,
+    // Diagnostic count only; each explicit user retry is allowed a fresh transaction.
     val authAttempt: Int = 0,
-    val maxAuthAttempts: Int = MAX_FRESH_AUTH_ATTEMPTS,
     val authenticated: Boolean = false,
     val failureCategory: ImportFailureCategory? = null,
 ) {

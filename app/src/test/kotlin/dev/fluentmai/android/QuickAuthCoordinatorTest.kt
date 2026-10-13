@@ -252,19 +252,27 @@ class QuickAuthCoordinatorTest {
         assertTrue(logs.any { "authorize_generated_to_callback_ms=102" in it })
         assertTrue(logs.any { "authenticated_home" in it })
     }
-    @Test fun thirdFreshRetryIsTheLastAndLogsContainOnlyFixedNamesAndDurations() {
+    @Test fun fiveUserRetriesRemainAvailableAndLogsContainOnlyFixedNamesAndDurations() {
         request(); startExecution(allReady = true)
-        for (number in 1..3) {
+        for (number in 1..6) {
             assertEquals(number, task.authAttempt)
             coordinator.callbackCaptured(task.executionId); coordinator.authRejected(task.executionId)
             handoff.discardPendingAttempt()
-            task = task.copy(phase = if (number < 3) ImportTaskPhase.AuthRetryAvailable else ImportTaskPhase.Finished)
+            task = task.copy(phase = ImportTaskPhase.AuthRetryAvailable)
             coordinator.taskChanged(task)
-            if (number < 3) { coordinator.request(true, false); startExecution((number + 1) * 100L, true) }
+            repeat(3) { attach(); coordinator.taskChanged(task); dispatcher.drain() }
+            assertEquals(number, attempts.size)
+            assertEquals(number, events.count { it == "start" })
+            if (number < 6) {
+                assertNotNull(coordinator.request(true, false))
+                assertNull(coordinator.request(true, false))
+                startExecution((number + 1) * 100L, true)
+            }
         }
-        assertEquals(3, attempts.size)
-        task = task.copy(phase = ImportTaskPhase.AuthRetryAvailable)
-        assertNull(coordinator.request(true, false))
+        assertEquals(6, attempts.size)
+        assertEquals(QuickAuthPhase.AuthRetryAvailable, coordinator.state.value.phase)
+        assertTrue(attempts.all { it.isClosed })
+        assertEquals(6, attempts.map { it.httpClient }.toSet().size)
         assertTrue(logs.all { it.matches(Regex("QUICK_AUTH [a-z_]+( [a-z_]+=[0-9]+)+")) })
         for (secret in listOf("http", "secret", "fixture", "state=", "code=", "Cookie", "r=", "t=")) assertFalse(logs.any { secret in it })
     }

@@ -27,6 +27,7 @@ open class ImportForegroundService : Service() {
     private var taskId = 0L
     private var executionId = 0L
     private var serviceStartId = 0
+    private var waitCancellation: PendingIntent? = null
     private var diagnosticCollector: ImportDiagnosticCollector? = null
     private val diagnosticStore by lazy { ImportDiagnosticRuntime.get(applicationContext) }
     private fun ownsTask() = ImportTaskStore.state.value.executionId == executionId && executionId != 0L
@@ -58,10 +59,11 @@ open class ImportForegroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         serviceStartId = startId
         if (intent?.action == CANCEL_WAIT) {
-            if (ImportTaskStore.state.value.phase == ImportTaskPhase.Waiting) {
+            if (ownsTask() && ImportTaskStore.state.value.phase == ImportTaskPhase.Waiting &&
+                intent.getLongExtra(CAPTURE_EXECUTION, 0L) == executionId) {
                 fail("已取消微信授权", category = ImportFailureCategory.CANCELLED)
                 finishService(showResult = false)
-            }
+            } else if (!ImportTaskStore.state.value.busy) stopSelf(startId)
             return START_NOT_STICKY
         }
         if (ImportTaskStore.state.value.busy) return START_NOT_STICKY
@@ -76,7 +78,7 @@ open class ImportForegroundService : Service() {
         if (retry && (previous.phase != ImportTaskPhase.AuthRetryAvailable ||
                 previous.id != intent.getLongExtra(TASK_ID, -1) ||
                 previous.authAttempt != intent.getIntExtra(ATTEMPT_NUMBER, -1) ||
-                previous.authAttempt >= previous.maxAuthAttempts)) { stopSelf(startId); return START_NOT_STICKY }
+                previous.executionId != intent.getLongExtra(CAPTURE_EXECUTION, 0L))) { stopSelf(startId); return START_NOT_STICKY }
         if (intent?.action != WAIT && !cookie && !retry) { stopSelf(startId); return START_NOT_STICKY }
         // Starting a new session is explicit; an available fresh retry cannot be bypassed by WAIT.
         if (!retry && !cookie && previous.phase == ImportTaskPhase.AuthRetryAvailable) return START_NOT_STICKY
@@ -103,7 +105,7 @@ open class ImportForegroundService : Service() {
                 startForegroundService(Intent(this, LocalVpnService::class.java).putExtra(CAPTURE_EXECUTION, executionId))
                 waitTimeout = scope.launch {
                     delay(10 * 60 * 1000L)
-                    if (ImportTaskStore.state.value.phase == ImportTaskPhase.Waiting) {
+                    if (ownsTask() && ImportTaskStore.state.value.phase == ImportTaskPhase.Waiting) {
                         fail("等待微信授权超时，请重新点击“立即微信授权”", category = ImportFailureCategory.CAPTURE_VPN)
                         finishService()
                     }
@@ -167,9 +169,9 @@ open class ImportForegroundService : Service() {
                     WahlapHookBridge.finishImport()
                     ImportTaskStore.state.update {
                         if (it.executionId != executionId) it else it.copy(
-                            phase = if (it.authAttempt < it.maxAuthAttempts) ImportTaskPhase.AuthRetryAvailable else ImportTaskPhase.Finished,
+                            phase = ImportTaskPhase.AuthRetryAvailable,
                             failureCategory = category,
-                            error = if (it.authAttempt < it.maxAuthAttempts) "本次授权已失效，请重新授权" else "已尝试 ${it.maxAuthAttempts} 次授权，仍未登录成功。请稍后重新开始导入。",
+                            error = "本次授权已失效，请重新授权",
                             diagnostics = (error as? ImportDiagnosticException)?.details ?: diagnosticException(error),
                             progress = null,
                         )
@@ -216,6 +218,8 @@ open class ImportForegroundService : Service() {
         if (!ownsTask()) return
         finishDiagnostics()
         waitTimeout?.cancel()
+        waitCancellation?.cancel()
+        waitCancellation = null
         stopCapture()
         WahlapHookBridge.finishImport()
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -246,7 +250,7 @@ open class ImportForegroundService : Service() {
         val detail = if (state.phase == ImportTaskPhase.Running) {
             listOfNotNull(progress?.pageName, progress?.countLabel, progress?.percentageLabel).joinToString(" · ")
         } else if (state.phase == ImportTaskPhase.Waiting) "在微信打开授权链接，随后会自动继续导入"
-        else if (state.phase == ImportTaskPhase.AuthRetryAvailable) "本次授权已失效 · 授权尝试 ${state.authAttempt} / ${state.maxAuthAttempts} · 点击重新授权"
+        else if (state.phase == ImportTaskPhase.AuthRetryAvailable) "本次授权已失效 · 点击打开导入页，重新授权并打开微信"
         else "点击查看导入结果"
         return Notification.Builder(this, CHANNEL)
             .setSmallIcon(android.R.drawable.stat_sys_download)
@@ -261,13 +265,18 @@ open class ImportForegroundService : Service() {
                 if (state.busy) setProgress(1000, ((progress?.fraction ?: 0f) * 1000).toInt(), progress?.fraction == null)
                 if (state.phase == ImportTaskPhase.Waiting) addAction(Notification.Action.Builder(null, "取消等待",
                     PendingIntent.getService(this@ImportForegroundService, 1,
-                        Intent(this@ImportForegroundService, ImportForegroundService::class.java).setAction(CANCEL_WAIT),
-                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)).build())
+                        Intent(this@ImportForegroundService, ImportForegroundService::class.java).setAction(CANCEL_WAIT)
+                            .setData(android.net.Uri.parse("fluentmai://import/cancel/${state.executionId}"))
+                            .putExtra(CAPTURE_EXECUTION, state.executionId),
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+                        .also { waitCancellation = it }).build())
             }.build()
     }
 
     override fun onDestroy() {
         waitTimeout?.cancel()
+        waitCancellation?.cancel()
+        waitCancellation = null
         if (ownsTask() && ImportTaskStore.state.value.busy) {
             fail("导入服务已停止；已保存的数据保留，请重新导入补齐", category = ImportFailureCategory.CANCELLED)
             stopCapture()
@@ -305,7 +314,10 @@ open class ImportForegroundService : Service() {
             context.startForegroundService(Intent(context, ImportForegroundService::class.java)
                 .setAction(if (retry == null) WAIT else RETRY_AUTH)
                 .putExtra(HANDOFF_REQUEST, requestId).putExtra(QUICK_AUTH, quick).apply {
-                    if (retry != null) { putExtra(TASK_ID, retry.id); putExtra(ATTEMPT_NUMBER, retry.authAttempt) }
+                    if (retry != null) {
+                        putExtra(TASK_ID, retry.id); putExtra(ATTEMPT_NUMBER, retry.authAttempt)
+                        putExtra(CAPTURE_EXECUTION, retry.executionId)
+                    }
                 })
         }
         fun start(context: Context, cookie: String? = null) {
@@ -313,13 +325,16 @@ open class ImportForegroundService : Service() {
                 .setAction(if (cookie == null) WAIT else COOKIE).apply { if (cookie != null) putExtra(INPUT, cookie) })
         }
         fun cancelWaiting(context: Context) {
-            if (ImportTaskStore.state.value.phase == ImportTaskPhase.Waiting)
-                context.startService(Intent(context, ImportForegroundService::class.java).setAction(CANCEL_WAIT))
+            val state = ImportTaskStore.state.value
+            if (state.phase == ImportTaskPhase.Waiting)
+                context.startService(Intent(context, ImportForegroundService::class.java).setAction(CANCEL_WAIT)
+                    .putExtra(CAPTURE_EXECUTION, state.executionId))
         }
         internal fun retryAuthorization(context: Context, state: ImportTaskState) {
-            if (state.phase != ImportTaskPhase.AuthRetryAvailable || state.authAttempt >= state.maxAuthAttempts) return
+            if (state.phase != ImportTaskPhase.AuthRetryAvailable) return
             context.startForegroundService(Intent(context, ImportForegroundService::class.java)
-                .setAction(RETRY_AUTH).putExtra(TASK_ID, state.id).putExtra(ATTEMPT_NUMBER, state.authAttempt))
+                .setAction(RETRY_AUTH).putExtra(TASK_ID, state.id).putExtra(ATTEMPT_NUMBER, state.authAttempt)
+                .putExtra(CAPTURE_EXECUTION, state.executionId))
         }
     }
 }
