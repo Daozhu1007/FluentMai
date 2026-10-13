@@ -172,7 +172,7 @@ class ImportForegroundServiceTest {
     @Test fun cancellingAuthorizationWaitClosesItsUnfinishedAttempt() {
         controller.get().onStartCommand(Intent(context, FakeImportService::class.java).setAction("wait_for_wechat"), 0, 1)
         val attempt = WahlapAuthCaptureStore.beginAttempt()
-        controller.get().onStartCommand(Intent(context, FakeImportService::class.java).setAction("cancel_import_wait"), 0, 2)
+        controller.get().onStartCommand(cancelIntent(), 0, 2)
         // The handoff is also discarded directly during service shutdown, before Android destroys Hook.
         assertTrue(attempt.isClosed)
         assertFalse(ImportTaskStore.state.value.busy)
@@ -197,10 +197,46 @@ class ImportForegroundServiceTest {
     @Test fun waitingCanBeCancelledAndNeverRestartsAutomatically() {
         assertEquals(android.app.Service.START_NOT_STICKY,
             controller.get().onStartCommand(Intent(context, FakeImportService::class.java).setAction("wait_for_wechat"), 0, 1))
-        controller.get().onStartCommand(Intent(context, FakeImportService::class.java).setAction("cancel_import_wait"), 0, 2)
+        controller.get().onStartCommand(cancelIntent(), 0, 2)
         assertFalse(ImportTaskStore.state.value.busy)
         assertNull(shadowOf(manager).getNotification(8290))
         assertEquals(0, FakeImportService.starts)
+    }
+
+    private fun cancelIntent() = Intent(context, FakeImportService::class.java).setAction("cancel_import_wait")
+        .putExtra(ImportForegroundService.CAPTURE_EXECUTION, ImportTaskStore.state.value.executionId)
+
+    @Test fun delayedCancellationAndOldNotificationCannotCancelNewExecution() {
+        val wait = Intent(context, FakeImportService::class.java).setAction("wait_for_wechat")
+        controller.get().onStartCommand(wait, 0, 1)
+        val oldCancel = cancelIntent()
+        val oldNotificationCancel = shadowOf(manager).getNotification(8290).actions.single().actionIntent
+        controller.get().onStartCommand(oldCancel, 0, 2)
+        assertTrue(runCatching { oldNotificationCancel.send() }.exceptionOrNull() is android.app.PendingIntent.CanceledException)
+        controller.get().onStartCommand(wait, 0, 3)
+        val current = ImportTaskStore.state.value
+        val currentNotificationCancel = shadowOf(manager).getNotification(8290).actions.single().actionIntent
+        assertNotEquals(oldNotificationCancel, currentNotificationCancel)
+        controller.get().onStartCommand(oldCancel, 0, 4)
+        controller.get().onStartCommand(shadowOf(oldNotificationCancel).savedIntent, 0, 5)
+        assertEquals(current, ImportTaskStore.state.value)
+        controller.get().onStartCommand(cancelIntent(), 0, 6)
+        assertEquals(ImportFailureCategory.CANCELLED, ImportTaskStore.state.value.failureCategory)
+    }
+
+    @Test fun waitingTimeoutDisposesAttemptAndLateCallbackCannotImportOrRestart() {
+        controller.get().onStartCommand(Intent(context, FakeImportService::class.java).setAction("wait_for_wechat"), 0, 1)
+        val attempt = WahlapAuthCaptureStore.beginAttempt()
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMinutes(10))
+        assertEquals(ImportTaskPhase.Finished, ImportTaskStore.state.value.phase)
+        assertEquals(ImportFailureCategory.CAPTURE_VPN, ImportTaskStore.state.value.failureCategory)
+        assertTrue(ImportTaskStore.state.value.error!!.contains("超时"))
+        assertTrue(attempt.isClosed)
+        assertNull(WahlapAuthCaptureStore.captureCallback("http://fixture/late", ""))
+        WahlapHookBridge.capturedAuthUrls.tryEmit("http://fixture/late")
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMinutes(10))
+        assertEquals(0, FakeImportService.starts)
+        assertFalse(ImportTaskStore.state.value.busy)
     }
 
     @Test fun failuresAreRedactedAndStopForegroundNotification() {

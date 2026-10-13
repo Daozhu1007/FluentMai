@@ -4,7 +4,7 @@
 
 | 平台 | 状态 | 下载 | 说明 |
 | --- | --- | --- | --- |
-| Android | Beta | [Android APK](https://github.com/Daozhu1007/FluentMai/releases/tag/v0.3.1-beta) | 当前主要维护平台；debug 签名测试包 |
+| Android | Beta | [Android APK](https://github.com/Daozhu1007/FluentMai/releases/tag/v0.3.2-beta) | 当前主要维护平台；debug 签名测试包 |
 | iOS | Experimental Beta | [unsigned IPA](https://github.com/Daozhu1007/FluentMai/releases/tag/v0.2.4-beta) | 需要用户自签，iOS 17+ |
 | Windows | Alpha / Development | 暂仅源码 | `windows/` 下的独立桌面实现 |
 
@@ -32,7 +32,7 @@ FluentMai 的共同方向是把成绩导入、校验、浏览与分析尽量留�
 
 当前移动端发布：
 
-- `v0.3.1-beta` — Android debug-signed 测试 APK。
+- `v0.3.2-beta` — Android debug-signed 测试 APK（versionCode 16）。
 - `v0.2.4-beta` — iOS unsigned `iphoneos arm64` IPA（保持不变）。
 - Windows 尚无公开 Release；Actions 中的构建产物只作为开发验证证据，不等于 Windows 发布。
 
@@ -43,6 +43,8 @@ FluentMai 的共同方向是把成绩导入、校验、浏览与分析尽量留�
 - `vX.Y.Z-windows-alpha.N`
 
 各平台独立发版；此前的 `v0.2.4-beta` 将 Android 与 iOS 测试产物同步在同一个 tag 下。
+
+Android v0.3.2 Beta 移除微信授权的累计三次上限：授权失败后，每次主动点击“重新授权并打开微信”都会生成全新链接，不自动重试。后台权限介绍只出现一次，可以跳过，之后可从设置页进入。签名兼容的已有 Beta 可直接覆盖升级并保留本地数据。安装方式和验证边界见 [Android 平台说明](docs/platforms/android.md)。
 
 ## 仓库结构
 

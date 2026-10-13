@@ -110,7 +110,7 @@ internal class QuickAuthCoordinator(
 
     fun request(quick: Boolean, permissionRequired: Boolean): Long? {
         val task = ports.currentTask()
-        if (state.value.active || task.busy || (task.phase == ImportTaskPhase.AuthRetryAvailable && task.authAttempt >= task.maxAuthAttempts)) return null
+        if (state.value.active || task.busy) return null
         retry = task.takeIf { it.phase == ImportTaskPhase.AuthRetryAvailable }
         val id = ++nextRequestId
         timing = if (quick) QuickAuthTiming(now, log).also { it.mark(QuickAuthEvent.Requested) } else null

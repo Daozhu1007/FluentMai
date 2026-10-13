@@ -4,7 +4,7 @@
 
 | Platform | Status | Download | Notes |
 | --- | --- | --- | --- |
-| Android | Beta | [Android APK](https://github.com/Daozhu1007/FluentMai/releases/tag/v0.3.1-beta) | Primary maintained platform; debug-signed test build |
+| Android | Beta | [Android APK](https://github.com/Daozhu1007/FluentMai/releases/tag/v0.3.2-beta) | Primary maintained platform; debug-signed test build |
 | iOS | Experimental Beta | [unsigned IPA](https://github.com/Daozhu1007/FluentMai/releases/tag/v0.2.4-beta) | User self-signing required; iOS 17+ |
 | Windows | Alpha / Development | Source only | Independent desktop implementation under `windows/` |
 
@@ -32,7 +32,7 @@ See [Product Scope](docs/PRODUCT_SCOPE.md), [Privacy Model](docs/PRIVACY_MODEL.m
 
 Current mobile releases:
 
-- `v0.3.1-beta` — Android debug-signed test APK.
+- `v0.3.2-beta` — Android debug-signed test APK (versionCode 16).
 - `v0.2.4-beta` — iOS unsigned `iphoneos arm64` IPA (unchanged).
 - Windows does not yet have a public release. CI artifacts are development evidence, not a Windows release.
 
@@ -43,6 +43,8 @@ Future platform-specific tags use these forms:
 - `vX.Y.Z-windows-alpha.N`
 
 Platforms follow independent release cycles; the earlier `v0.2.4-beta` synchronized Android and iOS test artifacts under one tag.
+
+Android v0.3.2 Beta lets you retry failed WeChat authorization with a fresh link each time you click **重新授权并打开微信**, without a cumulative attempt limit. Authorization never retries automatically. The optional background-permission introduction appears once, can be skipped, and remains accessible from Settings. Compatible existing Beta installations can be upgraded in place while retaining local data. See the [Android guide](docs/platforms/android.md) for installation and validation boundaries.
 
 ## Repository layout
 
