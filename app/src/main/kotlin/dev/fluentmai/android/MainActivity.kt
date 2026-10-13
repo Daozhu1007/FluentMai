@@ -420,11 +420,15 @@ private fun FluentMaiApp(
     var settingsResetRevision by rememberSaveable { mutableStateOf(0) }
     val screenStateHolder = key(settingsResetRevision) { rememberSaveableStateHolder() }
     val requestNotifications = rememberRequestImportNotifications()
-    val requestImportNotifications = rememberRequestImportBackgroundAccess(requestNotifications)
-    // Complete permission UI before generating an expiring WeChat authorization link.
-    val requestWechatAuthorization = rememberRequestImportBackgroundAccess {
-        requestNotifications()
-        requestAuthorization(true)
+    val batteryAccess = rememberImportBatteryOnboarding(
+        importScreenVisible = selectedTab == AppTab.Import,
+        importBusy = quickAuthState.active || authTask.busy,
+    )
+    val requestWechatAuthorization: () -> Unit = {
+        batteryAccess.runImport {
+            requestNotifications()
+            requestAuthorization(true)
+        }
     }
 
     suspend fun refreshState() {
@@ -668,6 +672,7 @@ private fun FluentMaiApp(
     }
 
     fun startManualCookieImport() {
+        if (!batteryAccess.importAllowed) return
         if (quickAuth.state.value.active || ImportTaskStore.state.value.busy) return
         if (ImportTaskStore.state.value.busy) {
             Toast.makeText(context, "已有捕获或导入任务，请先结束当前任务", Toast.LENGTH_SHORT).show()
@@ -680,7 +685,7 @@ private fun FluentMaiApp(
         }
         try {
             ImportForegroundService.start(context, wahlapCookieInput.trim())
-            requestImportNotifications()
+            requestNotifications()
         } catch (error: Exception) {
             lastImportError = redactMessage(error.message ?: "无法启动后台导入")
             importStatus = ImportRunStatus.Failed
@@ -984,6 +989,10 @@ private fun FluentMaiApp(
 
                 AppTab.Tools -> if (isSettingsOpen) {
                     SettingsScreen(
+                        importBatteryStatus = batteryAccess.status,
+                        onOpenImportBatterySettings = batteryAccess.openSettings,
+                        importBatterySettingsEnabled = !quickAuthState.active && !authTask.busy &&
+                            !batteryAccess.savingChoice && !batteryAccess.settingsPending,
                         onEditThumbnail = { componentEditor = ComponentEditor.Thumbnail },
                         onEditDetails = { componentEditor = ComponentEditor.Details },
                         onResetSettings = {

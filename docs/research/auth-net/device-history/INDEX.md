@@ -166,6 +166,10 @@ reports are not pooled into a controlled experiment.
 
 ## Failure categories and acceptance boundary
 
+[BATTERY-ONBOARD-1](BATTERY-ONBOARD-1.md) adds an optional, one-time battery
+introduction and explicit settings entry on current master. Phone acceptance is
+deferred by the Owner; no screen-off reliability marker is awarded by this task.
+
 IMPORT-OBS-1 adds user-accessible structured timing and sanitized JSON export on
 the existing feature branch. Its synthetic/deterministic verification and
 hardware acceptance boundary are recorded in [IMPORT-OBS-1](IMPORT-OBS-1.md).
