@@ -141,7 +141,7 @@ separate from the existing API-33 bare-Activity diagnostics. This avoids test
 host resolution and shared-recomposer interference without altering those
 diagnostic tests or production permission behavior.
 
-## Phone acceptance and remaining evidence boundary
+## Initial delivery: phone acceptance deferred
 
 The target phone was not reachable as `2923ae26` during the read-only ADB preflight.
 The Owner then explicitly selected completion of code, tests and Draft PR in this
@@ -184,3 +184,154 @@ Draft PR URL are recorded in the Owner delivery receipt. Only
 `origin/codex/battery-onboard-1` is pushed; no master push, merge, release, version
 bump or PR #7 modification. Report delivery is Owner manual only; no CTO relay
 or ChatGPT interaction is part of this task.
+
+## BATTERY-ONBOARD-1-ACCEPT — Xiaomi phone acceptance, October 13, 2026
+
+Disposition: **BATTERY_ONBOARD_1_PHONE_ACCEPTANCE_PARTIAL**. The Owner confirmed
+Test A, all three Test B visits, Test C and Test D passed. A later, additional
+Owner-initiated authorization generated a fresh OAuth URL, so this session cannot
+confirm the requested no-OAuth boundary. The phone then disconnected before a
+final post-authorization installation/service check. This is not evidence of an
+automatic-onboarding product defect. The unrestricted final acceptance marker
+**BATTERY_ONBOARD_1_PHONE_UX_VALIDATED** is withheld for this bounded task.
+
+### Preflight and exact binary
+
+Starting implementation/source HEAD was
+`2bc5152dbe6720ff322e4e9992a6d2985e8aea9f`. Fetch, local HEAD, remote branch HEAD
+and PR #8 head all matched. PR #8 was open and Draft. The feature worktree was
+clean. No production source, test or build work was repeated in this session.
+
+Only the explicitly named Owner phone was accessed with ADB serial `2923ae26`:
+Xiaomi `23116PN5BC`, Android `16`, API `36`, HyperOS `OS3.0`, build
+`OS3.0.306.0.WNBCNXM`. It initially reported ADB state `device`; by the final
+cleanup check the same target reported `device not found`. No tablet was accessed.
+
+The pre-install inventory contained `dev.fluentmai.android` and the existing
+`dev.fluentmai.android.uxbgvalidation`. Neither was replaced or modified.
+`dev.fluentmai.android.batteryonboardvalidation` was absent, and was installed
+side-by-side using ordinary ADB installation without a replacement flag. The
+Agent did not launch it; the Owner opened it after read-only monitoring was ready.
+
+| Identity | Original app | Independent battery validation app |
+| --- | --- | --- |
+| Package | `dev.fluentmai.android` | `dev.fluentmai.android.batteryonboardvalidation` |
+| Version | `0.3.0-beta` / code `14` | `0.3.1-beta` / code `15` |
+| APK SHA-256 | `39854f19c07b35f0da0d500bd59267d3f5f6cc4bb2bee9cf2a25690c1768b3da` | `8bf45a955a4e55a75caa4c3b505418e8b6b5cd135892483ea95c20642625bd46` |
+| Primary-user first installation | `2026-10-03 00:15:13` | `2026-10-13 19:05:11` |
+| Last package update | `2026-10-03 09:52:34` | `2026-10-13 19:05:11` |
+
+The supplied APK, existing build output and device-installed validation APK all
+matched the expected hash. Fresh `aapt` badging verified the embedded application
+ID, version and `FluentMai Battery Validation` label; `apksigner verify` passed.
+Source provenance is the existing delivery receipt naming the exact starting
+commit, the unchanged clean feature worktree and matching original build output;
+the APK does not independently embed a source-commit attestation. No rebuild was
+needed. No private app data or authentication material was used for this check.
+
+### Owner-operated Test A/B/C/D observations
+
+All screen interaction was manual. Read-only observation retained only selected
+Activity components, validation service components and Quick Auth event names.
+It stored no intent URLs, Cookie/token values, screen contents or scores.
+There were no Agent taps, swipes, UIAutomator input, Activity launches, screenshots,
+battery-setting changes or WeChat operations. Times below are host observation
+times in Asia/Shanghai; device log time was approximately two seconds ahead and
+is not used for latency conclusions.
+
+| Test | Owner observation | Independent corroboration | Result |
+| --- | --- | --- | --- |
+| A — first introduction, decline | One 后台导入保护 introduction with 前往设置 and 暂不设置; declined successfully; Import page usable; no system redirect | Validation MainActivity opened at 19:06:12; no system battery Activity or validation services observed; whitelist unchanged at 19:06:42 | PASS |
+| B1 — first revisit | No introduction, battery page or permission loop; responsive | No battery Activity or validation service start in the monitored revisit interval; in-app navigation itself was Owner-reported | PASS |
+| B2 — second revisit | Independently confirmed the same expected behavior | Same read-only monitor; no automatic battery Activity | PASS |
+| B3 — third revisit | Independently confirmed the same expected behavior | Same read-only monitor; no automatic battery Activity | PASS |
+| C — normal exit and recreation | Owner dismissed only the validation task from Recents, reopened its icon and returned to Import; no introduction or system redirect | Old MainActivity destroyed/finished at 19:07:59; a new MainActivity created/resumed at 19:08:00 | PASS |
+| D — optional Settings entry and return | Current status and 前往系统设置 entry existed; explicit click opened the system page; returned without changing exemption; Import did not replay the introduction or redirect again | One PowerDetailActivity created/resumed at 19:09:26; it finished at 19:09:30 and validation MainActivity resumed; no second battery Activity observed | PASS for battery UI; later extra authorization recorded below |
+
+Actual HyperOS destination:
+`com.miui.securitycenter/com.miui.powercenter.legacypowerrank.PowerDetailActivity`.
+This was observed after the Owner's explicit Settings click, not inferred from
+historical UX-BG-1 evidence or an Agent-launched intent. Activity recreation was
+observed; process death itself was not independently measured. No preferences
+were cleared, no first-run replay was forced and no crash was simulated.
+
+### Battery state and original application preservation
+
+Read-only `dumpsys deviceidle whitelist` inspection found neither original nor
+validation package in any exemption list before installation, after installation,
+after A, or at the last complete snapshot at **19:09:41**, after the D return.
+The observed state remained **not exempt -> not exempt** for both packages.
+The Owner followed D without granting or revoking exemption. The Agent performed
+no battery-state mutation.
+
+The original APK hash, code/resource paths, version, primary-user installation
+time, update time, installer metadata and package flags matched exactly between
+the pre-install and last complete snapshots. No original-package installation,
+update, downgrade, uninstall, data clearing, UI launch or app-private file access
+was performed by the Agent. The original database was not accessed or exported;
+original data preservation is supported by the absence of task mutations, not a
+private-database byte comparison. The independent validation installation remains
+separate. The final snapshot preceded the extra authorization below; the later
+ADB disconnect prevented a post-authorization refresh.
+
+### Non-OAuth source audit and later scope deviation
+
+Existing retained JUnit XML and the earlier 123-test targeted / 819-pass full-suite
+reports were reviewed, not rerun. Production entry points and onboarding source
+were inspected. Manifest, `QuickAuthCoordinator`, `QuickAuthRuntime`, notification
+helper, import service and import task state were byte-identical to the baseline.
+
+| Safety property | Existing deterministic / source evidence |
+| --- | --- |
+| Quick Auth requires a new explicit action | `MainActivity` wires the Import button to the gated `requestWechatAuthorization`; entry-point and Quick Auth regressions remain in retained passing XML |
+| Onboarding generates no OAuth URL | Introduction/choice code only commits battery preferences and optionally launches public settings intents; Compose introduction and gate tests |
+| Settings return does not start authorization | Result and resume handlers only refresh exemption and release pending state; return-without-grant and return-with-grant tests; no retained import continuation |
+| VPN permission flow retained | Unchanged `VpnService.prepare` and permission-result handling; existing permission-required and grant/denial regressions |
+| Notification flow retained | Byte-identical notification helper and the actual notification-launcher regression |
+| Cookie import does not open battery settings | Existing entry-point test and audited `startManualCookieImport`: import gate, service start and notification request, with no settings launch |
+
+Up to and including the D return, no Quick Auth events or validation services
+were observed. **After that return**, the monitor recorded:
+
+- `19:09:46.096`: `quick_auth_requested`; a permission-controller Activity appeared.
+- `19:09:49.872`: validation `ImportForegroundService`, `WahlapHookHttpService`
+  and `LocalVpnService` records appeared.
+- `19:09:50.191`: `capture_ready`.
+- `19:09:50.980`: `authorize_generated`.
+- `19:09:50.995` / `19:09:51.015`: `clipboard_ready` / `wechat_launch_dispatched`.
+
+The Agent paused acceptance on discovering this sequence. The Owner clarified
+that they performed an additional manual authorization check, observed no battery
+redirect, and explicitly confirmed **主动点击，已经停止／取消捕获**. The extra request
+was therefore Owner-initiated, not established as an automatic settings-return
+defect. It does not support a claim that this whole session had no fresh OAuth.
+No authorization URL or clipboard contents were read, opened or retained by the
+Agent; no callback, Cookie, score contents or import batches were inspected.
+No complete OAuth exchange or score import is claimed, and zero new scores/batches
+cannot be independently certified from this observation.
+
+The phone disconnected during final monitoring/cleanup. Monitoring is stopped.
+Cancellation is Owner-confirmed; final service/VPN cleanup and installation state
+after that extra check could not be independently re-read. No Agent VPN switch,
+forced stop, destructive recovery or retry was performed. No production patch was
+made: this session establishes no product defect and does not widen development.
+
+### Evidence limits and delivery
+
+The introduction, three revisits, Activity recreation, actual system destination
+and normal battery-settings return have direct Owner plus read-only phone evidence.
+The UI text, each in-app revisit and post-return absence of the introduction are
+Owner observations; no screenshots or UI dumps were taken. Fresh authorization
+generation occurred during the Owner's extra check, and final cleanup is only
+Owner-confirmed after the device disconnected. The requested strict no-OAuth and
+final connected-device safety closure remain unfulfilled for this session.
+
+Final task verdict: **BATTERY_ONBOARD_1_PHONE_ACCEPTANCE_PARTIAL**.
+**BATTERY_ONBOARD_1_PHONE_UX_VALIDATED** is not awarded by this session.
+**SCREEN_OFF_IMPORT_RELIABILITY_NOT_REVALIDATED**. No screen-off import, reliability
+experiment, score import acceptance, release or merge was performed.
+
+Only this documentation and the device-history index are updated on
+`origin/codex/battery-onboard-1`; PR #8 remains open Draft and PR #7 is unchanged.
+Private observation files and the Owner report remain outside Git. Report delivery
+is Owner manual only; no CTO relay or ChatGPT interaction occurred.
