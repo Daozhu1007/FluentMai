@@ -54,6 +54,9 @@ fun SettingsScreen(
     onEditThumbnail: () -> Unit = {},
     onEditDetails: () -> Unit = {},
     onResetSettings: () -> Unit = {},
+    importBatteryStatus: String = "无法读取电池优化状态",
+    onOpenImportBatterySettings: () -> Unit = {},
+    importBatterySettingsEnabled: Boolean = true,
 ) {
     var showQuarantine by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
@@ -87,6 +90,20 @@ fun SettingsScreen(
         }
         item {
             AppearanceSection(themeMode, onThemeModeChanged)
+        }
+        item {
+            OutlinedCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp),
+                colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("后台导入保护", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(importBatteryStatus, style = MaterialTheme.typography.bodyMedium)
+                    Text("电池优化豁免是可选设置，可能有助于熄屏导入，实际效果因手机而异。",
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    TextButton(onClick = onOpenImportBatterySettings, enabled = importBatterySettingsEnabled) {
+                        Text("前往系统设置")
+                    }
+                }
+            }
         }
         item {
             OutlinedCard(Modifier.fillMaxWidth(), shape = RoundedCornerShape(8.dp),

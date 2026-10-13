@@ -166,6 +166,15 @@ reports are not pooled into a controlled experiment.
 
 ## Failure categories and acceptance boundary
 
+[BATTERY-ONBOARD-1](BATTERY-ONBOARD-1.md) adds an optional, one-time battery
+introduction and explicit settings entry on current master. October 13 phone
+acceptance passed Owner-operated A, B1/B2/B3, C and D battery UI checks. The final
+task disposition is `BATTERY_ONBOARD_1_PHONE_ACCEPTANCE_PARTIAL`: an additional
+Owner-initiated authorization generated a fresh URL, and ADB disconnected before
+final post-authorization cleanup/installation verification. Cancellation is
+Owner-confirmed; this session cannot claim no fresh OAuth. No automatic-return
+product defect or screen-off reliability marker is established by this task.
+
 IMPORT-OBS-1 adds user-accessible structured timing and sanitized JSON export on
 the existing feature branch. Its synthetic/deterministic verification and
 hardware acceptance boundary are recorded in [IMPORT-OBS-1](IMPORT-OBS-1.md).

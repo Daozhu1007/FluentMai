@@ -26,13 +26,13 @@ class ImportBackgroundAccessTest {
         assertFalse(needsImportNotificationPermission(RuntimeEnvironment.getApplication()))
     }
 
-    @Test fun asksForExemptionOnlyUntilSystemGrantsIt() {
+    @Test fun batteryStateIsReadOnlyAndRechecked() {
         val context = RuntimeEnvironment.getApplication()
         val power = context.getSystemService(PowerManager::class.java)
         shadowOf(power).setIgnoringBatteryOptimizations(context.packageName, false)
-        assertTrue(needsImportBatteryExemption(context))
+        assertEquals(false, importBatteryExemption(context))
         shadowOf(power).setIgnoringBatteryOptimizations(context.packageName, true)
-        assertFalse(needsImportBatteryExemption(context))
+        assertEquals(true, importBatteryExemption(context))
         assertTrue(importBackgroundDiagnostic(context).contains("省电豁免=true"))
     }
 }
