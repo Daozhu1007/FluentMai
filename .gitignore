@@ -17,6 +17,16 @@ iosApp/*.xcodeproj/
 *.keystore
 *.jks
 
+# Android release signing material -- never commit / never upload
+keystore.properties
+*.keystore.properties
+signing.properties
+*release*.properties
+*.p12
+*.pfx
+signing-handoff*/
+*.signing-handoff
+
 # FluentMai local secrets / auth captures
 current_auth_url*.txt
 *auth_url*.txt

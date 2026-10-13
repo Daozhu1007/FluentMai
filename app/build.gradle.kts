@@ -1,8 +1,64 @@
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+
+// ---------------------------------------------------------------------------
+// FluentMai Android release signing
+//
+// The original FluentMai signing key is NEVER stored in this repository.
+// Credentials are loaded at build time from a properties file that lives
+// OUTSIDE the repo (default: <repo>/../fluentmai-signing-local/keystore.properties,
+// and the keystore itself in the owner's private directory).
+//
+// If that file is absent, release signing is simply not configured: normal
+// debug/development builds keep working exactly as before and no error is raised.
+//
+// The expected certificate fingerprint is a public constant. It is verified on
+// every release build so a wrong / replaced key aborts the build immediately.
+// ---------------------------------------------------------------------------
+
+val expectedCertSha256 =
+    "A6:F2:59:48:06:3D:A5:23:CD:42:2D:A4:01:D6:F0:19:79:92:6E:DC:AA:55:62:C8:D3:0E:BF:3D:D0:B8:98:0E"
+
+// Resolution order for the signing properties file:
+//   1. -PfluentmaiSigningProps=<path>   (explicit, highest priority)
+//   2. FLUENTMAI_SIGNING_PROPERTIES env var
+//   3. <repo>/../fluentmai-signing-local/keystore.properties  (default local drop)
+//   4. <repo>/keystore.properties                              (legacy, git-ignored)
+//
+// An EXPLICIT request (1 or 2) is authoritative: if the caller names a
+// credentials file that does not exist, the build fails loudly instead of
+// silently falling back to a different key. Silent fallback could otherwise
+// sign a release with an unintended identity.
+val signingPropsFile: File? = run {
+    val explicit = (project.findProperty("fluentmaiSigningProps") as String?)
+        ?: System.getenv("FLUENTMAI_SIGNING_PROPERTIES")
+    if (!explicit.isNullOrBlank()) {
+        val f = file(explicit)
+        require(f.isFile) {
+            "FluentMai release signing: explicitly requested diagnostics properties file " +
+                "does not exist. Refusing to fall back to another keystore."
+        }
+        f
+    } else {
+        listOf(
+            rootProject.file("../fluentmai-signing-local/keystore.properties"),
+            rootProject.file("keystore.properties"),
+        ).firstOrNull { it.isFile }
+    }
+}
+
+val signingProps = Properties().apply {
+    signingPropsFile?.inputStream()?.use { load(it) }
+}
+
+val hasReleaseSigning = signingPropsFile != null && signingProps.getProperty("storeFile") != null
 
 android {
     namespace = "dev.fluentmai.android"
@@ -37,6 +93,103 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("fluentmaiRelease") {
+                val rawStorePath = signingProps.getProperty("storeFile")!!
+                // storeFile may be absolute or relative to the directory holding the properties file.
+                val resolved = File(rawStorePath).let { f ->
+                    if (f.isAbsolute) f
+                    else File(signingPropsFile!!.parentFile, rawStorePath)
+                }
+                require(resolved.isFile) {
+                    "FluentMai release signing: keystore not found at resolved path."
+                }
+                storeFile = resolved
+                storePassword = signingProps.getProperty("storePassword")
+                keyAlias = signingProps.getProperty("keyAlias") ?: "androiddebugkey"
+                keyPassword = signingProps.getProperty("keyPassword")
+                storeType = signingProps.getProperty("storeType") ?: "PKCS12"
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = false
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("fluentmaiRelease")
+            }
+        }
+        getByName("debug") {
+            // Untouched: debug still uses the standard Android debug keystore.
+            // Supplying signing material must never disturb normal development builds.
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Release-build guard: verify the signing certificate fingerprint before the
+// APK is packaged. Any mismatch aborts the build.
+//
+// The task is attached directly to the release packaging tasks (rather than
+// via preBuild) so it always runs for a release build and never slows down or
+// affects debug / development builds.
+// ---------------------------------------------------------------------------
+val verifySigningFingerprint by tasks.registering {
+    description = "Verifies the FluentMai release keystore certificate SHA-256 fingerprint."
+    group = "verification"
+
+    doLast {
+        if (!hasReleaseSigning) {
+            throw GradleException(
+                "FluentMai release signing is not configured. " +
+                    "Provide keystore.properties outside the repo " +
+                    "(see docs/WINDOWS_ANDROID_SIGNING.md). Refusing to build an unsigned/mis-signed release."
+            )
+        }
+        val cfg = android.signingConfigs.getByName("fluentmaiRelease")
+        val javaHome = System.getProperty("java.home")
+        val ktExe = File(javaHome, "bin/keytool.exe").let { if (it.isFile) it else File(javaHome, "bin/keytool") }
+        require(ktExe.isFile) { "keytool not found under $javaHome; cannot verify signing fingerprint." }
+
+        val out = ByteArrayOutputStream()
+        exec {
+            commandLine(
+                ktExe.absolutePath, "-list", "-v",
+                "-keystore", cfg.storeFile!!.absolutePath,
+                "-storetype", cfg.storeType,
+                "-alias", cfg.keyAlias,
+                "-storepass", cfg.storePassword,
+            )
+            standardOutput = out
+            errorOutput = out
+            isIgnoreExitValue = true
+        }
+        val text = out.toString("UTF-8")
+        if (!text.contains("PrivateKeyEntry")) {
+            throw GradleException(
+                "FluentMai release signing: alias '${cfg.keyAlias}' is not a PrivateKeyEntry. " +
+                    "Refusing to sign with a public-certificate-only entry."
+            )
+        }
+        val actual = text.replace(":", "").lowercase()
+        if (!actual.contains(expectedCertSha256.replace(":", "").lowercase())) {
+            throw GradleException(
+                "FluentMai release signing: certificate fingerprint mismatch! " +
+                    "Expected $expectedCertSha256. Aborting to protect upgrade compatibility."
+            )
+        }
+        logger.lifecycle("FluentMai signing: certificate fingerprint verified ($expectedCertSha256).")
+    }
+}
+
+// Attach the guard to every release packaging / bundling task.
+tasks.configureEach {
+    if (name.startsWith("package") && name.endsWith("Release") || name == "bundleRelease") {
+        dependsOn(verifySigningFingerprint)
     }
 }
 
