@@ -16,8 +16,12 @@ New-Item -ItemType Directory -Path $smokeRoot | Out-Null
 $previousQtPlatform = $env:QT_QPA_PLATFORM
 $previousDbPath = $env:FLUENTMAI_DB_PATH
 $previousCoverCache = $env:FLUENTMAI_COVER_CACHE
+$previousDataDir = $env:FLUENTMAI_DATA_DIR
+$previousCacheDir = $env:FLUENTMAI_CACHE_DIR
 $env:QT_QPA_PLATFORM = "offscreen"
+$env:FLUENTMAI_DATA_DIR = $smokeRoot
 $env:FLUENTMAI_DB_PATH = Join-Path $smokeRoot "smoke.db"
+$env:FLUENTMAI_CACHE_DIR = Join-Path $smokeRoot "cache"
 $env:FLUENTMAI_COVER_CACHE = Join-Path $smokeRoot "covers"
 
 try {
@@ -57,6 +61,8 @@ try {
 }
 finally {
     $env:QT_QPA_PLATFORM = $previousQtPlatform
+    $env:FLUENTMAI_DATA_DIR = $previousDataDir
     $env:FLUENTMAI_DB_PATH = $previousDbPath
+    $env:FLUENTMAI_CACHE_DIR = $previousCacheDir
     $env:FLUENTMAI_COVER_CACHE = $previousCoverCache
 }

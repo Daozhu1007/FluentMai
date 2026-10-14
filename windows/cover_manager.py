@@ -22,6 +22,7 @@ from urllib.parse import urlparse
 from PyQt6.QtCore import QThread, pyqtSignal
 from PyQt6.QtGui import QImage
 import requests
+from fluentmai_core.runtime_paths import cache_root
 
 
 APP_NAME = "FluentMai"
@@ -56,13 +57,7 @@ def executable_root() -> Path:
 
 
 def user_cache_root() -> Path:
-    override = os.environ.get("FLUENTMAI_CACHE_DIR")
-    if override:
-        return Path(override).expanduser().resolve()
-    local_app_data = os.environ.get("LOCALAPPDATA")
-    if local_app_data:
-        return Path(local_app_data) / APP_NAME / "cache"
-    return Path.home() / ".cache" / APP_NAME
+    return cache_root()
 
 
 def jacket_cache_dir() -> Path:

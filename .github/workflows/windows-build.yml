@@ -66,6 +66,22 @@ jobs:
         shell: pwsh
         run: .\scripts\windows\smoke_test.ps1 -Mode package
 
+      - name: Verify packaged local capture helper
+        shell: pwsh
+        run: |
+          $helper = "build/windows/dist/FluentMai/FluentMaiCaptureProxy.exe"
+          if (-not (Test-Path -LiteralPath $helper -PathType Leaf)) {
+            throw "Packaged capture helper is missing"
+          }
+          python scripts/windows/smoke_capture_helper.py --helper $helper
+          Get-FileHash -LiteralPath $helper -Algorithm SHA256
+          foreach ($name in @("Restore-FluentMai-Network.cmd", "Restore-FluentMai-Network.ps1")) {
+            $path = Join-Path "build/windows/dist/FluentMai/scripts" $name
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+              throw "Packaged network recovery script is missing: $name"
+            }
+          }
+
       - name: Audit portable artifact contents
         shell: pwsh
         run: |

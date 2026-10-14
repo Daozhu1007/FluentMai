@@ -4,6 +4,7 @@ import uuid
 from typing import Iterable
 
 from . import database
+from .rating import record_import_snapshot
 from .models import (
     ImportSummary,
     ParsedScoreRecord,
@@ -275,6 +276,13 @@ def import_parsed_records(
                     ),
                 )
 
+            rating_snapshot = record_import_snapshot(
+                conn,
+                batch_id=batch_id,
+                source=source,
+                recorded_at=imported_at,
+            )
+            best_set = rating_snapshot.best_set
             summary = ImportSummary(
                 batch_id=batch_id,
                 source=source,
@@ -287,6 +295,13 @@ def import_parsed_records(
                 rejected=rejected,
                 failed=failed,
                 message=message,
+                current_version_id=best_set.current_version_id,
+                b35_count=len(best_set.old_best),
+                b15_count=len(best_set.new_best),
+                b35_rating=best_set.b35_rating,
+                b15_rating=best_set.b15_rating,
+                rating_before=rating_snapshot.rating_before,
+                rating_after=best_set.rating if best_set.current_version_id is not None else None,
             )
             conn.execute(
                 """

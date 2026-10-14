@@ -1,0 +1,4 @@
+query	corpus	expected_match
+繁體譜面	繁体谱面	true
+Ａ－Ｂ　Ｃ！	a b-c	true
+潘多拉	PANDORA PARADOXXX|潘多拉	true

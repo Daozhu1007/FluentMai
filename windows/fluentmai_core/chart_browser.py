@@ -3,9 +3,14 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass, field
 import sqlite3
-import unicodedata
+from typing import TYPE_CHECKING
 
 from .models import DIFFICULTY_NAMES, difficulty_name, normalize_song_type, normalize_title
+from .rating import calculate_dx_rating, resolve_current_version_id
+from .search_normalization import normalize_search
+
+if TYPE_CHECKING:
+    from .player_records import PlayerStats
 
 
 DISPLAY_LIMIT = 500
@@ -22,9 +27,17 @@ class ChartFilters:
     search: str = ""
     level: str = ""
     difficulty_index: int | None = None
+    constant_min: float | None = None
+    constant_max: float | None = None
     genre: str = "all"
     version: str = "all"
     status: str = "all"
+    chart_type: str = "all"
+    achievement_min: float | None = None
+    achievement_max: float | None = None
+    rank: str = "all"
+    full_combo: str = "all"
+    full_sync: str = "all"
     sort: str = "constant_desc"
     limit: int = DISPLAY_LIMIT
 
@@ -55,6 +68,9 @@ class ChartRecord:
     notes_touch: int | None
     notes_break: int | None
     is_utage: bool
+    aliases: tuple[str, ...] = ()
+    locked: bool = False
+    disabled: bool = False
     achievements: float | None = None
     dx_score: int | None = None
     full_combo: str = ""
@@ -100,6 +116,12 @@ class ChartRecord:
     def notes_label(self) -> str:
         return str(self.notes_total) if self.notes_total else "--"
 
+    @property
+    def rating(self) -> int | None:
+        if self.achievements is None or self.level_value is None or self.level_value <= 0:
+            return None
+        return calculate_dx_rating(self.level_value, self.achievements)
+
 
 @dataclass(frozen=True)
 class ChartQueryResult:
@@ -107,6 +129,7 @@ class ChartQueryResult:
     total_count: int
     displayed_count: int
     limit: int
+    stats: "PlayerStats | None" = None
 
     @property
     def is_limited(self) -> bool:
@@ -151,6 +174,8 @@ class ChartFilterOptions:
 SORT_OPTIONS = [
     FilterOption("constant_desc", "定数降序"),
     FilterOption("constant_asc", "定数升序"),
+    FilterOption("rating_desc", "Rating 降序"),
+    FilterOption("id_asc", "歌曲 ID"),
     FilterOption("version_desc", "上线新到旧"),
     FilterOption("version_asc", "上线旧到新"),
     FilterOption("achievement_asc", "成绩升序"),
@@ -206,16 +231,21 @@ VERSION_RANGES = [
 
 
 def normalize_query(value: str | None) -> str:
-    return unicodedata.normalize("NFKC", (value or "").strip()).casefold()
+    return normalize_search(value)
 
 
-def load_chart_records(conn: sqlite3.Connection) -> list[ChartRecord]:
+def load_chart_records(
+    conn: sqlite3.Connection,
+    *,
+    song_id: int | None = None,
+) -> list[ChartRecord]:
     chart_rows = conn.execute(
         """
         SELECT
             s.song_id, s.title, s.title_norm, COALESCE(s.artist, '') AS artist,
             COALESCE(s.genre, '') AS genre, s.version AS song_version, s.bpm,
             COALESCE(s.map, '') AS map_name, COALESCE(s.jacket_url, '') AS jacket_url,
+            s.locked, s.disabled,
             c.chart_type, c.difficulty_index, c.difficulty_name, COALESCE(c.level, '') AS level,
             c.level_value, COALESCE(c.charter, '') AS charter, c.chart_version,
             COALESCE(c.chart_version_name, '') AS chart_version_name, c.notes_total,
@@ -223,10 +253,20 @@ def load_chart_records(conn: sqlite3.Connection) -> list[ChartRecord]:
             c.is_utage
         FROM charts c
         JOIN songs s ON s.song_id = c.song_id
+        WHERE (? IS NULL OR s.song_id = ?)
         ORDER BY s.title_norm, c.chart_type, c.difficulty_index
-        """
+        """,
+        (song_id, song_id),
     ).fetchall()
-    score_rows = [dict(row) for row in conn.execute("SELECT * FROM score_records").fetchall()]
+    if song_id is None:
+        score_query = conn.execute("SELECT * FROM score_records")
+    else:
+        score_query = conn.execute(
+            "SELECT * FROM score_records WHERE song_id = ? OR song_id IS NULL",
+            (song_id,),
+        )
+    score_rows = [dict(row) for row in score_query.fetchall()]
+    aliases_by_song_id = _database_aliases(conn)
 
     title_counts: Counter[tuple[str, str, int]] = Counter()
     for row in chart_rows:
@@ -258,25 +298,45 @@ def load_chart_records(conn: sqlite3.Connection) -> list[ChartRecord]:
         score = exact_scores.get(exact_key)
         if score is None and title_counts[title_key] == 1:
             score = title_scores.get(title_key)
-        records.append(_chart_record_from_row(row, score))
+        records.append(
+            _chart_record_from_row(
+                row,
+                score,
+                aliases_by_song_id.get(int(row["song_id"]), ()),
+            )
+        )
     return records
 
 
 def query_charts(conn: sqlite3.Connection, filters: ChartFilters | None = None) -> ChartQueryResult:
-    return query_chart_records(load_chart_records(conn), filters or ChartFilters())
+    return query_chart_records(
+        load_chart_records(conn),
+        filters or ChartFilters(),
+        current_version_id=resolve_current_version_id(conn),
+    )
 
 
-def query_chart_records(records: list[ChartRecord], filters: ChartFilters) -> ChartQueryResult:
-    latest_song_version = _latest_song_version(records)
+def query_chart_records(
+    records: list[ChartRecord],
+    filters: ChartFilters,
+    *,
+    current_version_id: int | None = None,
+) -> ChartQueryResult:
+    from .player_records import player_stats
+
+    latest_song_version = current_version_id or _latest_named_chart_version(records)
     matched = [
         record
         for record in records
         if _difficulty_matches(record, filters.difficulty_index)
+        and _constant_matches(record, filters.constant_min, filters.constant_max)
         and genre_matches(filters.genre, record)
         and version_matches(filters.version, record, latest_song_version)
         and level_matches(record, filters.level)
         and search_matches(record, filters.search)
         and status_matches(filters.status, record)
+        and _chart_type_matches(record, filters.chart_type)
+        and _score_matches(record, filters)
     ]
     _sort_records(matched, filters.sort)
     limit = filters.limit if filters.limit > 0 else DISPLAY_LIMIT
@@ -286,6 +346,7 @@ def query_chart_records(records: list[ChartRecord], filters: ChartFilters) -> Ch
         total_count=len(matched),
         displayed_count=len(displayed),
         limit=limit,
+        stats=player_stats(matched),
     )
 
 
@@ -432,10 +493,11 @@ def search_matches(record: ChartRecord, query: str) -> bool:
         record.difficulty_label,
         record.level,
         str(record.song_id),
+        record.key,
         "" if record.bpm is None else str(record.bpm),
         "" if record.song_version is None else str(record.song_version),
         "" if record.chart_version is None else str(record.chart_version),
-    ]
+    ] + list(record.aliases)
     normalized_fields = [normalize_query(field) for field in fields]
     if any(normalized in field for field in normalized_fields):
         return True
@@ -459,9 +521,61 @@ def _difficulty_matches(record: ChartRecord, difficulty_index: int | None) -> bo
     return not record.is_utage and record.difficulty_index == difficulty_index
 
 
+def _constant_matches(record: ChartRecord, minimum: float | None, maximum: float | None) -> bool:
+    value = record.level_value
+    return not (
+        minimum is not None and (value is None or value < minimum)
+        or maximum is not None and (value is None or value > maximum)
+    )
+
+
+def _chart_type_matches(record: ChartRecord, chart_type: str) -> bool:
+    return chart_type in {"", "all"} or record.chart_type == normalize_song_type(chart_type)
+
+
+def _score_matches(record: ChartRecord, filters: ChartFilters) -> bool:
+    from .player_records import achievement_rank, full_combo_status, full_sync_status
+
+    if filters.achievement_min is not None and (
+        not record.played or record.achievements < filters.achievement_min
+    ):
+        return False
+    if filters.achievement_max is not None and (
+        not record.played or record.achievements > filters.achievement_max
+    ):
+        return False
+    if filters.rank not in {"", "all"} and (
+        not record.played or achievement_rank(record.achievements).value != filters.rank
+    ):
+        return False
+    combo = full_combo_status(record.full_combo)
+    if filters.full_combo not in {"", "all"} and (
+        combo is None or combo.value != filters.full_combo
+    ):
+        return False
+    sync = full_sync_status(record.full_sync)
+    if filters.full_sync not in {"", "all"} and (
+        sync is None or sync.value != filters.full_sync
+    ):
+        return False
+    return True
+
+
 def _sort_records(records: list[ChartRecord], sort: str) -> None:
     if sort == "constant_asc":
         records.sort(key=lambda item: (_const_or(item, 999.0), item.difficulty_index, item.title_norm))
+    elif sort == "rating_desc":
+        records.sort(
+            key=lambda item: (
+                item.rating if item.rating is not None else -1,
+                _score_or(item, -1.0),
+                _const_or(item, -1.0),
+                item.title_norm,
+            ),
+            reverse=True,
+        )
+    elif sort == "id_asc":
+        records.sort(key=lambda item: (item.song_id, item.chart_type, item.difficulty_index))
     elif sort == "version_desc":
         records.sort(
             key=lambda item: (
@@ -491,7 +605,11 @@ def _sort_records(records: list[ChartRecord], sort: str) -> None:
         records.sort(key=lambda item: (_const_or(item, -1.0), item.difficulty_index, item.title_norm), reverse=True)
 
 
-def _chart_record_from_row(row: sqlite3.Row, score: dict | None) -> ChartRecord:
+def _chart_record_from_row(
+    row: sqlite3.Row,
+    score: dict | None,
+    aliases: tuple[str, ...],
+) -> ChartRecord:
     chart_type = normalize_song_type(row["chart_type"])
     is_utage = bool(row["is_utage"]) or chart_type == "UTAGE"
     return ChartRecord(
@@ -519,6 +637,9 @@ def _chart_record_from_row(row: sqlite3.Row, score: dict | None) -> ChartRecord:
         notes_touch=row["notes_touch"],
         notes_break=row["notes_break"],
         is_utage=is_utage,
+        aliases=aliases,
+        locked=bool(row["locked"]),
+        disabled=bool(row["disabled"]),
         achievements=score["achievements"] if score else None,
         dx_score=score["dx_score"] if score else None,
         full_combo=(score["full_combo"] or "") if score else "",
@@ -547,6 +668,24 @@ def _score_sort_tuple(score: dict) -> tuple[float, int, float]:
 def _latest_song_version(records: list[ChartRecord]) -> int | None:
     values = [record.song_version for record in records if record.song_version]
     return max(values) if values else None
+
+
+def _latest_named_chart_version(records: list[ChartRecord]) -> int | None:
+    values = [
+        int(record.chart_version)
+        for record in records
+        if record.chart_version and record.chart_version_name.strip()
+    ]
+    return max(values) if values else None
+
+
+def _database_aliases(conn: sqlite3.Connection) -> dict[int, tuple[str, ...]]:
+    result: dict[int, list[str]] = {}
+    for row in conn.execute(
+        "SELECT song_id, alias FROM song_aliases ORDER BY song_id, alias_norm"
+    ):
+        result.setdefault(int(row["song_id"]), []).append(str(row["alias"]))
+    return {song_id: tuple(aliases) for song_id, aliases in result.items()}
 
 
 def _version_value(record: ChartRecord) -> int | None:
@@ -592,10 +731,12 @@ def _designer_aliases_for(query: str) -> set[str]:
         return {normalize_query("サファ太")}
     if "哈皮" in query or "happy" in query:
         return {normalize_query("はっぴー")}
-    if "7.3" in query or "7_3" in query or "shichimi" in query or "七味" in query:
+    if "73" in query or "shichimi" in query or "シチミ" in query or "七味" in query:
         return {
             normalize_query("7.3GHz"),
+            normalize_query("シチミッピー"),
             normalize_query("シチミヘルツ"),
-            normalize_query("シチミヘルツ"),
+            normalize_query("しちみへるつ"),
+            normalize_query("超七味星人"),
         }
     return set()
