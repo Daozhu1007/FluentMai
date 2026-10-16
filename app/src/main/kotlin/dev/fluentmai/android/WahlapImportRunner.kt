@@ -34,7 +34,10 @@ internal class WahlapImportRunner(context: Context, private val observation: Imp
             redactor = privacyRedactor,
             onPlayerHome = B50PlayerStore(context)::capture,
             onDiagnostic = diagnostics::record,
-            onRequestAttempt = { category, label, log -> observation?.attempt(category, label, log) },
+            onRequestAttempt = { category, label, log ->
+                observation?.attempt(category, label, log)
+                pageProgress.requestAttempt(category, log)
+            },
             attempt = WahlapAuthCaptureStore.consumeAttempt(authUrl),
             observer = observer,
             fetcher = WahlapResilientFetcher(nowMs = { android.os.SystemClock.elapsedRealtimeNanos() / 1_000_000 }),
@@ -104,7 +107,10 @@ internal class WahlapImportRunner(context: Context, private val observation: Imp
             redactor = privacyRedactor,
             onPlayerHome = B50PlayerStore(context)::capture,
             onDiagnostic = diagnostics::record,
-            onRequestAttempt = { category, label, log -> observation?.attempt(category, label, log) },
+            onRequestAttempt = { category, label, log ->
+                observation?.attempt(category, label, log)
+                pageProgress.requestAttempt(category, log)
+            },
         )
         try {
             observer.measure(DiagnosticStage.LOGIN_HOME) {

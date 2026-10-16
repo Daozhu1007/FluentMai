@@ -1,0 +1,18 @@
+// Optional test-only workaround for Windows legacy SQLite temp-path length limits.
+// Does not change production tasks, database configuration, or migration code.
+def taskTempPath = gradle.startParameter.projectProperties['authNetTestTmp']
+if (!taskTempPath) {
+    throw new GradleException('Pass -PauthNetTestTmp=<short absolute directory>')
+}
+def taskTempDirectory = new File(taskTempPath)
+if (!taskTempDirectory.isAbsolute()) {
+    throw new GradleException('authNetTestTmp must be an absolute directory')
+}
+if (!taskTempDirectory.isDirectory() && !taskTempDirectory.mkdirs()) {
+    throw new GradleException('Cannot create authNetTestTmp directory')
+}
+allprojects {
+    tasks.withType(Test).configureEach {
+        systemProperty 'java.io.tmpdir', taskTempDirectory.absolutePath
+    }
+}

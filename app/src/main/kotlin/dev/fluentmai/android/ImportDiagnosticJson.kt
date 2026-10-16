@@ -25,7 +25,8 @@ internal object ImportDiagnosticJson {
             listOf(c.parsed, c.inserted, c.updated, c.quarantined, c.rejected, c.skippedDuplicate, c.recentRecords, c.playCountCharts)
                 .any { outside(it, MAX_DIAGNOSTIC_NUMBER) } ||
             stages.values.any { outside(it.durationMs, MAX_DURATION) || outside(it.exclusiveDurationMs, MAX_DURATION) } ||
-            requests.any { it.httpStatusCounts.size > 8 || listOf(it.attempts, it.retries, it.successfulRequests, it.failedRequests, it.responseChars ?: 0)
+            requests.any { it.httpStatusCounts.size > 8 || listOf(it.attempts, it.retries, it.successfulRequests, it.failedRequests,
+                it.responseChars ?: 0, it.responseBytes ?: 0, it.progressChunks ?: 0)
                 .any { n -> n !in 0..MAX_DIAGNOSTIC_NUMBER } }
         val json = JSONObject().apply {
             put("schema_version", 1)
@@ -52,6 +53,9 @@ internal object ImportDiagnosticJson {
                     .put("attempt_duration_ms", duration(r.attemptDurationMs))
                     .put("last_http_status", r.lastHttpStatus?.takeIf { it in 100..599 } ?: JSONObject.NULL)
                     .put("response_chars", number(r.responseChars))
+                    .put("response_bytes", number(r.responseBytes))
+                    .put("progress_chunks", number(r.progressChunks))
+                    .put("last_download_failure", r.lastDownloadFailure?.name?.lowercase() ?: JSONObject.NULL)
                     .put("http_status_counts", array(r.httpStatusCounts.take(8).filter { it.status in 100..599 }) {
                         JSONObject().put("status", it.status).put("attempts", number(it.attempts))
                     })
@@ -111,7 +115,10 @@ internal object ImportDiagnosticJson {
                         (0 until statuses.length()).map { index -> statuses.getJSONObject(index).let { s ->
                             DiagnosticHttpStatusCount(s.getInt("status"), s.n("attempts") ?: 0)
                         } }.filter { it.status in 100..599 }
-                    }.orEmpty())
+                    }.orEmpty(), responseBytes = r.n("response_bytes"), progressChunks = r.n("progress_chunks"),
+                    lastDownloadFailure = r.optString("last_download_failure").let { name ->
+                        DiagnosticDownloadFailure.entries.firstOrNull { it.name.lowercase() == name }
+                    })
             } }, counters = DiagnosticCounters(c.n("parsed"), c.n("inserted"), c.n("updated"), c.n("quarantined"), c.n("rejected"),
                 c.n("skipped_duplicate"), c.n("recent_records"), c.n("play_count_charts")),
             failures = (0 until failureArray.length()).map { DiagnosticFailure.valueOf(failureArray.getString(it)) }.toSet(),

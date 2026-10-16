@@ -8,6 +8,8 @@ import io.ktor.client.plugins.cookies.HttpCookies
 import io.ktor.client.plugins.cookies.cookies
 import io.ktor.client.plugins.timeout
 import io.ktor.client.request.get
+import io.ktor.client.request.prepareGet
+import io.ktor.client.plugins.HttpTimeoutConfig
 import io.ktor.client.request.headers
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
@@ -15,6 +17,7 @@ import io.ktor.http.Url
 import io.ktor.http.parseClientCookiesHeader
 import dev.fluentmai.android.core.importer.WahlapRequestCategory
 import dev.fluentmai.android.core.importer.WahlapTimeoutProfile
+import dev.fluentmai.android.core.importer.WahlapAttemptMeta
 import java.io.Closeable
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
@@ -59,6 +62,7 @@ class WahlapImportHttpClient(
         category: WahlapRequestCategory,
         timeoutProfile: WahlapTimeoutProfile,
         detailReferer: String? = null,
+        meta: WahlapAttemptMeta = WahlapAttemptMeta(),
     ): WahlapPageResponse {
         check(!closed.get()) { "OAuth HTTP client is closed" }
         if (category == WahlapRequestCategory.AUTH_CALLBACK) {
@@ -71,9 +75,10 @@ class WahlapImportHttpClient(
                 cookieStorage.seedWahlapCookies(parseClientCookiesHeader(it), uri)
             }
         }
-        val response = client.get(rawUrl) {
+        val statement = client.prepareGet(rawUrl) {
             timeout {
-                requestTimeoutMillis = timeoutProfile.requestTimeoutMs
+                requestTimeoutMillis = if (category == WahlapRequestCategory.SCORE_PAGE)
+                    HttpTimeoutConfig.INFINITE_TIMEOUT_MS else timeoutProfile.requestTimeoutMs
                 connectTimeoutMillis = timeoutProfile.connectTimeoutMs
             }
             headers {
@@ -110,6 +115,8 @@ class WahlapImportHttpClient(
                 }
             }
         }
+        if (category == WahlapRequestCategory.SCORE_PAGE) return statement.downloadScorePage(timeoutProfile, meta)
+        val response = statement.execute()
         return WahlapPageResponse(
             statusCode = response.status.value,
             contentType = response.headers[HttpHeaders.ContentType],

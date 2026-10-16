@@ -1,0 +1,889 @@
+{
+  "task": "AUTH-NET-TIMEOUT-1",
+  "date": "2026-10-17",
+  "timezone": "Asia/Shanghai",
+  "baseline": "327d1a4",
+  "branch": "codex/auth-net-timeout-1",
+  "environment": {
+    "gradle": "8.9",
+    "java": "22.0.2",
+    "ktor": "3.0.1",
+    "robolectric_sdk": 33
+  },
+  "modules": [
+    {
+      "module": "app",
+      "task": "testDebugUnitTest",
+      "tests": 259,
+      "passed": 259,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suites": [
+        {
+          "name": "dev.fluentmai.android.AdaptiveNavigationTest",
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.109,
+          "passed": 5
+        },
+        {
+          "name": "dev.fluentmai.android.AppReleaseTest",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.052,
+          "passed": 3
+        },
+        {
+          "name": "dev.fluentmai.android.CaptureShutdownTest",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 8.26,
+          "passed": 3
+        },
+        {
+          "name": "dev.fluentmai.android.FreshAuthServiceTest",
+          "tests": 12,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 8.38,
+          "passed": 12
+        },
+        {
+          "name": "dev.fluentmai.android.ImportBackgroundAccessTest",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 6.317,
+          "passed": 3
+        },
+        {
+          "name": "dev.fluentmai.android.ImportBatteryEntryPointsTest",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.183,
+          "passed": 3
+        },
+        {
+          "name": "dev.fluentmai.android.ImportBatteryOnboardingTest",
+          "tests": 12,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 3.723,
+          "passed": 12
+        },
+        {
+          "name": "dev.fluentmai.android.ImportBatteryOnboardingUiTest",
+          "tests": 13,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 18.298,
+          "passed": 13
+        },
+        {
+          "name": "dev.fluentmai.android.ImportDiagnosticAndroidTest",
+          "tests": 10,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 2.942,
+          "passed": 10
+        },
+        {
+          "name": "dev.fluentmai.android.ImportDiagnosticsTest",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.226,
+          "passed": 3
+        },
+        {
+          "name": "dev.fluentmai.android.ImportDownloadDiagnosticsTest",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.061,
+          "passed": 4
+        },
+        {
+          "name": "dev.fluentmai.android.ImportForegroundServiceTest",
+          "tests": 16,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 2.604,
+          "passed": 16
+        },
+        {
+          "name": "dev.fluentmai.android.ImportObservabilityTest",
+          "tests": 24,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 1.837,
+          "passed": 24
+        },
+        {
+          "name": "dev.fluentmai.android.ImportPageReporterTest",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.098,
+          "passed": 4
+        },
+        {
+          "name": "dev.fluentmai.android.JapaneseConstantStoreTest",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.345,
+          "passed": 3
+        },
+        {
+          "name": "dev.fluentmai.android.PersistenceBoundaryContractTest",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.011,
+          "passed": 2
+        },
+        {
+          "name": "dev.fluentmai.android.QuickAuthAndroidTest",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.463,
+          "passed": 4
+        },
+        {
+          "name": "dev.fluentmai.android.QuickAuthCoordinatorTest",
+          "tests": 24,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.397,
+          "passed": 24
+        },
+        {
+          "name": "dev.fluentmai.android.SongAliasStoreTest",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.057,
+          "passed": 4
+        },
+        {
+          "name": "dev.fluentmai.android.SongCatalogRefreshGuardTest",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.003,
+          "passed": 4
+        },
+        {
+          "name": "dev.fluentmai.android.ThemeModeTest",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.004,
+          "passed": 4
+        },
+        {
+          "name": "dev.fluentmai.android.UploadTokenCipherTest",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.316,
+          "passed": 4
+        },
+        {
+          "name": "dev.fluentmai.android.vpn.tunnel.HttpCapturerTunnelTest",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.002,
+          "passed": 2
+        },
+        {
+          "name": "dev.fluentmai.android.WahlapActivityResponseTest",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.004,
+          "passed": 3
+        },
+        {
+          "name": "dev.fluentmai.android.WahlapAuthCaptureStoreTest",
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.003,
+          "passed": 5
+        },
+        {
+          "name": "dev.fluentmai.android.WahlapAuthUrlNormalizationTest",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.002,
+          "passed": 2
+        },
+        {
+          "name": "dev.fluentmai.android.WahlapCookieImportCredentialsTest",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.015,
+          "passed": 4
+        },
+        {
+          "name": "dev.fluentmai.android.WahlapEfficientPcCaptureTest",
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.095,
+          "passed": 5
+        },
+        {
+          "name": "dev.fluentmai.android.WahlapHookBridgeTest",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.315,
+          "passed": 3
+        },
+        {
+          "name": "dev.fluentmai.android.WahlapHttpScorePageClientTest",
+          "tests": 12,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 1.491,
+          "passed": 12
+        },
+        {
+          "name": "dev.fluentmai.android.WahlapImportHttpClientTest",
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.407,
+          "passed": 5
+        },
+        {
+          "name": "dev.fluentmai.android.WahlapImportRunnerTest",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.224,
+          "passed": 2
+        },
+        {
+          "name": "dev.fluentmai.android.WahlapManualCookieScorePageClientTest",
+          "tests": 12,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 1.449,
+          "passed": 12
+        },
+        {
+          "name": "dev.fluentmai.android.WahlapOAuthAttemptTest",
+          "tests": 9,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.983,
+          "passed": 9
+        },
+        {
+          "name": "dev.fluentmai.android.WahlapPlayCountCaptureTest",
+          "tests": 9,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 3.431,
+          "passed": 9
+        },
+        {
+          "name": "dev.fluentmai.android.WahlapPlayerHomeCaptureTest",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.056,
+          "passed": 3
+        },
+        {
+          "name": "dev.fluentmai.android.WahlapProgressClientTest",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 6.676,
+          "passed": 3
+        },
+        {
+          "name": "dev.fluentmai.android.WahlapProgressTimeoutTest",
+          "tests": 14,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 132.978,
+          "passed": 14
+        },
+        {
+          "name": "dev.fluentmai.android.WahlapSessionCookiesTest",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.126,
+          "passed": 1
+        },
+        {
+          "name": "dev.fluentmai.android.WahlapSupplementalPagesTest",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.001,
+          "passed": 1
+        }
+      ]
+    },
+    {
+      "module": "core/importer",
+      "task": "test",
+      "tests": 112,
+      "passed": 111,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 1,
+      "suites": [
+        {
+          "name": "dev.fluentmai.android.core.importer.DivingFishFitParserTest",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.053,
+          "passed": 1
+        },
+        {
+          "name": "dev.fluentmai.android.core.importer.FakeImportPipelineTest",
+          "tests": 6,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.356,
+          "passed": 6
+        },
+        {
+          "name": "dev.fluentmai.android.core.importer.FixtureImportParserTest",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.003,
+          "passed": 1
+        },
+        {
+          "name": "dev.fluentmai.android.core.importer.ImportDeduplicatorTest",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.002,
+          "passed": 1
+        },
+        {
+          "name": "dev.fluentmai.android.core.importer.JapaneseConstantCatalogTest",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 1,
+          "duration_seconds": 0.024,
+          "passed": 3
+        },
+        {
+          "name": "dev.fluentmai.android.core.importer.MaimaiSongCatalogTest",
+          "tests": 6,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.525,
+          "passed": 6
+        },
+        {
+          "name": "dev.fluentmai.android.core.importer.RealWahlapImportAdapterTest",
+          "tests": 14,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.548,
+          "passed": 14
+        },
+        {
+          "name": "dev.fluentmai.android.core.importer.ScoreRecordValidatorTest",
+          "tests": 11,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.007,
+          "passed": 11
+        },
+        {
+          "name": "dev.fluentmai.android.core.importer.WahlapActivityParserTest",
+          "tests": 8,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.116,
+          "passed": 8
+        },
+        {
+          "name": "dev.fluentmai.android.core.importer.WahlapFixtureParserTest",
+          "tests": 17,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.113,
+          "passed": 17
+        },
+        {
+          "name": "dev.fluentmai.android.core.importer.WahlapImportPipelineTest",
+          "tests": 13,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.254,
+          "passed": 13
+        },
+        {
+          "name": "dev.fluentmai.android.core.importer.WahlapPlayCountParserTest",
+          "tests": 8,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.778,
+          "passed": 8
+        },
+        {
+          "name": "dev.fluentmai.android.core.importer.WahlapPlayerProfileParserTest",
+          "tests": 5,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.096,
+          "passed": 5
+        },
+        {
+          "name": "dev.fluentmai.android.core.importer.WahlapResilientFetcherTest",
+          "tests": 13,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.303,
+          "passed": 13
+        },
+        {
+          "name": "dev.fluentmai.android.core.importer.WahlapScorePageValidationTest",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.01,
+          "passed": 4
+        }
+      ]
+    },
+    {
+      "module": "core/database",
+      "task": "testDebugUnitTest",
+      "tests": 15,
+      "passed": 15,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suites": [
+        {
+          "name": "dev.fluentmai.android.core.database.PlayActivityPersistenceTest",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 5.102,
+          "passed": 4
+        },
+        {
+          "name": "dev.fluentmai.android.core.database.RatingHistoryMigrationTest",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.096,
+          "passed": 1
+        },
+        {
+          "name": "dev.fluentmai.android.core.database.RoomImportPersistenceTest",
+          "tests": 10,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.812,
+          "passed": 10
+        }
+      ]
+    },
+    {
+      "module": "feature/import",
+      "task": "testDebugUnitTest",
+      "tests": 12,
+      "passed": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suites": [
+        {
+          "name": "dev.fluentmai.android.feature.importflow.ImportAuthorizationUiTest",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 12.31,
+          "passed": 4
+        },
+        {
+          "name": "dev.fluentmai.android.feature.importflow.ImportDiagnosticPanelTest",
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.994,
+          "passed": 3
+        },
+        {
+          "name": "dev.fluentmai.android.feature.importflow.ImportProgressUiTest",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 15.675,
+          "passed": 4
+        },
+        {
+          "name": "dev.fluentmai.android.feature.importflow.ImportScreenTest",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.003,
+          "passed": 1
+        }
+      ]
+    },
+    {
+      "module": "core/model",
+      "task": "jvmTest",
+      "tests": 47,
+      "passed": 47,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suites": [
+        {
+          "name": "dev.fluentmai.android.core.model.DxRatingTest",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.033,
+          "passed": 4
+        },
+        {
+          "name": "dev.fluentmai.android.core.model.IosDomainBridgeTest",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.111,
+          "passed": 4
+        },
+        {
+          "name": "dev.fluentmai.android.core.model.MaimaiBestSetTest",
+          "tests": 4,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.029,
+          "passed": 4
+        },
+        {
+          "name": "dev.fluentmai.android.core.model.MaimaiToolsTest",
+          "tests": 9,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.014,
+          "passed": 9
+        },
+        {
+          "name": "dev.fluentmai.android.core.model.MaimaiVersionTest",
+          "tests": 6,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.041,
+          "passed": 6
+        },
+        {
+          "name": "dev.fluentmai.android.core.model.PlayerRecordsTest",
+          "tests": 11,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.068,
+          "passed": 11
+        },
+        {
+          "name": "dev.fluentmai.android.core.model.RatingRecommendationsTest",
+          "tests": 6,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.041,
+          "passed": 6
+        },
+        {
+          "name": "dev.fluentmai.android.core.model.SongAliasesTest",
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.006,
+          "passed": 1
+        },
+        {
+          "name": "dev.fluentmai.android.core.model.UnicodeNormalizationTest",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.001,
+          "passed": 2
+        }
+      ]
+    },
+    {
+      "module": "core/privacy",
+      "task": "test",
+      "tests": 2,
+      "passed": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suites": [
+        {
+          "name": "dev.fluentmai.android.core.privacy.PrivacyRedactorTest",
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0,
+          "duration_seconds": 0.031,
+          "passed": 2
+        }
+      ]
+    }
+  ],
+  "critical_cases": [
+    {
+      "suite": "dev.fluentmai.android.ImportDownloadDiagnosticsTest",
+      "case": "typedReasonsAndByteCountsRoundTripWithoutExceptionTextOrBody",
+      "duration_seconds": 0.053,
+      "result": "passed"
+    },
+    {
+      "suite": "dev.fluentmai.android.ImportDownloadDiagnosticsTest",
+      "case": "aggregateBytesIncludeFailedAttemptsAndRetainObservedLastFailure",
+      "duration_seconds": 0.001,
+      "result": "passed"
+    },
+    {
+      "suite": "dev.fluentmai.android.ImportDownloadDiagnosticsTest",
+      "case": "oldSchemaOneReportsWithoutNewFieldsStillDecode",
+      "duration_seconds": 0.004,
+      "result": "passed"
+    },
+    {
+      "suite": "dev.fluentmai.android.ImportDownloadDiagnosticsTest",
+      "case": "largeInjectedProgressCountersAreBounded",
+      "duration_seconds": 0.003,
+      "result": "passed"
+    },
+    {
+      "suite": "dev.fluentmai.android.WahlapProgressClientTest",
+      "case": "exhaustedExpertKeepsOtherDifficultyAndPreviouslySavedScoresForBothClients",
+      "duration_seconds": 4.847,
+      "result": "passed"
+    },
+    {
+      "suite": "dev.fluentmai.android.WahlapProgressClientTest",
+      "case": "idleFailureThenRecoveryKeepsLoadingAndPersistsOnceForBothClients",
+      "duration_seconds": 1.664,
+      "result": "passed"
+    },
+    {
+      "suite": "dev.fluentmai.android.WahlapProgressClientTest",
+      "case": "transportCompleteButTruncatedHtmlRetriesAndNeverPersistsForBothClients",
+      "duration_seconds": 0.164,
+      "result": "passed"
+    },
+    {
+      "suite": "dev.fluentmai.android.WahlapProgressTimeoutTest",
+      "case": "acceptedConnectionWithoutHeadersHitsResponseStartTimeout",
+      "duration_seconds": 0.802,
+      "result": "passed"
+    },
+    {
+      "suite": "dev.fluentmai.android.WahlapProgressTimeoutTest",
+      "case": "continuousLargeScoreSurvivesMoreThan120SecondsWithOneRequest",
+      "duration_seconds": 126.354,
+      "result": "passed"
+    },
+    {
+      "suite": "dev.fluentmai.android.WahlapProgressTimeoutTest",
+      "case": "stalledBodyStopsAfterThreeAttemptsAndDoesNotPersistPartialHtml",
+      "duration_seconds": 2.347,
+      "result": "passed"
+    },
+    {
+      "suite": "dev.fluentmai.android.WahlapProgressTimeoutTest",
+      "case": "cancellationClosesActiveReadAndDoesNotRetryOrPersist",
+      "duration_seconds": 0.136,
+      "result": "passed"
+    },
+    {
+      "suite": "dev.fluentmai.android.WahlapProgressTimeoutTest",
+      "case": "callbackHomeAndSupplementalStillUseTotalRequestTimeouts",
+      "duration_seconds": 1.594,
+      "result": "passed"
+    },
+    {
+      "suite": "dev.fluentmai.android.WahlapProgressTimeoutTest",
+      "case": "otherCategoriesRetainTheirOriginalBudgetsAndPolicies",
+      "duration_seconds": 0.0,
+      "result": "passed"
+    },
+    {
+      "suite": "dev.fluentmai.android.WahlapProgressTimeoutTest",
+      "case": "headersWithoutFirstBodyByteStillHitResponseStartTimeout",
+      "duration_seconds": 0.809,
+      "result": "passed"
+    },
+    {
+      "suite": "dev.fluentmai.android.WahlapProgressTimeoutTest",
+      "case": "briefPausesResetIdleWindowOnEachNonemptyRead",
+      "duration_seconds": 0.545,
+      "result": "passed"
+    },
+    {
+      "suite": "dev.fluentmai.android.WahlapProgressTimeoutTest",
+      "case": "declaredLengthTruncationCannotSucceedEvenWithClosingHtmlTag",
+      "duration_seconds": 0.061,
+      "result": "passed"
+    },
+    {
+      "suite": "dev.fluentmai.android.WahlapProgressTimeoutTest",
+      "case": "missingChunkTerminatorDoesNotReturnPartialBody",
+      "duration_seconds": 0.044,
+      "result": "passed"
+    },
+    {
+      "suite": "dev.fluentmai.android.WahlapProgressTimeoutTest",
+      "case": "excessiveContentLengthFailsBeforeReadingAndWithoutRetry",
+      "duration_seconds": 0.043,
+      "result": "passed"
+    },
+    {
+      "suite": "dev.fluentmai.android.WahlapProgressTimeoutTest",
+      "case": "unendingChunkedStreamIsCappedAndConnectionClosed",
+      "duration_seconds": 0.129,
+      "result": "passed"
+    },
+    {
+      "suite": "dev.fluentmai.android.WahlapProgressTimeoutTest",
+      "case": "fastCompletePageParsesAndPersistsOnce",
+      "duration_seconds": 0.05,
+      "result": "passed"
+    },
+    {
+      "suite": "dev.fluentmai.android.WahlapProgressTimeoutTest",
+      "case": "multibyteCharsetDecodesAfterAllChunksAreReceived",
+      "duration_seconds": 0.062,
+      "result": "passed"
+    }
+  ],
+  "skipped": [
+    {
+      "suite": "dev.fluentmai.android.core.importer.JapaneseConstantCatalogTest",
+      "case": "optionalLiveSnapshotParsesAndReportsCoverage"
+    }
+  ],
+  "slow_stream": {
+    "elapsed_ms": 126329,
+    "response_bytes": 851580,
+    "requests": 1
+  },
+  "totals": {
+    "tests": 447,
+    "passed": 446,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 1
+  },
+  "critical_totals": {
+    "passed": 21,
+    "failed": 0,
+    "skipped": 0
+  },
+  "initial_environment_failure": {
+    "module": "core/database",
+    "failed_cases": [
+      "sevenToEightMigrationRetainsExistingExactPc",
+      "sixToSevenMigrationPreservesScoresAndRatingAndCreatesNewTables"
+    ],
+    "error": "SQLITE_CANTOPEN",
+    "resolution": "Test JVM short java.io.tmpdir; production database and migration tests unchanged; final 15 passed."
+  }
+}

@@ -241,7 +241,7 @@ class WahlapHttpScorePageClient(
                     logAttempt(label, attemptLog)
                 },
             ) { profile, meta ->
-                val response = httpClient().fetchPage(mapRequestUrl(rawUrl), category, profile, detailReferer)
+                val response = httpClient().fetchPage(mapRequestUrl(rawUrl), category, profile, detailReferer, meta)
                 meta.httpStatus = response.statusCode
                 meta.responseChars = response.body.length.toLong()
                 if (category != WahlapRequestCategory.AUTH_CALLBACK &&

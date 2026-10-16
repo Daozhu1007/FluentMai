@@ -1,6 +1,7 @@
 package dev.fluentmai.android.core.importer
 
 import java.io.IOException
+import dev.fluentmai.android.core.model.DiagnosticDownloadFailure
 import kotlin.math.pow
 import kotlin.random.Random
 
@@ -27,12 +28,14 @@ enum class WahlapRequestCategory(val safeLabel: String) {
 }
 
 /**
- * Per-request timeout budget. The request timeout spans the whole call (send, await response,
- * read body), which is what timed out on large score pages under the old single global 30s policy.
+ * A null total budget is allowed only with independent response-start and read-idle guards.
+ * Score pages have no wall-clock download limit: only new body bytes count as progress.
  */
 data class WahlapTimeoutProfile(
-    val requestTimeoutMs: Long,
+    val requestTimeoutMs: Long?,
     val connectTimeoutMs: Long,
+    val responseStartTimeoutMs: Long? = null,
+    val readIdleTimeoutMs: Long? = null,
 )
 
 /**
@@ -69,21 +72,21 @@ data class WahlapRetryPolicy(
 /**
  * Default timeout and retry profiles per request category.
  *
- * Rationale for the score page budget: on real devices the EXPERT/MASTER listing pages
- * (the two largest, on the order of 100 song cards each) exceeded 30s while every other page
- * succeeded, so the score page budget is doubled to 60s with bounded retries for transient
- * stalls. Auth operations are deliberately single-attempt: the OAuth callback carries a
+ * Score pages use generous inactivity windows instead of a total request budget. A slow
+ * download may take minutes while bytes continue arriving. Auth operations remain single-attempt:
+ * the OAuth callback carries a
  * single-use code, and re-sending it cannot recover from a failure and can actively harm.
  */
 object WahlapRequestCatalog {
     const val CONNECT_TIMEOUT_MS = 15_000L
+    const val SCORE_IDLE_TIMEOUT_MS = 90_000L
 
     /** HTTP statuses worth one more idempotent attempt: classic transient gateway/server errors. */
     val retryableStatuses: Set<Int> = setOf(408, 429, 500, 502, 503, 504)
 
     fun timeoutProfile(category: WahlapRequestCategory): WahlapTimeoutProfile {
         val requestTimeoutMs = when (category) {
-            WahlapRequestCategory.SCORE_PAGE -> 60_000L
+            WahlapRequestCategory.SCORE_PAGE -> null
             WahlapRequestCategory.SUPPLEMENTAL_PAGE -> 45_000L
             WahlapRequestCategory.AUTH_AUTHORIZE,
             WahlapRequestCategory.AUTH_CALLBACK,
@@ -92,6 +95,8 @@ object WahlapRequestCatalog {
         return WahlapTimeoutProfile(
             requestTimeoutMs = requestTimeoutMs,
             connectTimeoutMs = CONNECT_TIMEOUT_MS,
+            responseStartTimeoutMs = SCORE_IDLE_TIMEOUT_MS.takeIf { category == WahlapRequestCategory.SCORE_PAGE },
+            readIdleTimeoutMs = SCORE_IDLE_TIMEOUT_MS.takeIf { category == WahlapRequestCategory.SCORE_PAGE },
         )
     }
 
@@ -142,6 +147,7 @@ enum class WahlapAttemptOutcome {
     SUCCESS,
     RETRYABLE_FAILURE,
     NON_RETRYABLE_FAILURE,
+    CANCELLED,
 }
 
 /**
@@ -153,6 +159,9 @@ class WahlapAttemptMeta {
     var httpStatus: Int? = null
     /** Length of the decoded response String; not wire bytes. */
     var responseChars: Long? = null
+    var responseBytes: Long? = null
+    var progressChunks: Long? = null
+    var downloadFailure: DiagnosticDownloadFailure? = null
 }
 
 /**
@@ -170,6 +179,9 @@ data class WahlapAttemptLog(
     val httpStatus: Int? = null,
     val responseChars: Long? = null,
     val errorType: String? = null,
+    val responseBytes: Long? = null,
+    val progressChunks: Long? = null,
+    val downloadFailure: DiagnosticDownloadFailure? = null,
 ) {
     fun toSafeLogLine(): String = buildString {
         append("category=").append(category)
@@ -179,6 +191,9 @@ data class WahlapAttemptLog(
         append(" willRetry=").append(willRetry)
         httpStatus?.let { append(" status=").append(it) }
         responseChars?.let { append(" chars=").append(it) }
+        responseBytes?.let { append(" bytes=").append(it) }
+        progressChunks?.let { append(" chunks=").append(it) }
+        downloadFailure?.let { append(" downloadFailure=").append(it.name.lowercase()) }
         errorType?.let { append(" error=").append(it) }
     }
 

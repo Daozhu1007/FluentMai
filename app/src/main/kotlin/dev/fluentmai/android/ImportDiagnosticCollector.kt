@@ -106,7 +106,10 @@ internal class ImportDiagnosticCollector(
             attemptDurationMs = add(old.attemptDurationMs, log.elapsedMs.coerceAtLeast(0)),
             lastHttpStatus = log.httpStatus?.takeIf { it in 100..599 },
             responseChars = if (chars == null) old.responseChars else add(old.responseChars ?: 0, chars),
-            httpStatusCounts = statusCounts.map { DiagnosticHttpStatusCount(it.key, it.value) })
+            httpStatusCounts = statusCounts.map { DiagnosticHttpStatusCount(it.key, it.value) },
+            responseBytes = log.responseBytes?.let { add(old.responseBytes ?: 0, it.coerceAtLeast(0)) } ?: old.responseBytes,
+            progressChunks = log.progressChunks?.let { add(old.progressChunks ?: 0, it.coerceAtLeast(0)) } ?: old.progressChunks,
+            lastDownloadFailure = log.downloadFailure ?: old.lastDownloadFailure)
     }
     private fun add(a: Long, b: Long): Long {
         if (a > MAX_DIAGNOSTIC_NUMBER - b.coerceAtMost(MAX_DIAGNOSTIC_NUMBER)) bounded = true

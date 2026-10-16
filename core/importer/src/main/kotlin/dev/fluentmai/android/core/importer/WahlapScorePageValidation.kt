@@ -5,6 +5,8 @@ import org.jsoup.Jsoup
 /** Empty, successfully rendered score lists are valid for unplayed difficulties. */
 object WahlapScorePageValidation {
     fun isScorePage(html: String): Boolean {
+        // Jsoup repairs truncated documents, including ones with several already complete cards.
+        if (!html.contains("</html>", ignoreCase = true)) return false
         val document = Jsoup.parse(html)
         if (WahlapActivityParser.hasErrorPage(html) ||
             Regex("登录失败|错误码|请在微信客户端|please open in wechat", RegexOption.IGNORE_CASE)
@@ -17,7 +19,6 @@ object WahlapScorePageValidation {
         if (detailLinks.isNotEmpty() && names.isNotEmpty() && scores.isNotEmpty()) return true
         // An incomplete score card is not an empty list.
         if (detailLinks.isNotEmpty() || names.isNotEmpty() || scores.isNotEmpty()) return false
-        if (!html.contains("</html>", ignoreCase = true)) return false
 
         val searchForms = document.select("form[action*=record/musicSort], form[action*=record/musicGenre]")
         val completeSearchForm = searchForms.any { form ->

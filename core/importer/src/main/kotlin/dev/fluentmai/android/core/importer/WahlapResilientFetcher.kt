@@ -21,6 +21,7 @@ class WahlapResilientFetcher(
     private val nowMs: () -> Long = { System.nanoTime() / 1_000_000 },
     private val delayFor: suspend (Long) -> Unit = { delayMs -> kotlinx.coroutines.delay(delayMs) },
     private val random: Random = Random.Default,
+    private val timeoutProfileFor: (WahlapRequestCategory) -> WahlapTimeoutProfile = WahlapRequestCatalog::timeoutProfile,
 ) {
     suspend fun <T> fetch(
         category: WahlapRequestCategory,
@@ -28,7 +29,7 @@ class WahlapResilientFetcher(
         onAttempt: (WahlapAttemptLog) -> Unit = {},
         block: suspend (profile: WahlapTimeoutProfile, meta: WahlapAttemptMeta) -> T,
     ): T {
-        val timeoutProfile = WahlapRequestCatalog.timeoutProfile(category)
+        val timeoutProfile = timeoutProfileFor(category)
         var attempt = 0
         while (true) {
             attempt += 1
@@ -46,11 +47,21 @@ class WahlapResilientFetcher(
                         willRetry = false,
                         httpStatus = meta.httpStatus,
                         responseChars = meta.responseChars,
+                        responseBytes = meta.responseBytes,
+                        progressChunks = meta.progressChunks,
                     ),
                 )
                 return value
             } catch (error: Throwable) {
-                if (error is CancellationException) throw error
+                if (error is CancellationException) {
+                    if (meta.downloadFailure != null) onAttempt(WahlapAttemptLog(
+                        category = category.safeLabel, attempt = attempt, maxAttempts = retryPolicy.maxAttempts,
+                        elapsedMs = nowMs() - startedAtMs, outcome = WahlapAttemptOutcome.CANCELLED,
+                        willRetry = false, httpStatus = meta.httpStatus, responseBytes = meta.responseBytes,
+                        progressChunks = meta.progressChunks, downloadFailure = meta.downloadFailure,
+                    ))
+                    throw error
+                }
                 coroutineContext.ensureActive()
 
                 val retryable = WahlapRetryClassifier.isRetryable(error)
@@ -70,6 +81,9 @@ class WahlapResilientFetcher(
                         httpStatus = meta.httpStatus,
                         responseChars = meta.responseChars,
                         errorType = WahlapAttemptLog.errorTypeOf(error),
+                        responseBytes = meta.responseBytes,
+                        progressChunks = meta.progressChunks,
+                        downloadFailure = meta.downloadFailure,
                     ),
                 )
                 if (!willRetry) throw error

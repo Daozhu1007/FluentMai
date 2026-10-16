@@ -18,6 +18,10 @@ enum class DiagnosticRequestLabel {
     RECENT_PAGE, PC_RANKING, MUSIC_DETAIL, PLAYER_COLLECTION, OTHER,
 }
 enum class DiagnosticRequestCategory { AUTH_AUTHORIZE, AUTH_CALLBACK, LOGIN_HOME, SCORE_PAGE, SUPPLEMENTAL_PAGE }
+/** Directly observed download failures; never inferred from exception messages. */
+enum class DiagnosticDownloadFailure {
+    CONNECT_TIMEOUT, RESPONSE_START_TIMEOUT, READ_IDLE_TIMEOUT, BODY_INCOMPLETE, BODY_TOO_LARGE, CANCELLED,
+}
 enum class DiagnosticFailure {
     AUTHORIZATION_REJECTED, CAPTURE, AUTHORIZE_GENERATION, NETWORK, REQUEST,
     PARSING, PERSISTENCE, SONG_CATALOG, DIFFICULTY, SUPPLEMENTAL, RECENT_RECORDS, PC_CAPTURE,
@@ -44,6 +48,9 @@ data class DiagnosticRequestStats(
     val lastHttpStatus: Int? = null,
     val responseChars: Long? = null,
     val httpStatusCounts: List<DiagnosticHttpStatusCount> = emptyList(),
+    val responseBytes: Long? = null,
+    val progressChunks: Long? = null,
+    val lastDownloadFailure: DiagnosticDownloadFailure? = null,
 )
 data class DiagnosticHttpStatusCount(val status: Int, val attempts: Long)
 data class DiagnosticCounters(

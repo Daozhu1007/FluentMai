@@ -15,11 +15,12 @@ import dev.fluentmai.android.core.privacy.PrivacyRedactor
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.HttpTimeoutConfig
 import io.ktor.client.plugins.cookies.HttpCookies
 import io.ktor.client.plugins.timeout
 import io.ktor.http.Url
 import dev.fluentmai.android.core.importer.WahlapMusicDetailTarget
-import io.ktor.client.request.get
+import io.ktor.client.request.prepareGet
 import io.ktor.client.request.headers
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
@@ -320,9 +321,10 @@ class WahlapManualCookieScorePageClient(
                     onDiagnostic("请求尝试 $label ${attemptLog.toSafeLogLine()}")
                 },
             ) { profile, meta ->
-                val response = client.get(mapRequestUrl(rawUrl)) {
+                val statement = client.prepareGet(mapRequestUrl(rawUrl)) {
                     timeout {
-                        requestTimeoutMillis = profile.requestTimeoutMs
+                        requestTimeoutMillis = if (category == WahlapRequestCategory.SCORE_PAGE)
+                            HttpTimeoutConfig.INFINITE_TIMEOUT_MS else profile.requestTimeoutMs
                         connectTimeoutMillis = profile.connectTimeoutMs
                     }
                     headers {
@@ -341,12 +343,18 @@ class WahlapManualCookieScorePageClient(
                         }
                     }
                 }
-                val page = HttpResponse(
-                    statusCode = response.status.value,
-                    contentType = response.headers[HttpHeaders.ContentType],
-                    body = response.bodyAsText(),
-                    finalUrl = response.call.request.url.toString(),
-                )
+                val page = if (category == WahlapRequestCategory.SCORE_PAGE) {
+                    val response = statement.downloadScorePage(profile, meta)
+                    HttpResponse(response.statusCode, response.contentType, response.body, response.finalUrl)
+                } else {
+                    val response = statement.execute()
+                    HttpResponse(
+                        statusCode = response.status.value,
+                        contentType = response.headers[HttpHeaders.ContentType],
+                        body = response.bodyAsText(),
+                        finalUrl = response.call.request.url.toString(),
+                    )
+                }
                 meta.httpStatus = page.statusCode
                 meta.responseChars = page.body.length.toLong()
                 if (category != WahlapRequestCategory.AUTH_CALLBACK &&

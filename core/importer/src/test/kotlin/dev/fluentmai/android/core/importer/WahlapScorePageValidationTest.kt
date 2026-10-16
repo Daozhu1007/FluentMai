@@ -31,6 +31,10 @@ class WahlapScorePageValidationTest {
 
     @Test fun truncatedPagesAndIncompleteCardsStillFail() {
         assertFalse(WahlapScorePageValidation.isScorePage(emptyPage.substringBefore("</html>")))
+        val completeCard = "<html><form action='musicDetail'><div class='music_name_block'>Song</div>" +
+            "<div class='music_score_block'>99.0000%</div></form>"
+        assertFalse(WahlapScorePageValidation.isScorePage(completeCard))
+        assertTrue(WahlapScorePageValidation.isScorePage("$completeCard</html>"))
         assertFalse(WahlapScorePageValidation.isScorePage(emptyPage.replace("</body>", "<div class='music_name_block'>Song</div></body>")))
     }
 }

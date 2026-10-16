@@ -7,6 +7,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -29,7 +30,9 @@ class WahlapResilientFetcherTest {
             onAttempt = logs::add,
         ) { profile, _ ->
             attempts += 1
-            assertEquals(60_000L, profile.requestTimeoutMs)
+            assertNull(profile.requestTimeoutMs)
+            assertEquals(90_000L, profile.responseStartTimeoutMs)
+            assertEquals(90_000L, profile.readIdleTimeoutMs)
             assertEquals(15_000L, profile.connectTimeoutMs)
             "page"
         }
